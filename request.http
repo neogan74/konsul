@@ -1,0 +1,8 @@
+### Create foo
+PUT http://localhost:32769/kv/foo value=bar
+
+### get foo
+GET http://localhost:32769/kv/foo
+
+### Delete foo
+DELETE http://localhost:32769/kv/foo
