@@ -1,4 +1,4 @@
 # Konsul service
 
-In development now:> [!WARNING]
+In development now :> [!WARNING]
 
