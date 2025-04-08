@@ -2,14 +2,16 @@
 
 In development now :> [!WARNING]
 
-1. KV storage (map with mutex)
+## KV storage (map with mutex)
+
 | Method | endpoint  | Description  |
 | ------ | --------- | ------------ |
 | PUT    | /kv/<key> | Write value  |
 | GET    | /kv/<key> | Read value   |
 | DELETE | /kv/<key> | Delete value |
 
-2. Service Discovery (map)
+## Service Discovery (map)
+
 | Method | endpoint  | Description                                |
 | ------ | --------- | ------------                               |
 | PUT    | /register | service registration                       |
@@ -17,6 +19,7 @@ In development now :> [!WARNING]
 | GET    | /services/<name> | get service with given name in JSON |
 | DELETE | /deregister/<name> | deregister service                |
 
+#### Example:
 ```
 PUT /registration
 {
@@ -26,7 +29,7 @@ PUT /registration
 }
 ```
 
-3. Health Check TTL
+### Health Check TTL
 
 - Registration set 30 sec defatult TTL for service.
 - Evety 60 seconds TTL updated thoug /heartbeat
