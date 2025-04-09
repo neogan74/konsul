@@ -34,6 +34,8 @@ func kvGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	a := 0
+
 	if _, err := w.Write([]byte(value)); err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 	}
