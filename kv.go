@@ -33,7 +33,10 @@ func kvGet(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	w.Write([]byte(value))
+
+	if _, err := w.Write([]byte(value)); err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+	}
 }
 
 func kvDel(w http.ResponseWriter, r *http.Request) {
