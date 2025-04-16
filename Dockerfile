@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY . .
 
-RUN go build -o konsul
+RUN go build -o konsul ./cmd/konsul/
 
 EXPOSE 8888
 
