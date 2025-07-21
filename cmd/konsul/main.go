@@ -9,6 +9,8 @@ import (
 func main() {
 	app := fiber.New()
 	kv := store.NewKVStore()
+	svcStore := store.NewServiceStore()
+
 	app.Get("/kv/:key", func(c *fiber.Ctx) error {
 		key := c.Params("key")
 		value, ok := kv.Get(key)
@@ -35,6 +37,42 @@ func main() {
 		kv.Delete(key)
 		return c.JSON(fiber.Map{"message": "key deleted", "key": key})
 	})
+
+	// Service registration
+	app.Put("/register", func(c *fiber.Ctx) error {
+		var svc store.Service
+		if err := c.BodyParser(&svc); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
+		}
+		if svc.Name == "" || svc.Address == "" || svc.Port == 0 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "missing fields"})
+		}
+		svcStore.Register(svc)
+		return c.JSON(fiber.Map{"message": "service registered", "service": svc})
+	})
+
+	// List all services
+	app.Get("/services/", func(c *fiber.Ctx) error {
+		return c.JSON(svcStore.List())
+	})
+
+	// Get service by name
+	app.Get("/services/:name", func(c *fiber.Ctx) error {
+		name := c.Params("name")
+		svc, ok := svcStore.Get(name)
+		if !ok {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "service not found"})
+		}
+		return c.JSON(svc)
+	})
+
+	// Deregister service
+	app.Delete("/deregister/:name", func(c *fiber.Ctx) error {
+		name := c.Params("name")
+		svcStore.Deregister(name)
+		return c.JSON(fiber.Map{"message": "service deregistered", "name": name})
+	})
+
 	log.Println("Server started at http://localhost:8888")
 	log.Fatal(app.Listen(":8888"))
 }
