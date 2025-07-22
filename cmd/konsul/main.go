@@ -1,9 +1,13 @@
 package main
 
 import (
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/neogan74/konsul/internal/store"
-	"log"
 )
 
 func main() {
@@ -74,5 +78,19 @@ func main() {
 	})
 
 	log.Println("Server started at http://localhost:8888")
-	log.Fatal(app.Listen(":8888"))
+
+	// Graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		if err := app.Listen(":8888"); err != nil {
+			log.Fatalf("Listen error: %v", err)
+		}
+	}()
+	<-quit
+	log.Println("Shutting down server...")
+	if err := app.Shutdown(); err != nil {
+		log.Fatalf("Server forced to shutdown: %v", err)
+	}
+	log.Println("Server exited gracefully")
 }
