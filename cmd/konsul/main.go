@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/neogan74/konsul/internal/store"
@@ -76,6 +77,30 @@ func main() {
 		svcStore.Deregister(name)
 		return c.JSON(fiber.Map{"message": "service deregistered", "name": name})
 	})
+
+	// Heartbeat endpoint
+	app.Put("/heartbeat/:name", func(c *fiber.Ctx) error {
+		name := c.Params("name")
+		if svcStore.Heartbeat(name) {
+			return c.JSON(fiber.Map{"message": "heartbeat updated", "service": name})
+		}
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "service not found"})
+	})
+
+	// Start background cleanup process
+	go func() {
+		ticker := time.NewTicker(60 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				count := svcStore.CleanupExpired()
+				if count > 0 {
+					log.Printf("Cleaned up %d expired services", count)
+				}
+			}
+		}
+	}()
 
 	log.Println("Server started at http://localhost:8888")
 
