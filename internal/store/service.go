@@ -1,6 +1,9 @@
 package store
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 type Service struct {
 	Name    string `json:"name"`
@@ -8,27 +11,39 @@ type Service struct {
 	Port    int    `json:"port"`
 }
 
+type ServiceEntry struct {
+	Service   Service
+	ExpiresAt time.Time
+}
+
 type ServiceStore struct {
-	Data  map[string]Service
+	Data  map[string]ServiceEntry
 	Mutex sync.RWMutex
 }
 
 func NewServiceStore() *ServiceStore {
-	return &ServiceStore{Data: make(map[string]Service)}
+	return &ServiceStore{Data: make(map[string]ServiceEntry)}
 }
 
 func (s *ServiceStore) Register(service Service) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
-	s.Data[service.Name] = service
+	entry := ServiceEntry{
+		Service:   service,
+		ExpiresAt: time.Now().Add(30 * time.Second),
+	}
+	s.Data[service.Name] = entry
 }
 
 func (s *ServiceStore) List() []Service {
 	s.Mutex.RLock()
 	defer s.Mutex.RUnlock()
 	services := make([]Service, 0, len(s.Data))
-	for _, svc := range s.Data {
-		services = append(services, svc)
+	now := time.Now()
+	for _, entry := range s.Data {
+		if entry.ExpiresAt.After(now) {
+			services = append(services, entry.Service)
+		}
 	}
 	return services
 }
@@ -36,12 +51,41 @@ func (s *ServiceStore) List() []Service {
 func (s *ServiceStore) Get(name string) (Service, bool) {
 	s.Mutex.RLock()
 	defer s.Mutex.RUnlock()
-	svc, ok := s.Data[name]
-	return svc, ok
+	entry, ok := s.Data[name]
+	if !ok || entry.ExpiresAt.Before(time.Now()) {
+		return Service{}, false
+	}
+	return entry.Service, true
+}
+
+func (s *ServiceStore) Heartbeat(name string) bool {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+	entry, ok := s.Data[name]
+	if !ok {
+		return false
+	}
+	entry.ExpiresAt = time.Now().Add(30 * time.Second)
+	s.Data[name] = entry
+	return true
 }
 
 func (s *ServiceStore) Deregister(name string) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 	delete(s.Data, name)
+}
+
+func (s *ServiceStore) CleanupExpired() int {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+	now := time.Now()
+	count := 0
+	for name, entry := range s.Data {
+		if entry.ExpiresAt.Before(now) {
+			delete(s.Data, name)
+			count++
+		}
+	}
+	return count
 } 
