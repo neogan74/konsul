@@ -18,10 +18,11 @@ In development now :> [!WARNING]
 | GET    | /services/ | get all registered services in JSON       |
 | GET    | /services/<name> | get service with given name in JSON |
 | DELETE | /deregister/<name> | deregister service                |
+| PUT    | /heartbeat/<name> | update service TTL                |
 
 #### Example:
 ```
-PUT /registration
+PUT /register
 {
   "name": "auth-service",
   "address": "10.0.0.1",
@@ -29,8 +30,9 @@ PUT /registration
 }
 ```
 
-### Health Check TTL
+### Health Check TTL ✅
 
-- Registration set 30 sec defatult TTL for service.
-- Evety 60 seconds TTL updated thoug /heartbeat
-- Backgroud process is removing expired services.
+- Registration sets 30 second default TTL for service
+- TTL updated through `/heartbeat/<name>` endpoint
+- Background process runs every 60 seconds removing expired services
+- Services automatically expire if no heartbeat received within TTL
