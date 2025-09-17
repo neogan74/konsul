@@ -29,3 +29,11 @@ jobs:
 
     - name: Run tests
       run: go test -v ./...
+
+    - name: Install golangci-lint
+      uses: golangci/golangci-lint-action@v6
+      with:
+            version: latest
+
+    - name: Run golangci-lint
+      run: golangci-lint run ./...

@@ -1,0 +1,22 @@
+mode: set
+github.com/neogan74/konsul/internal/store/kv.go:10.28,12.2 1 1
+github.com/neogan74/konsul/internal/store/kv.go:13.51,18.2 4 1
+github.com/neogan74/konsul/internal/store/kv.go:20.43,24.2 3 1
+github.com/neogan74/konsul/internal/store/kv.go:25.39,29.2 3 1
+github.com/neogan74/konsul/internal/store/service.go:24.38,26.2 1 1
+github.com/neogan74/konsul/internal/store/service.go:28.50,36.2 4 1
+github.com/neogan74/konsul/internal/store/service.go:38.41,43.31 5 1
+github.com/neogan74/konsul/internal/store/service.go:43.31,44.33 1 1
+github.com/neogan74/konsul/internal/store/service.go:44.33,46.4 1 1
+github.com/neogan74/konsul/internal/store/service.go:48.2,48.17 1 1
+github.com/neogan74/konsul/internal/store/service.go:51.57,55.47 4 1
+github.com/neogan74/konsul/internal/store/service.go:55.47,57.3 1 1
+github.com/neogan74/konsul/internal/store/service.go:58.2,58.28 1 1
+github.com/neogan74/konsul/internal/store/service.go:61.52,65.9 4 1
+github.com/neogan74/konsul/internal/store/service.go:65.9,67.3 1 1
+github.com/neogan74/konsul/internal/store/service.go:68.2,70.13 3 1
+github.com/neogan74/konsul/internal/store/service.go:73.48,77.2 3 1
+github.com/neogan74/konsul/internal/store/service.go:79.45,84.34 5 1
+github.com/neogan74/konsul/internal/store/service.go:84.34,85.34 1 1
+github.com/neogan74/konsul/internal/store/service.go:85.34,88.4 2 1
+github.com/neogan74/konsul/internal/store/service.go:90.2,90.14 1 1
