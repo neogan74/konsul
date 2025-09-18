@@ -19,10 +19,21 @@ type ServiceEntry struct {
 type ServiceStore struct {
 	Data  map[string]ServiceEntry
 	Mutex sync.RWMutex
+	TTL   time.Duration
 }
 
 func NewServiceStore() *ServiceStore {
-	return &ServiceStore{Data: make(map[string]ServiceEntry)}
+	return &ServiceStore{
+		Data: make(map[string]ServiceEntry),
+		TTL:  30 * time.Second, // default TTL
+	}
+}
+
+func NewServiceStoreWithTTL(ttl time.Duration) *ServiceStore {
+	return &ServiceStore{
+		Data: make(map[string]ServiceEntry),
+		TTL:  ttl,
+	}
 }
 
 func (s *ServiceStore) Register(service Service) {
@@ -30,7 +41,7 @@ func (s *ServiceStore) Register(service Service) {
 	defer s.Mutex.Unlock()
 	entry := ServiceEntry{
 		Service:   service,
-		ExpiresAt: time.Now().Add(30 * time.Second),
+		ExpiresAt: time.Now().Add(s.TTL),
 	}
 	s.Data[service.Name] = entry
 }
@@ -65,7 +76,7 @@ func (s *ServiceStore) Heartbeat(name string) bool {
 	if !ok {
 		return false
 	}
-	entry.ExpiresAt = time.Now().Add(30 * time.Second)
+	entry.ExpiresAt = time.Now().Add(s.TTL)
 	s.Data[name] = entry
 	return true
 }
