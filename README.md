@@ -62,6 +62,58 @@ KONSUL_HOST=0.0.0.0 KONSUL_PORT=80 KONSUL_LOG_FORMAT=json KONSUL_LOG_LEVEL=info 
 KONSUL_LOG_LEVEL=debug KONSUL_LOG_FORMAT=text ./konsul
 ```
 
+## Monitoring & Health Checks
+
+### Health Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET    | `/health` | Detailed health status with system metrics |
+| GET    | `/health/live` | Liveness probe (returns 200 if running) |
+| GET    | `/health/ready` | Readiness probe (returns 200 if ready) |
+
+**Health status response:**
+```json
+{
+  "status": "healthy",
+  "version": "0.1.0",
+  "uptime": "1h30m45s",
+  "timestamp": "2025-09-18T10:30:00Z",
+  "services": {
+    "total": 5,
+    "active": 4,
+    "expired": 1
+  },
+  "kv_store": {
+    "total_keys": 10
+  },
+  "system": {
+    "goroutines": 8,
+    "memory_alloc_bytes": 2097152,
+    "memory_sys_bytes": 8388608,
+    "num_gc": 3
+  }
+}
+```
+
+### Metrics (Prometheus)
+
+| Endpoint | Description |
+|----------|-------------|
+| GET `/metrics` | Prometheus metrics endpoint |
+
+**Available metrics:**
+- `konsul_http_requests_total` - Total HTTP requests by method, path, status
+- `konsul_http_request_duration_seconds` - Request latency histogram
+- `konsul_http_requests_in_flight` - Current in-flight requests
+- `konsul_kv_operations_total` - KV store operations by operation, status
+- `konsul_kv_store_size` - Number of keys in KV store
+- `konsul_service_operations_total` - Service operations by operation, status
+- `konsul_registered_services_total` - Number of registered services
+- `konsul_service_heartbeats_total` - Service heartbeats by service, status
+- `konsul_expired_services_total` - Total expired services cleaned up
+- `konsul_build_info` - Build information (version, Go version)
+
 ## Error Handling
 
 All API endpoints return structured error responses with:
