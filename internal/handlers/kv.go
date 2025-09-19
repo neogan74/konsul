@@ -5,6 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/neogan74/konsul/internal/logger"
+	"github.com/neogan74/konsul/internal/metrics"
 	"github.com/neogan74/konsul/internal/middleware"
 	"github.com/neogan74/konsul/internal/store"
 )
@@ -26,10 +27,12 @@ func (h *KVHandler) Get(c *fiber.Ctx) error {
 	value, ok := h.store.Get(key)
 	if !ok {
 		log.Warn("Key not found", logger.String("key", key))
+		metrics.KVOperationsTotal.WithLabelValues("get", "not_found").Inc()
 		return middleware.NotFound(c, "Key not found")
 	}
 
 	log.Info("Key retrieved successfully", logger.String("key", key))
+	metrics.KVOperationsTotal.WithLabelValues("get", "success").Inc()
 	return c.JSON(fiber.Map{"key": key, "value": value})
 }
 
@@ -55,6 +58,8 @@ func (h *KVHandler) Set(c *fiber.Ctx) error {
 	h.store.Set(key, body.Value)
 
 	log.Info("Key set successfully", logger.String("key", key))
+	metrics.KVOperationsTotal.WithLabelValues("set", "success").Inc()
+	metrics.KVStoreSize.Set(float64(len(h.store.List())))
 	return c.JSON(fiber.Map{"message": "key set", "key": key})
 }
 
@@ -67,5 +72,7 @@ func (h *KVHandler) Delete(c *fiber.Ctx) error {
 	h.store.Delete(key)
 
 	log.Info("Key deleted successfully", logger.String("key", key))
+	metrics.KVOperationsTotal.WithLabelValues("delete", "success").Inc()
+	metrics.KVStoreSize.Set(float64(len(h.store.List())))
 	return c.JSON(fiber.Map{"message": "key deleted", "key": key})
 }
