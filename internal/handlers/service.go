@@ -3,6 +3,7 @@ package handlers
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/neogan74/konsul/internal/logger"
+	"github.com/neogan74/konsul/internal/metrics"
 	"github.com/neogan74/konsul/internal/middleware"
 	"github.com/neogan74/konsul/internal/store"
 )
@@ -42,6 +43,9 @@ func (h *ServiceHandler) Register(c *fiber.Ctx) error {
 	log.Info("Service registered successfully",
 		logger.String("service_name", svc.Name))
 
+	metrics.ServiceOperationsTotal.WithLabelValues("register", "success").Inc()
+	metrics.RegisteredServicesTotal.Set(float64(len(h.store.List())))
+
 	return c.JSON(fiber.Map{"message": "service registered", "service": svc})
 }
 
@@ -62,10 +66,12 @@ func (h *ServiceHandler) Get(c *fiber.Ctx) error {
 	svc, ok := h.store.Get(name)
 	if !ok {
 		log.Warn("Service not found", logger.String("service_name", name))
+		metrics.ServiceOperationsTotal.WithLabelValues("get", "not_found").Inc()
 		return middleware.NotFound(c, "Service not found")
 	}
 
 	log.Info("Service retrieved successfully", logger.String("service_name", name))
+	metrics.ServiceOperationsTotal.WithLabelValues("get", "success").Inc()
 	return c.JSON(svc)
 }
 
@@ -78,6 +84,8 @@ func (h *ServiceHandler) Deregister(c *fiber.Ctx) error {
 	h.store.Deregister(name)
 
 	log.Info("Service deregistered successfully", logger.String("service_name", name))
+	metrics.ServiceOperationsTotal.WithLabelValues("deregister", "success").Inc()
+	metrics.RegisteredServicesTotal.Set(float64(len(h.store.List())))
 	return c.JSON(fiber.Map{"message": "service deregistered", "name": name})
 }
 
@@ -89,9 +97,11 @@ func (h *ServiceHandler) Heartbeat(c *fiber.Ctx) error {
 
 	if h.store.Heartbeat(name) {
 		log.Info("Heartbeat updated successfully", logger.String("service_name", name))
+		metrics.ServiceHeartbeatsTotal.WithLabelValues(name, "success").Inc()
 		return c.JSON(fiber.Map{"message": "heartbeat updated", "service": name})
 	}
 
 	log.Warn("Heartbeat failed - service not found", logger.String("service_name", name))
+	metrics.ServiceHeartbeatsTotal.WithLabelValues(name, "not_found").Inc()
 	return middleware.NotFound(c, "Service not found")
 }

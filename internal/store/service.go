@@ -59,6 +59,16 @@ func (s *ServiceStore) List() []Service {
 	return services
 }
 
+func (s *ServiceStore) ListAll() []ServiceEntry {
+	s.Mutex.RLock()
+	defer s.Mutex.RUnlock()
+	entries := make([]ServiceEntry, 0, len(s.Data))
+	for _, entry := range s.Data {
+		entries = append(entries, entry)
+	}
+	return entries
+}
+
 func (s *ServiceStore) Get(name string) (Service, bool) {
 	s.Mutex.RLock()
 	defer s.Mutex.RUnlock()
