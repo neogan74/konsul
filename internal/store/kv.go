@@ -27,3 +27,13 @@ func (kv *KVStore) Delete(key string) {
 	defer kv.Mutex.Unlock()
 	delete(kv.Data, key)
 }
+
+func (kv *KVStore) List() []string {
+	kv.Mutex.RLock()
+	defer kv.Mutex.RUnlock()
+	keys := make([]string, 0, len(kv.Data))
+	for key := range kv.Data {
+		keys = append(keys, key)
+	}
+	return keys
+}
