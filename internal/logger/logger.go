@@ -124,6 +124,11 @@ func SetDefault(l Logger) {
 	defaultLogger = l
 }
 
+// GetDefault returns the default logger instance
+func GetDefault() Logger {
+	return defaultLogger
+}
+
 // Global logging functions using default logger
 func Debug(msg string, fields ...Field) {
 	defaultLogger.Debug(msg, fields...)

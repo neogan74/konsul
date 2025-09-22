@@ -9,9 +9,10 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	Server  ServerConfig
-	Service ServiceConfig
-	Log     LogConfig
+	Server      ServerConfig
+	Service     ServiceConfig
+	Log         LogConfig
+	Persistence PersistenceConfig
 }
 
 // ServerConfig contains HTTP server configuration
@@ -32,6 +33,16 @@ type LogConfig struct {
 	Format string
 }
 
+// PersistenceConfig contains persistence configuration
+type PersistenceConfig struct {
+	Enabled    bool
+	Type       string // "memory", "badger"
+	DataDir    string
+	BackupDir  string
+	SyncWrites bool
+	WALEnabled bool
+}
+
 // Load loads configuration from environment variables with defaults
 func Load() (*Config, error) {
 	config := &Config{
@@ -46,6 +57,14 @@ func Load() (*Config, error) {
 		Log: LogConfig{
 			Level:  getEnvString("KONSUL_LOG_LEVEL", "info"),
 			Format: getEnvString("KONSUL_LOG_FORMAT", "text"),
+		},
+		Persistence: PersistenceConfig{
+			Enabled:    getEnvBool("KONSUL_PERSISTENCE_ENABLED", false),
+			Type:       getEnvString("KONSUL_PERSISTENCE_TYPE", "badger"),
+			DataDir:    getEnvString("KONSUL_DATA_DIR", "./data"),
+			BackupDir:  getEnvString("KONSUL_BACKUP_DIR", "./backups"),
+			SyncWrites: getEnvBool("KONSUL_SYNC_WRITES", true),
+			WALEnabled: getEnvBool("KONSUL_WAL_ENABLED", true),
 		},
 	}
 
@@ -88,6 +107,21 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid log format: %s (must be text or json)", c.Log.Format)
 	}
 
+	// Validate persistence configuration if enabled
+	if c.Persistence.Enabled {
+		validPersistenceTypes := map[string]bool{
+			"memory": true,
+			"badger": true,
+		}
+		if !validPersistenceTypes[c.Persistence.Type] {
+			return fmt.Errorf("invalid persistence type: %s (must be memory or badger)", c.Persistence.Type)
+		}
+
+		if c.Persistence.DataDir == "" {
+			return fmt.Errorf("data directory must be specified when persistence is enabled")
+		}
+	}
+
 	return nil
 }
 
@@ -122,6 +156,16 @@ func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
 	if value := os.Getenv(key); value != "" {
 		if duration, err := time.ParseDuration(value); err == nil {
 			return duration
+		}
+	}
+	return defaultValue
+}
+
+// getEnvBool gets a boolean environment variable with a default value
+func getEnvBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if boolValue, err := strconv.ParseBool(value); err == nil {
+			return boolValue
 		}
 	}
 	return defaultValue
