@@ -1,4 +1,17 @@
-1. Get the application URL by running these commands:
+================================================================================
+  Konsul - Lightweight Service Discovery & Key-Value Store
+================================================================================
+
+Thank you for installing {{ .Chart.Name }} version {{ .Chart.Version }}!
+
+Your release is named: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+
+================================================================================
+  Getting Started
+================================================================================
+
+1. Get the application URL:
 {{- if .Values.ingress.enabled }}
 {{- range $host := .Values.ingress.hosts }}
   {{- range .paths }}
@@ -8,15 +21,85 @@
 {{- else if contains "NodePort" .Values.service.type }}
   export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "konsul.fullname" . }})
   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
-  echo http://$NODE_IP:$NODE_PORT
+  echo "Konsul URL: http://$NODE_IP:$NODE_PORT"
 {{- else if contains "LoadBalancer" .Values.service.type }}
-     NOTE: It may take a few minutes for the LoadBalancer IP to be available.
-           You can watch its status by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "konsul.fullname" . }}'
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+        You can watch its status by running:
+        kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "konsul.fullname" . }}
+
   export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "konsul.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
-  echo http://$SERVICE_IP:{{ .Values.service.port }}
+  echo "Konsul URL: http://$SERVICE_IP:{{ .Values.service.port }}"
 {{- else if contains "ClusterIP" .Values.service.type }}
-  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "konsul.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
-  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
-  echo "Visit http://127.0.0.1:8080 to use your application"
-  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "konsul.fullname" . }} 8888:{{ .Values.service.port }}
+  echo "Konsul URL: http://127.0.0.1:8888"
 {{- end }}
+
+2. Test the service:
+  # List all services
+  curl http://<KONSUL_URL>/services/
+
+  # Store a key-value pair
+  curl -X PUT http://<KONSUL_URL>/kv/mykey -H "Content-Type: application/json" -d '{"value":"myvalue"}'
+
+  # Retrieve a value
+  curl http://<KONSUL_URL>/kv/mykey
+
+  # Register a service
+  curl -X PUT http://<KONSUL_URL>/register -H "Content-Type: application/json" \
+    -d '{"name":"my-service","address":"10.0.0.1","port":8080}'
+
+================================================================================
+  Configuration
+================================================================================
+
+{{- if .Values.konsul.persistence.enabled }}
+✓ Persistence: ENABLED ({{ .Values.konsul.persistence.type }})
+  - Data directory: {{ .Values.konsul.persistence.dataDir }}
+  - Backup directory: {{ .Values.konsul.persistence.backupDir }}
+  - Storage size: {{ .Values.konsul.persistence.size }}
+{{- else }}
+⚠ Persistence: DISABLED (data will be lost on pod restart)
+{{- end }}
+
+Service Configuration:
+  - Service TTL: {{ .Values.konsul.serviceTTL }}
+  - Cleanup Interval: {{ .Values.konsul.cleanupInterval }}
+  - Log Level: {{ .Values.konsul.logLevel }}
+  - Log Format: {{ .Values.konsul.logFormat }}
+
+{{- if .Values.autoscaling.enabled }}
+✓ Autoscaling: ENABLED ({{ .Values.autoscaling.minReplicas }}-{{ .Values.autoscaling.maxReplicas }} replicas)
+{{- else }}
+Replicas: {{ .Values.replicaCount }}
+{{- end }}
+
+================================================================================
+  Monitoring & Management
+================================================================================
+
+View logs:
+  kubectl logs -f --namespace {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+View pod status:
+  kubectl get pods --namespace {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+{{- if .Values.konsul.persistence.enabled }}
+Create a backup:
+  kubectl exec -it --namespace {{ .Release.Namespace }} deployment/{{ include "konsul.fullname" . }} -- \
+    curl -X POST http://localhost:{{ .Values.konsul.port }}/backup
+
+Restore from backup:
+  kubectl exec -it --namespace {{ .Release.Namespace }} deployment/{{ include "konsul.fullname" . }} -- \
+    curl -X POST http://localhost:{{ .Values.konsul.port }}/restore \
+    -H "Content-Type: application/json" \
+    -d '{"backup_path": "/app/backups/<backup-file>"}'
+{{- end }}
+
+================================================================================
+  Documentation & Support
+================================================================================
+
+GitHub: https://github.com/neogan74/konsul
+Issues: https://github.com/neogan74/konsul/issues
+
+For more information on using Konsul, please refer to the documentation.
