@@ -13,10 +13,11 @@ spec:
       {{- include "konsul.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
       annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
       labels:
         {{- include "konsul.labels" . | nindent 8 }}
         {{- with .Values.podLabels }}
@@ -36,9 +37,37 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: KONSUL_HOST
+              value: {{ .Values.konsul.host | quote }}
+            - name: KONSUL_PORT
+              value: {{ .Values.konsul.port | quote }}
+            - name: KONSUL_SERVICE_TTL
+              value: {{ .Values.konsul.serviceTTL | quote }}
+            - name: KONSUL_CLEANUP_INTERVAL
+              value: {{ .Values.konsul.cleanupInterval | quote }}
+            - name: KONSUL_LOG_LEVEL
+              value: {{ .Values.konsul.logLevel | quote }}
+            - name: KONSUL_LOG_FORMAT
+              value: {{ .Values.konsul.logFormat | quote }}
+            - name: KONSUL_PERSISTENCE_ENABLED
+              value: {{ .Values.konsul.persistence.enabled | quote }}
+            - name: KONSUL_PERSISTENCE_TYPE
+              value: {{ .Values.konsul.persistence.type | quote }}
+            - name: KONSUL_DATA_DIR
+              value: {{ .Values.konsul.persistence.dataDir | quote }}
+            - name: KONSUL_BACKUP_DIR
+              value: {{ .Values.konsul.persistence.backupDir | quote }}
+            - name: KONSUL_SYNC_WRITES
+              value: {{ .Values.konsul.persistence.syncWrites | quote }}
+            - name: KONSUL_WAL_ENABLED
+              value: {{ .Values.konsul.persistence.walEnabled | quote }}
+            {{- with .Values.konsul.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           ports:
             - name: http
-              containerPort: {{ .Values.service.port }}
+              containerPort: {{ .Values.konsul.port }}
               protocol: TCP
           livenessProbe:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
@@ -46,14 +75,46 @@ spec:
             {{- toYaml .Values.readinessProbe | nindent 12 }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- with .Values.volumeMounts }}
           volumeMounts:
+            {{- if .Values.konsul.persistence.enabled }}
+            - name: data
+              mountPath: {{ .Values.konsul.persistence.dataDir }}
+            - name: backup
+              mountPath: {{ .Values.konsul.persistence.backupDir }}
+            {{- end }}
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.konsul.configMap.enabled }}
+            - name: config
+              mountPath: /app/config
+            {{- end }}
+            {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
-          {{- end }}
-      {{- with .Values.volumes }}
+            {{- end }}
       volumes:
+        {{- if .Values.konsul.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "konsul.fullname" . }}-data
+        - name: backup
+          persistentVolumeClaim:
+            claimName: {{ include "konsul.fullname" . }}-backup
+        {{- else }}
+        - name: data
+          emptyDir: {}
+        - name: backup
+          emptyDir: {}
+        {{- end }}
+        - name: tmp
+          emptyDir: {}
+        {{- if .Values.konsul.configMap.enabled }}
+        - name: config
+          configMap:
+            name: {{ include "konsul.fullname" . }}
+        {{- end }}
+        {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
