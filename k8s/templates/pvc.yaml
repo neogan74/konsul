@@ -1,0 +1,36 @@
+{{- if .Values.konsul.persistence.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "konsul.fullname" . }}-data
+  labels:
+    {{- include "konsul.labels" . | nindent 4 }}
+    app.kubernetes.io/component: data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.konsul.persistence.storageClass }}
+  storageClassName: {{ .Values.konsul.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.konsul.persistence.size }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "konsul.fullname" . }}-backup
+  labels:
+    {{- include "konsul.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.konsul.persistence.storageClass }}
+  storageClassName: {{ .Values.konsul.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.konsul.persistence.size }}
+{{- end }}
