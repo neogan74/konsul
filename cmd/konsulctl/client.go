@@ -106,3 +106,63 @@ func (c *KonsulClient) SetKV(key, value string) error {
 
 	return nil
 }
+
+func (c *KonsulClient) DeleteKV(key string) error {
+	url := fmt.Sprintf("%s/kv/%s", c.BaseURL, key)
+
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return fmt.Errorf("key not found")
+	}
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		var errResp ErrorResponse
+		if err := json.Unmarshal(body, &errResp); err == nil {
+			return fmt.Errorf("server error: %s - %s", errResp.Error, errResp.Message)
+		}
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+func (c *KonsulClient) ListKV() ([]string, error) {
+	url := fmt.Sprintf("%s/kv/", c.BaseURL)
+
+	resp, err := c.HTTPClient.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != 200 {
+		var errResp ErrorResponse
+		if err := json.Unmarshal(body, &errResp); err == nil {
+			return nil, fmt.Errorf("server error: %s - %s", errResp.Error, errResp.Message)
+		}
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var keys []string
+	if err := json.Unmarshal(body, &keys); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return keys, nil
+}

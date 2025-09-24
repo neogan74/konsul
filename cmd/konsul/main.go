@@ -113,6 +113,7 @@ func main() {
 	metrics.RegisteredServicesTotal.Set(float64(len(svcStore.List())))
 
 	// KV endpoints
+	app.Get("/kv/", kvHandler.List)
 	app.Get("/kv/:key", kvHandler.Get)
 	app.Put("/kv/:key", kvHandler.Set)
 	app.Delete("/kv/:key", kvHandler.Delete)
