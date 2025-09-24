@@ -53,7 +53,7 @@ func printUsage() {
 func handleKVCommand(args []string) {
 	if len(args) == 0 {
 		fmt.Println("KV subcommand required")
-		fmt.Println("Usage: konsulctl kv <get|set> [options]")
+		fmt.Println("Usage: konsulctl kv <get|set|delete|list> [options]")
 		os.Exit(1)
 	}
 
@@ -72,9 +72,13 @@ func handleKVCommand(args []string) {
 		handleKVGet(serverURL, remainingArgs)
 	case "set":
 		handleKVSet(serverURL, remainingArgs)
+	case "delete":
+		handleKVDelete(serverURL, remainingArgs)
+	case "list":
+		handleKVList(serverURL, remainingArgs)
 	default:
 		fmt.Printf("Unknown KV subcommand: %s\n", subcommand)
-		fmt.Println("Available: get, set")
+		fmt.Println("Available: get, set, delete, list")
 		os.Exit(1)
 	}
 }
@@ -114,4 +118,47 @@ func handleKVSet(serverURL string, args []string) {
 	}
 
 	fmt.Printf("Successfully set %s = %s\n", key, value)
+}
+
+func handleKVDelete(serverURL string, args []string) {
+	if len(args) != 1 {
+		fmt.Println("Usage: konsulctl kv delete <key>")
+		os.Exit(1)
+	}
+
+	key := args[0]
+	client := NewKonsulClient(serverURL)
+
+	err := client.DeleteKV(key)
+	if err != nil {
+		fmt.Printf("Error deleting key '%s': %v\n", key, err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Successfully deleted key: %s\n", key)
+}
+
+func handleKVList(serverURL string, args []string) {
+	if len(args) != 0 {
+		fmt.Println("Usage: konsulctl kv list")
+		os.Exit(1)
+	}
+
+	client := NewKonsulClient(serverURL)
+
+	keys, err := client.ListKV()
+	if err != nil {
+		fmt.Printf("Error listing keys: %v\n", err)
+		os.Exit(1)
+	}
+
+	if len(keys) == 0 {
+		fmt.Println("No keys found")
+		return
+	}
+
+	fmt.Println("Keys:")
+	for _, key := range keys {
+		fmt.Printf("  %s\n", key)
+	}
 }
