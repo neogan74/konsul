@@ -76,3 +76,15 @@ func (h *KVHandler) Delete(c *fiber.Ctx) error {
 	metrics.KVStoreSize.Set(float64(len(h.store.List())))
 	return c.JSON(fiber.Map{"message": "key deleted", "key": key})
 }
+
+func (h *KVHandler) List(c *fiber.Ctx) error {
+	log := middleware.GetLogger(c)
+
+	log.Debug("Listing all keys")
+
+	keys := h.store.List()
+
+	log.Info("Keys listed successfully", logger.Int("count", len(keys)))
+	metrics.KVOperationsTotal.WithLabelValues("list", "success").Inc()
+	return c.JSON(keys)
+}
