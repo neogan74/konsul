@@ -4,10 +4,10 @@ CLI_NAME=konsulctl
 .PHONY: build run test clean docker-build docker-run build-cli
 
 build:
-	go build -o $(APP_NAME) cmd/konsul/main.go
+	go build -o ./bin/$(APP_NAME) cmd/konsul/main.go
 
 build-cli:
-	go build -o $(CLI_NAME) ./cmd/konsulctl
+	go build -o ./bin/$(CLI_NAME) ./cmd/konsulctl
 
 run:
 	go run cmd/konsul/main.go
