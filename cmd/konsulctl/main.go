@@ -20,6 +20,8 @@ func main() {
 	switch command {
 	case "kv":
 		handleKVCommand(args)
+	case "service":
+		handleServiceCommand(args)
 	case "version":
 		fmt.Printf("konsulctl version %s\n", version)
 	case "help", "-h", "--help":
@@ -42,6 +44,12 @@ func printUsage() {
 	fmt.Println("    set <key> <value>  Set key-value pair")
 	fmt.Println("    delete <key>     Delete key")
 	fmt.Println("    list             List all keys")
+	fmt.Println()
+	fmt.Println("  service <subcommand>  Service operations")
+	fmt.Println("    register <name> <address> <port>  Register service")
+	fmt.Println("    list             List all services")
+	fmt.Println("    deregister <name>  Deregister service")
+	fmt.Println("    heartbeat <name>   Send heartbeat for service")
 	fmt.Println()
 	fmt.Println("  version            Show version")
 	fmt.Println("  help               Show this help")
@@ -161,4 +169,119 @@ func handleKVList(serverURL string, args []string) {
 	for _, key := range keys {
 		fmt.Printf("  %s\n", key)
 	}
+}
+
+func handleServiceCommand(args []string) {
+	if len(args) == 0 {
+		fmt.Println("Service subcommand required")
+		fmt.Println("Usage: konsulctl service <register|list|deregister|heartbeat> [options]")
+		os.Exit(1)
+	}
+
+	var serverURL string
+	flagSet := flag.NewFlagSet("service", flag.ExitOnError)
+	flagSet.StringVar(&serverURL, "server", "http://localhost:8888", "Konsul server URL")
+
+	subcommand := args[0]
+	subArgs := args[1:]
+
+	flagSet.Parse(subArgs)
+	remainingArgs := flagSet.Args()
+
+	switch subcommand {
+	case "register":
+		handleServiceRegister(serverURL, remainingArgs)
+	case "list":
+		handleServiceList(serverURL, remainingArgs)
+	case "deregister":
+		handleServiceDeregister(serverURL, remainingArgs)
+	case "heartbeat":
+		handleServiceHeartbeat(serverURL, remainingArgs)
+	default:
+		fmt.Printf("Unknown service subcommand: %s\n", subcommand)
+		fmt.Println("Available: register, list, deregister, heartbeat")
+		os.Exit(1)
+	}
+}
+
+func handleServiceRegister(serverURL string, args []string) {
+	if len(args) != 3 {
+		fmt.Println("Usage: konsulctl service register <name> <address> <port>")
+		os.Exit(1)
+	}
+
+	name := args[0]
+	address := args[1]
+	port := args[2]
+
+	client := NewKonsulClient(serverURL)
+
+	err := client.RegisterService(name, address, port)
+	if err != nil {
+		fmt.Printf("Error registering service '%s': %v\n", name, err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Successfully registered service: %s at %s:%s\n", name, address, port)
+}
+
+func handleServiceList(serverURL string, args []string) {
+	if len(args) != 0 {
+		fmt.Println("Usage: konsulctl service list")
+		os.Exit(1)
+	}
+
+	client := NewKonsulClient(serverURL)
+
+	services, err := client.ListServices()
+	if err != nil {
+		fmt.Printf("Error listing services: %v\n", err)
+		os.Exit(1)
+	}
+
+	if len(services) == 0 {
+		fmt.Println("No services found")
+		return
+	}
+
+	fmt.Println("Services:")
+	for _, service := range services {
+		fmt.Printf("  %s - %s:%d\n", service.Name, service.Address, service.Port)
+	}
+}
+
+func handleServiceDeregister(serverURL string, args []string) {
+	if len(args) != 1 {
+		fmt.Println("Usage: konsulctl service deregister <name>")
+		os.Exit(1)
+	}
+
+	name := args[0]
+	client := NewKonsulClient(serverURL)
+
+	err := client.DeregisterService(name)
+	if err != nil {
+		fmt.Printf("Error deregistering service '%s': %v\n", name, err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Successfully deregistered service: %s\n", name)
+}
+
+func handleServiceHeartbeat(serverURL string, args []string) {
+	if len(args) != 1 {
+		fmt.Println("Usage: konsulctl service heartbeat <name>")
+		os.Exit(1)
+	}
+
+	name := args[0]
+	client := NewKonsulClient(serverURL)
+
+	err := client.ServiceHeartbeat(name)
+	if err != nil {
+		fmt.Printf("Error sending heartbeat for service '%s': %v\n", name, err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Successfully sent heartbeat for service: %s\n", name)
 }
