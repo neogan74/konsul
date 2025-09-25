@@ -22,6 +22,8 @@ func main() {
 		handleKVCommand(args)
 	case "service":
 		handleServiceCommand(args)
+	case "backup":
+		handleBackupCommand(args)
 	case "version":
 		fmt.Printf("konsulctl version %s\n", version)
 	case "help", "-h", "--help":
@@ -50,6 +52,12 @@ func printUsage() {
 	fmt.Println("    list             List all services")
 	fmt.Println("    deregister <name>  Deregister service")
 	fmt.Println("    heartbeat <name>   Send heartbeat for service")
+	fmt.Println()
+	fmt.Println("  backup <subcommand>   Backup operations")
+	fmt.Println("    create           Create a backup")
+	fmt.Println("    restore <file>   Restore from backup file")
+	fmt.Println("    list             List available backups")
+	fmt.Println("    export           Export data as JSON")
 	fmt.Println()
 	fmt.Println("  version            Show version")
 	fmt.Println("  help               Show this help")
@@ -284,4 +292,114 @@ func handleServiceHeartbeat(serverURL string, args []string) {
 	}
 
 	fmt.Printf("Successfully sent heartbeat for service: %s\n", name)
+}
+
+func handleBackupCommand(args []string) {
+	if len(args) == 0 {
+		fmt.Println("Backup subcommand required")
+		fmt.Println("Usage: konsulctl backup <create|restore|list|export> [options]")
+		os.Exit(1)
+	}
+
+	var serverURL string
+	flagSet := flag.NewFlagSet("backup", flag.ExitOnError)
+	flagSet.StringVar(&serverURL, "server", "http://localhost:8888", "Konsul server URL")
+
+	subcommand := args[0]
+	subArgs := args[1:]
+
+	flagSet.Parse(subArgs)
+	remainingArgs := flagSet.Args()
+
+	switch subcommand {
+	case "create":
+		handleBackupCreate(serverURL, remainingArgs)
+	case "restore":
+		handleBackupRestore(serverURL, remainingArgs)
+	case "list":
+		handleBackupList(serverURL, remainingArgs)
+	case "export":
+		handleBackupExport(serverURL, remainingArgs)
+	default:
+		fmt.Printf("Unknown backup subcommand: %s\n", subcommand)
+		fmt.Println("Available: create, restore, list, export")
+		os.Exit(1)
+	}
+}
+
+func handleBackupCreate(serverURL string, args []string) {
+	if len(args) != 0 {
+		fmt.Println("Usage: konsulctl backup create")
+		os.Exit(1)
+	}
+
+	client := NewKonsulClient(serverURL)
+
+	filename, err := client.CreateBackup()
+	if err != nil {
+		fmt.Printf("Error creating backup: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Successfully created backup: %s\n", filename)
+}
+
+func handleBackupRestore(serverURL string, args []string) {
+	if len(args) != 1 {
+		fmt.Println("Usage: konsulctl backup restore <backup-file>")
+		os.Exit(1)
+	}
+
+	backupFile := args[0]
+	client := NewKonsulClient(serverURL)
+
+	err := client.RestoreBackup(backupFile)
+	if err != nil {
+		fmt.Printf("Error restoring backup: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Successfully restored from backup: %s\n", backupFile)
+}
+
+func handleBackupList(serverURL string, args []string) {
+	if len(args) != 0 {
+		fmt.Println("Usage: konsulctl backup list")
+		os.Exit(1)
+	}
+
+	client := NewKonsulClient(serverURL)
+
+	backups, err := client.ListBackups()
+	if err != nil {
+		fmt.Printf("Error listing backups: %v\n", err)
+		os.Exit(1)
+	}
+
+	if len(backups) == 0 {
+		fmt.Println("No backups found")
+		return
+	}
+
+	fmt.Println("Available backups:")
+	for _, backup := range backups {
+		fmt.Printf("  %s\n", backup)
+	}
+}
+
+func handleBackupExport(serverURL string, args []string) {
+	if len(args) != 0 {
+		fmt.Println("Usage: konsulctl backup export")
+		os.Exit(1)
+	}
+
+	client := NewKonsulClient(serverURL)
+
+	data, err := client.ExportData()
+	if err != nil {
+		fmt.Printf("Error exporting data: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("%s\n", data)
 }
