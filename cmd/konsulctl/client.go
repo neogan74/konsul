@@ -43,6 +43,15 @@ type ServiceRegisterRequest struct {
 	Port    int    `json:"port"`
 }
 
+type BackupResponse struct {
+	Message    string `json:"message"`
+	BackupFile string `json:"backup_file"`
+}
+
+type RestoreRequest struct {
+	BackupPath string `json:"backup_path"`
+}
+
 func NewKonsulClient(baseURL string) *KonsulClient {
 	return &KonsulClient{
 		BaseURL: strings.TrimRight(baseURL, "/"),
@@ -311,4 +320,127 @@ func (c *KonsulClient) ServiceHeartbeat(name string) error {
 	}
 
 	return nil
+}
+
+func (c *KonsulClient) CreateBackup() (string, error) {
+	url := fmt.Sprintf("%s/backup", c.BaseURL)
+
+	req, err := http.NewRequest("POST", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != 200 {
+		var errResp ErrorResponse
+		if err := json.Unmarshal(body, &errResp); err == nil {
+			return "", fmt.Errorf("server error: %s - %s", errResp.Error, errResp.Message)
+		}
+		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var backupResp BackupResponse
+	if err := json.Unmarshal(body, &backupResp); err != nil {
+		return "", fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return backupResp.BackupFile, nil
+}
+
+func (c *KonsulClient) RestoreBackup(backupPath string) error {
+	url := fmt.Sprintf("%s/restore", c.BaseURL)
+
+	reqBody := RestoreRequest{BackupPath: backupPath}
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		var errResp ErrorResponse
+		if err := json.Unmarshal(body, &errResp); err == nil {
+			return fmt.Errorf("server error: %s - %s", errResp.Error, errResp.Message)
+		}
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+func (c *KonsulClient) ListBackups() ([]string, error) {
+	url := fmt.Sprintf("%s/backups", c.BaseURL)
+
+	resp, err := c.HTTPClient.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != 200 {
+		var errResp ErrorResponse
+		if err := json.Unmarshal(body, &errResp); err == nil {
+			return nil, fmt.Errorf("server error: %s - %s", errResp.Error, errResp.Message)
+		}
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var backups []string
+	if err := json.Unmarshal(body, &backups); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return backups, nil
+}
+
+func (c *KonsulClient) ExportData() (string, error) {
+	url := fmt.Sprintf("%s/export", c.BaseURL)
+
+	resp, err := c.HTTPClient.Get(url)
+	if err != nil {
+		return "", fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != 200 {
+		var errResp ErrorResponse
+		if err := json.Unmarshal(body, &errResp); err == nil {
+			return "", fmt.Errorf("server error: %s - %s", errResp.Error, errResp.Message)
+		}
+		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return string(body), nil
 }
