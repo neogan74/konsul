@@ -37,10 +37,27 @@ type Service struct {
 	Port    int    `json:"port"`
 }
 
+type CheckDefinition struct {
+	ID           string            `json:"id,omitempty"`
+	Name         string            `json:"name"`
+	ServiceID    string            `json:"service_id,omitempty"`
+	HTTP         string            `json:"http,omitempty"`
+	TCP          string            `json:"tcp,omitempty"`
+	GRPC         string            `json:"grpc,omitempty"`
+	TTL          string            `json:"ttl,omitempty"`
+	Interval     string            `json:"interval,omitempty"`
+	Timeout      string            `json:"timeout,omitempty"`
+	Method       string            `json:"method,omitempty"`
+	Headers      map[string]string `json:"headers,omitempty"`
+	TLSSkipVerify bool             `json:"tls_skip_verify,omitempty"`
+	GRPCUseTLS   bool              `json:"grpc_use_tls,omitempty"`
+}
+
 type ServiceRegisterRequest struct {
-	Name    string `json:"name"`
-	Address string `json:"address"`
-	Port    int    `json:"port"`
+	Name    string             `json:"name"`
+	Address string             `json:"address"`
+	Port    int                `json:"port"`
+	Checks  []*CheckDefinition `json:"checks,omitempty"`
 }
 
 type BackupResponse struct {
