@@ -131,6 +131,11 @@ func main() {
 	app.Get("/health/live", healthHandler.Liveness)
 	app.Get("/health/ready", healthHandler.Readiness)
 
+	// Service health check endpoints
+	app.Get("/health/checks", healthCheckHandler.ListChecks)
+	app.Get("/health/service/:name", healthCheckHandler.GetServiceChecks)
+	app.Put("/health/check/:id", healthCheckHandler.UpdateTTLCheck)
+
 	// Backup/restore endpoints
 	app.Post("/backup", backupHandler.CreateBackup)
 	app.Post("/restore", backupHandler.RestoreBackup)
