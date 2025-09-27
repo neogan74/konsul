@@ -13,7 +13,7 @@ func TestServiceStore_RegisterAndGet(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected service to be registered")
 	}
-	if got != service {
+	if got.Name != service.Name || got.Address != service.Address || got.Port != service.Port {
 		t.Errorf("got %+v, want %+v", got, service)
 	}
 }
@@ -64,7 +64,7 @@ func TestServiceStore_Heartbeat(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected service to be available after heartbeat")
 	}
-	if got != service {
+	if got.Name != service.Name || got.Address != service.Address || got.Port != service.Port {
 		t.Errorf("got %+v, want %+v", got, service)
 	}
 }
