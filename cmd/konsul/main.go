@@ -106,6 +106,7 @@ func main() {
 	kvHandler := handlers.NewKVHandler(kv)
 	serviceHandler := handlers.NewServiceHandler(svcStore)
 	healthHandler := handlers.NewHealthHandler(kv, svcStore, version)
+	healthCheckHandler := handlers.NewHealthCheckHandler(svcStore)
 	backupHandler := handlers.NewBackupHandler(engine, appLogger)
 
 	// Initialize store metrics
@@ -129,6 +130,11 @@ func main() {
 	app.Get("/health", healthHandler.Check)
 	app.Get("/health/live", healthHandler.Liveness)
 	app.Get("/health/ready", healthHandler.Readiness)
+
+	// Service health check endpoints
+	app.Get("/health/checks", healthCheckHandler.ListChecks)
+	app.Get("/health/service/:name", healthCheckHandler.GetServiceChecks)
+	app.Put("/health/check/:id", healthCheckHandler.UpdateTTLCheck)
 
 	// Backup/restore endpoints
 	app.Post("/backup", backupHandler.CreateBackup)
