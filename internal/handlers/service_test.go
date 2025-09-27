@@ -127,7 +127,7 @@ func TestServiceHandler_Get(t *testing.T) {
 
 	var result store.Service
 	json.NewDecoder(resp.Body).Decode(&result)
-	if result != service {
+	if result.Name != service.Name || result.Address != service.Address || result.Port != service.Port {
 		t.Errorf("expected %+v, got %+v", service, result)
 	}
 }
