@@ -129,7 +129,7 @@ func TestServiceStore_CleanupExpired(t *testing.T) {
 	if len(services) != 1 {
 		t.Errorf("expected 1 service after cleanup, got %d", len(services))
 	}
-	if services[0] != service2 {
+	if services[0].Name != service2.Name || services[0].Address != service2.Address || services[0].Port != service2.Port {
 		t.Errorf("expected service2 to remain, got %+v", services[0])
 	}
 
