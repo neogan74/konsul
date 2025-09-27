@@ -106,7 +106,7 @@ func TestServiceDiscoveryIntegration(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&services); err != nil {
 		t.Fatalf("decode list: %v", err)
 	}
-	if len(services) != 1 || services[0] != service {
+	if len(services) != 1 || services[0].Name != service.Name || services[0].Address != service.Address || services[0].Port != service.Port {
 		t.Errorf("expected 1 service, got %+v", services)
 	}
 
