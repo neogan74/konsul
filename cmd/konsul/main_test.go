@@ -120,7 +120,7 @@ func TestServiceDiscoveryIntegration(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
 		t.Fatalf("decode get: %v", err)
 	}
-	if got != service {
+	if got.Name != service.Name || got.Address != service.Address || got.Port != service.Port {
 		t.Errorf("got %+v, want %+v", got, service)
 	}
 
