@@ -150,15 +150,12 @@ func main() {
 	go func() {
 		ticker := time.NewTicker(cfg.Service.CleanupInterval)
 		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				count := svcStore.CleanupExpired()
-				if count > 0 {
-					appLogger.Info("Cleaned up expired services", logger.Int("count", count))
-					metrics.ExpiredServicesTotal.Add(float64(count))
-					metrics.RegisteredServicesTotal.Set(float64(len(svcStore.List())))
-				}
+		for range ticker.C {
+			count := svcStore.CleanupExpired()
+			if count > 0 {
+				appLogger.Info("Cleaned up expired services", logger.Int("count", count))
+				metrics.ExpiredServicesTotal.Add(float64(count))
+				metrics.RegisteredServicesTotal.Set(float64(len(svcStore.List())))
 			}
 		}
 	}()
