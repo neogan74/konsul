@@ -2,6 +2,7 @@ package store
 
 import (
 	"encoding/json"
+	"fmt"
 	"sync"
 	"time"
 
@@ -272,8 +273,31 @@ func (s *ServiceStore) CleanupExpired() int {
 	return count
 }
 
-// Close closes the persistence engine
+// GetHealthChecks returns all health checks for a service
+func (s *ServiceStore) GetHealthChecks(serviceName string) []*healthcheck.Check {
+	checks := s.healthManager.ListChecks()
+	var serviceChecks []*healthcheck.Check
+	for _, check := range checks {
+		if check.ServiceID == serviceName {
+			serviceChecks = append(serviceChecks, check)
+		}
+	}
+	return serviceChecks
+}
+
+// GetAllHealthChecks returns all health checks
+func (s *ServiceStore) GetAllHealthChecks() []*healthcheck.Check {
+	return s.healthManager.ListChecks()
+}
+
+// UpdateTTLCheck updates a TTL-based health check
+func (s *ServiceStore) UpdateTTLCheck(checkID string) error {
+	return s.healthManager.UpdateTTLCheck(checkID)
+}
+
+// Close closes the persistence engine and health manager
 func (s *ServiceStore) Close() error {
+	s.healthManager.Stop()
 	if s.engine != nil {
 		return s.engine.Close()
 	}
