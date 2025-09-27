@@ -249,6 +249,51 @@ func (c *KonsulClient) RegisterService(name, address, port string) error {
 	return nil
 }
 
+func (c *KonsulClient) RegisterServiceWithChecks(name, address, port string, checks []*CheckDefinition) error {
+	url := fmt.Sprintf("%s/register", c.BaseURL)
+
+	// Convert port to int
+	portInt := 0
+	if _, err := fmt.Sscanf(port, "%d", &portInt); err != nil {
+		return fmt.Errorf("invalid port: %s", port)
+	}
+
+	reqBody := ServiceRegisterRequest{
+		Name:    name,
+		Address: address,
+		Port:    portInt,
+		Checks:  checks,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		var errResp ErrorResponse
+		if err := json.Unmarshal(body, &errResp); err == nil {
+			return fmt.Errorf("server error: %s - %s", errResp.Error, errResp.Message)
+		}
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
 func (c *KonsulClient) ListServices() ([]Service, error) {
 	url := fmt.Sprintf("%s/services/", c.BaseURL)
 
