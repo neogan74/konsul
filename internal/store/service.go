@@ -5,14 +5,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/neogan74/konsul/internal/healthcheck"
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/persistence"
 )
 
 type Service struct {
-	Name    string `json:"name"`
-	Address string `json:"address"`
-	Port    int    `json:"port"`
+	Name    string                        `json:"name"`
+	Address string                        `json:"address"`
+	Port    int                           `json:"port"`
+	Checks  []*healthcheck.CheckDefinition `json:"checks,omitempty"`
 }
 
 type ServiceEntry struct {
@@ -21,36 +23,40 @@ type ServiceEntry struct {
 }
 
 type ServiceStore struct {
-	Data   map[string]ServiceEntry
-	Mutex  sync.RWMutex
-	TTL    time.Duration
-	engine persistence.Engine
-	log    logger.Logger
+	Data           map[string]ServiceEntry
+	Mutex          sync.RWMutex
+	TTL            time.Duration
+	engine         persistence.Engine
+	log            logger.Logger
+	healthManager  *healthcheck.Manager
 }
 
 func NewServiceStore() *ServiceStore {
 	return &ServiceStore{
-		Data: make(map[string]ServiceEntry),
-		TTL:  30 * time.Second, // default TTL
-		log:  logger.GetDefault(),
+		Data:          make(map[string]ServiceEntry),
+		TTL:           30 * time.Second, // default TTL
+		log:           logger.GetDefault(),
+		healthManager: healthcheck.NewManager(logger.GetDefault()),
 	}
 }
 
 func NewServiceStoreWithTTL(ttl time.Duration) *ServiceStore {
 	return &ServiceStore{
-		Data: make(map[string]ServiceEntry),
-		TTL:  ttl,
-		log:  logger.GetDefault(),
+		Data:          make(map[string]ServiceEntry),
+		TTL:           ttl,
+		log:           logger.GetDefault(),
+		healthManager: healthcheck.NewManager(logger.GetDefault()),
 	}
 }
 
 // NewServiceStoreWithPersistence creates a service store with persistence engine
 func NewServiceStoreWithPersistence(ttl time.Duration, engine persistence.Engine, log logger.Logger) (*ServiceStore, error) {
 	store := &ServiceStore{
-		Data:   make(map[string]ServiceEntry),
-		TTL:    ttl,
-		engine: engine,
-		log:    log,
+		Data:          make(map[string]ServiceEntry),
+		TTL:           ttl,
+		engine:        engine,
+		log:           log,
+		healthManager: healthcheck.NewManager(log),
 	}
 
 	// Load existing data from persistence if available
@@ -112,6 +118,27 @@ func (s *ServiceStore) Register(service Service) {
 		ExpiresAt: time.Now().Add(s.TTL),
 	}
 	s.Data[service.Name] = entry
+
+	// Register health checks
+	for _, checkDef := range service.Checks {
+		// Set service ID for the check
+		if checkDef.ServiceID == "" {
+			checkDef.ServiceID = service.Name
+		}
+
+		// Set check name if not provided
+		if checkDef.Name == "" {
+			checkDef.Name = fmt.Sprintf("%s-health", service.Name)
+		}
+
+		_, err := s.healthManager.AddCheck(checkDef)
+		if err != nil {
+			s.log.Error("Failed to add health check",
+				logger.String("service", service.Name),
+				logger.String("check", checkDef.Name),
+				logger.Error(err))
+		}
+	}
 
 	// Persist to storage if engine is available
 	if s.engine != nil {
