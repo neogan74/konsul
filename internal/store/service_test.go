@@ -13,7 +13,7 @@ func TestServiceStore_RegisterAndGet(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected service to be registered")
 	}
-	if got != service {
+	if got.Name != service.Name || got.Address != service.Address || got.Port != service.Port {
 		t.Errorf("got %+v, want %+v", got, service)
 	}
 }
@@ -64,7 +64,7 @@ func TestServiceStore_Heartbeat(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected service to be available after heartbeat")
 	}
-	if got != service {
+	if got.Name != service.Name || got.Address != service.Address || got.Port != service.Port {
 		t.Errorf("got %+v, want %+v", got, service)
 	}
 }
@@ -129,7 +129,7 @@ func TestServiceStore_CleanupExpired(t *testing.T) {
 	if len(services) != 1 {
 		t.Errorf("expected 1 service after cleanup, got %d", len(services))
 	}
-	if services[0] != service2 {
+	if services[0].Name != service2.Name || services[0].Address != service2.Address || services[0].Port != service2.Port {
 		t.Errorf("expected service2 to remain, got %+v", services[0])
 	}
 

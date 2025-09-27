@@ -1,9 +1,13 @@
 # TODO - Konsul Project Roadmap
 
 ## 1. Persistence Layer
-- [ ] Add optional persistence to disk (BoltDB/BadgerDB)
-- [ ] Implement backup/restore functionality
-- [ ] Add WAL (Write-Ahead Logging) for crash recovery
+- [x] Add optional persistence to disk (BadgerDB)
+- [x] Implement backup/restore functionality
+- [x] Add WAL (Write-Ahead Logging) for crash recovery
+- [x] Pluggable persistence interface (memory/BadgerDB)
+- [x] Atomic transactions and batch operations
+- [x] Data export/import via JSON
+- [x] Comprehensive test coverage
 
 ## 2. Clustering & Replication
 - [ ] Multi-node support with Raft consensus
@@ -46,8 +50,27 @@
 ## 8. Developer Experience
 - [ ] Docker image with multi-stage build
 - [ ] Kubernetes manifests/Helm chart
-- [ ] CLI client tool
+- [x] CLI client tool
 - [ ] SDK/client libraries (Go, Python, JS)
+
+## 9. Consul-Inspired Features (High Value)
+- [ ] **DNS Interface** - Service discovery via DNS queries (SRV/A records)
+- [ ] **Advanced Health Checks** - HTTP/TCP/gRPC/script-based checks
+- [ ] **Template Engine** - Consul-template equivalent for config generation
+- [ ] **Multi-Datacenter** - WAN federation and cross-DC service discovery
+- [ ] **Service Mesh (Connect)** - mTLS and service-to-service communication
+- [ ] **Envoy Proxy Integration** - Sidecar proxy support
+- [ ] **Intentions** - Service communication policies
+- [ ] **Namespaces** - Multi-tenancy and isolation
+- [ ] **Prepared Queries** - Predefined service discovery queries
+- [ ] **Events System** - Distributed event broadcasting
+
+## 10. Enterprise-Grade Features
+- [ ] **Audit Logging** - Track all operations and changes
+- [ ] **RBAC** - Role-based access control
+- [ ] **Multi-tenancy** - Namespace isolation with quotas
+- [ ] **Disaster Recovery** - Cross-cluster replication
+- [ ] **Network Segments** - Service isolation within clusters
 
 ## Completed Features
 ✅ Health Check System with TTL
