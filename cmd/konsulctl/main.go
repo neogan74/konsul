@@ -213,8 +213,8 @@ func handleServiceCommand(args []string) {
 }
 
 func handleServiceRegister(serverURL string, args []string) {
-	if len(args) != 3 {
-		fmt.Println("Usage: konsulctl service register <name> <address> <port>")
+	if len(args) < 3 {
+		fmt.Println("Usage: konsulctl service register <name> <address> <port> [--check-http <url>] [--check-tcp <addr>] [--check-interval <duration>]")
 		os.Exit(1)
 	}
 
@@ -222,15 +222,63 @@ func handleServiceRegister(serverURL string, args []string) {
 	address := args[1]
 	port := args[2]
 
+	// Parse health check flags
+	var checks []*CheckDefinition
+
+	// Simple parsing for health check flags
+	for i := 3; i < len(args); i++ {
+		switch args[i] {
+		case "--check-http":
+			if i+1 >= len(args) {
+				fmt.Println("--check-http requires a URL")
+				os.Exit(1)
+			}
+			checks = append(checks, &CheckDefinition{
+				Name:     fmt.Sprintf("%s-http-check", name),
+				HTTP:     args[i+1],
+				Interval: "30s",
+				Timeout:  "10s",
+			})
+			i++ // Skip the URL argument
+		case "--check-tcp":
+			if i+1 >= len(args) {
+				fmt.Println("--check-tcp requires an address")
+				os.Exit(1)
+			}
+			checks = append(checks, &CheckDefinition{
+				Name:     fmt.Sprintf("%s-tcp-check", name),
+				TCP:      args[i+1],
+				Interval: "30s",
+				Timeout:  "10s",
+			})
+			i++ // Skip the address argument
+		case "--check-ttl":
+			if i+1 >= len(args) {
+				fmt.Println("--check-ttl requires a duration")
+				os.Exit(1)
+			}
+			checks = append(checks, &CheckDefinition{
+				Name: fmt.Sprintf("%s-ttl-check", name),
+				TTL:  args[i+1],
+			})
+			i++ // Skip the duration argument
+		}
+	}
+
 	client := NewKonsulClient(serverURL)
 
-	err := client.RegisterService(name, address, port)
+	err := client.RegisterServiceWithChecks(name, address, port, checks)
 	if err != nil {
 		fmt.Printf("Error registering service '%s': %v\n", name, err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Successfully registered service: %s at %s:%s\n", name, address, port)
+	checkInfo := ""
+	if len(checks) > 0 {
+		checkInfo = fmt.Sprintf(" with %d health check(s)", len(checks))
+	}
+
+	fmt.Printf("Successfully registered service: %s at %s:%s%s\n", name, address, port, checkInfo)
 }
 
 func handleServiceList(serverURL string, args []string) {
