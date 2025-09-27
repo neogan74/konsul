@@ -106,6 +106,7 @@ func main() {
 	kvHandler := handlers.NewKVHandler(kv)
 	serviceHandler := handlers.NewServiceHandler(svcStore)
 	healthHandler := handlers.NewHealthHandler(kv, svcStore, version)
+	healthCheckHandler := handlers.NewHealthCheckHandler(svcStore)
 	backupHandler := handlers.NewBackupHandler(engine, appLogger)
 
 	// Initialize store metrics
