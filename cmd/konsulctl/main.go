@@ -24,6 +24,8 @@ func main() {
 		handleServiceCommand(args)
 	case "backup":
 		handleBackupCommand(args)
+	case "dns":
+		handleDNSCommand(args)
 	case "version":
 		fmt.Printf("konsulctl version %s\n", version)
 	case "help", "-h", "--help":
