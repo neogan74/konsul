@@ -192,6 +192,16 @@ func main() {
 	}()
 	<-quit
 	appLogger.Info("Shutting down server...")
+
+	// Shutdown DNS server if running
+	if dnsServer != nil {
+		if err := dnsServer.Stop(); err != nil {
+			appLogger.Error("Failed to stop DNS server", logger.Error(err))
+		} else {
+			appLogger.Info("DNS server stopped")
+		}
+	}
+
 	if err := app.Shutdown(); err != nil {
 		appLogger.Error("Server forced to shutdown", logger.Error(err))
 		log.Fatalf("Server forced to shutdown: %v", err)
