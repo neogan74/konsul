@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"time"
 
 	"github.com/miekg/dns"
 	"github.com/neogan74/konsul/internal/logger"
