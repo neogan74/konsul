@@ -55,7 +55,7 @@
 
 ## 9. Consul-Inspired Features (High Value)
 - [ ] **DNS Interface** - Service discovery via DNS queries (SRV/A records)
-- [ ] **Advanced Health Checks** - HTTP/TCP/gRPC/script-based checks
+- [x] **Advanced Health Checks** - HTTP/TCP/gRPC/script-based checks
 - [ ] **Template Engine** - Consul-template equivalent for config generation
 - [ ] **Multi-Datacenter** - WAN federation and cross-DC service discovery
 - [ ] **Service Mesh (Connect)** - mTLS and service-to-service communication
