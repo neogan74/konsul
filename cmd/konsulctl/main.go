@@ -372,7 +372,7 @@ func handleDNSCommand(args []string) {
 
 	switch subcommand {
 	case "srv":
-		fmt.Printf("SRV Record: _$s._tcp.service.consul\n", serviceName)
+		fmt.Printf("SRV Record: _%s._tcp.service.consul\n", serviceName)
 		fmt.Printf("Run: dig @%s -p %d _%s._tcp.service.consul SRV\n", dnsServer, dnsPort, serviceName)
 	case "a":
 		fmt.Printf("A Record: %s.service.consul\n", serviceName)
