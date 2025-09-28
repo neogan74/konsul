@@ -24,6 +24,8 @@ func main() {
 		handleServiceCommand(args)
 	case "backup":
 		handleBackupCommand(args)
+	case "dns":
+		handleDNSCommand(args)
 	case "version":
 		fmt.Printf("konsulctl version %s\n", version)
 	case "help", "-h", "--help":
@@ -58,6 +60,10 @@ func printUsage() {
 	fmt.Println("    restore <file>   Restore from backup file")
 	fmt.Println("    list             List available backups")
 	fmt.Println("    export           Export data as JSON")
+	fmt.Println()
+	fmt.Println("  dns <query> <service>     DNS operations")
+	fmt.Println("    srv <service>    Show SRV record query for service")
+	fmt.Println("    a <service>      Show A record query for service")
 	fmt.Println()
 	fmt.Println("  version            Show version")
 	fmt.Println("  help               Show this help")
@@ -340,6 +346,46 @@ func handleServiceHeartbeat(serverURL string, args []string) {
 	}
 
 	fmt.Printf("Successfully sent heartbeat for service: %s\n", name)
+}
+
+func handleDNSCommand(args []string) {
+	if len(args) == 0 {
+		fmt.Println("DNS subcommand required")
+		fmt.Println("Usage: konsulctl dns <query> <service-name> [options]")
+		fmt.Println("  query: 'srv' or 'a' (record type)")
+		os.Exit(1)
+	}
+
+	var dnsServer string
+	var dnsPort int
+	flagSet := flag.NewFlagSet("dns", flag.ExitOnError)
+	flagSet.StringVar(&dnsServer, "server", "localhost", "DNS server address")
+	flagSet.IntVar(&dnsPort, "port", 8600, "DNS server port")
+
+	subcommand := args[0]
+	if len(args) < 2 {
+		fmt.Println("Service name required")
+		os.Exit(1)
+	}
+	serviceName := args[1]
+
+	subArgs := args[2:]
+	flagSet.Parse(subArgs)
+
+	fmt.Printf("DNS %s query for service '%s' (server: %s:%d)\n", subcommand, serviceName, dnsServer, dnsPort)
+
+	switch subcommand {
+	case "srv":
+		fmt.Printf("SRV Record: _%s._tcp.service.consul\n", serviceName)
+		fmt.Printf("Run: dig @%s -p %d _%s._tcp.service.consul SRV\n", dnsServer, dnsPort, serviceName)
+	case "a":
+		fmt.Printf("A Record: %s.service.consul\n", serviceName)
+		fmt.Printf("Run: dig @%s -p %d %s.service.consul A\n", dnsServer, dnsPort, serviceName)
+	default:
+		fmt.Printf("Unknown DNS query type: %s\n", subcommand)
+		fmt.Println("Supported types: srv, a")
+		os.Exit(1)
+	}
 }
 
 func handleBackupCommand(args []string) {

@@ -13,6 +13,7 @@ type Config struct {
 	Service     ServiceConfig
 	Log         LogConfig
 	Persistence PersistenceConfig
+	DNS         DNSConfig
 }
 
 // ServerConfig contains HTTP server configuration
@@ -43,6 +44,14 @@ type PersistenceConfig struct {
 	WALEnabled bool
 }
 
+// DNSConfig contains DNS server configuration
+type DNSConfig struct {
+	Enabled bool
+	Host    string
+	Port    int
+	Domain  string
+}
+
 // Load loads configuration from environment variables with defaults
 func Load() (*Config, error) {
 	config := &Config{
@@ -65,6 +74,12 @@ func Load() (*Config, error) {
 			BackupDir:  getEnvString("KONSUL_BACKUP_DIR", "./backups"),
 			SyncWrites: getEnvBool("KONSUL_SYNC_WRITES", true),
 			WALEnabled: getEnvBool("KONSUL_WAL_ENABLED", true),
+		},
+		DNS: DNSConfig{
+			Enabled: getEnvBool("KONSUL_DNS_ENABLED", true),
+			Host:    getEnvString("KONSUL_DNS_HOST", ""),
+			Port:    getEnvInt("KONSUL_DNS_PORT", 8600),
+			Domain:  getEnvString("KONSUL_DNS_DOMAIN", "consul"),
 		},
 	}
 
@@ -119,6 +134,17 @@ func (c *Config) Validate() error {
 
 		if c.Persistence.DataDir == "" {
 			return fmt.Errorf("data directory must be specified when persistence is enabled")
+		}
+	}
+
+	// Validate DNS configuration if enabled
+	if c.DNS.Enabled {
+		if c.DNS.Port <= 0 || c.DNS.Port > 65535 {
+			return fmt.Errorf("invalid DNS port: %d (must be 1-65535)", c.DNS.Port)
+		}
+
+		if c.DNS.Domain == "" {
+			return fmt.Errorf("DNS domain must be specified when DNS is enabled")
 		}
 	}
 

@@ -12,6 +12,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/neogan74/konsul/internal/config"
+	"github.com/neogan74/konsul/internal/dns"
 	"github.com/neogan74/konsul/internal/handlers"
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/metrics"
@@ -160,6 +161,24 @@ func main() {
 		}
 	}()
 
+	// Start DNS server if enabled
+	var dnsServer *dns.Server
+	if cfg.DNS.Enabled {
+		dnsConfig := dns.Config{
+			Host:   cfg.DNS.Host,
+			Port:   cfg.DNS.Port,
+			Domain: cfg.DNS.Domain,
+		}
+		dnsServer = dns.NewServer(dnsConfig, svcStore, appLogger)
+		if err := dnsServer.Start(); err != nil {
+			appLogger.Error("Failed to start DNS server", logger.Error(err))
+		} else {
+			appLogger.Info("DNS server started",
+				logger.String("domain", cfg.DNS.Domain),
+				logger.Int("port", cfg.DNS.Port))
+		}
+	}
+
 	appLogger.Info("Server starting", logger.String("address", cfg.Address()))
 
 	// Graceful shutdown
@@ -173,6 +192,16 @@ func main() {
 	}()
 	<-quit
 	appLogger.Info("Shutting down server...")
+
+	// Shutdown DNS server if running
+	if dnsServer != nil {
+		if err := dnsServer.Stop(); err != nil {
+			appLogger.Error("Failed to stop DNS server", logger.Error(err))
+		} else {
+			appLogger.Info("DNS server stopped")
+		}
+	}
+
 	if err := app.Shutdown(); err != nil {
 		appLogger.Error("Server forced to shutdown", logger.Error(err))
 		log.Fatalf("Server forced to shutdown: %v", err)
