@@ -137,6 +137,17 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	// Validate DNS configuration if enabled
+	if c.DNS.Enabled {
+		if c.DNS.Port <= 0 || c.DNS.Port > 65535 {
+			return fmt.Errorf("invalid DNS port: %d (must be 1-65535)", c.DNS.Port)
+		}
+
+		if c.DNS.Domain == "" {
+			return fmt.Errorf("DNS domain must be specified when DNS is enabled")
+		}
+	}
+
 	return nil
 }
 
