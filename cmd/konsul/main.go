@@ -12,6 +12,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/neogan74/konsul/internal/config"
+	"github.com/neogan74/konsul/internal/dns"
 	"github.com/neogan74/konsul/internal/handlers"
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/metrics"
