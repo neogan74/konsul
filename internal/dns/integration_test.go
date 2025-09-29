@@ -213,10 +213,10 @@ func TestDNSServer_LoadBalancing(t *testing.T) {
 
 	server := NewServer(config, serviceStore, log)
 
-	// Register multiple instances of same service
-	service1 := store.Service{Name: "api", Address: "10.0.0.1", Port: 8080}
-	service2 := store.Service{Name: "api", Address: "10.0.0.2", Port: 8080}
-	service3 := store.Service{Name: "api", Address: "10.0.0.3", Port: 8080}
+	// Register multiple instances with unique names for same logical service
+	service1 := store.Service{Name: "api-1", Address: "10.0.0.1", Port: 8080}
+	service2 := store.Service{Name: "api-2", Address: "10.0.0.2", Port: 8080}
+	service3 := store.Service{Name: "api-3", Address: "10.0.0.3", Port: 8080}
 
 	serviceStore.Register(service1)
 	serviceStore.Register(service2)
