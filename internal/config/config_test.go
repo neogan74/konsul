@@ -244,6 +244,117 @@ func TestLoad_InvalidConfigValidation(t *testing.T) {
 	}
 }
 
+func TestDNS_DefaultValues(t *testing.T) {
+	clearEnvVars()
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+
+	// Check DNS default values
+	if cfg.DNS.Enabled != true {
+		t.Errorf("expected DNS enabled true by default, got %t", cfg.DNS.Enabled)
+	}
+	if cfg.DNS.Host != "" {
+		t.Errorf("expected DNS host empty by default, got %q", cfg.DNS.Host)
+	}
+	if cfg.DNS.Port != 8600 {
+		t.Errorf("expected DNS port 8600 by default, got %d", cfg.DNS.Port)
+	}
+	if cfg.DNS.Domain != "consul" {
+		t.Errorf("expected DNS domain 'consul' by default, got %q", cfg.DNS.Domain)
+	}
+}
+
+func TestDNS_EnvironmentVariables(t *testing.T) {
+	clearEnvVars()
+
+	// Set DNS environment variables
+	os.Setenv("KONSUL_DNS_ENABLED", "false")
+	os.Setenv("KONSUL_DNS_HOST", "127.0.0.1")
+	os.Setenv("KONSUL_DNS_PORT", "5353")
+	os.Setenv("KONSUL_DNS_DOMAIN", "local")
+
+	defer clearEnvVars()
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+
+	// Check DNS environment variable values
+	if cfg.DNS.Enabled != false {
+		t.Errorf("expected DNS enabled false, got %t", cfg.DNS.Enabled)
+	}
+	if cfg.DNS.Host != "127.0.0.1" {
+		t.Errorf("expected DNS host '127.0.0.1', got %q", cfg.DNS.Host)
+	}
+	if cfg.DNS.Port != 5353 {
+		t.Errorf("expected DNS port 5353, got %d", cfg.DNS.Port)
+	}
+	if cfg.DNS.Domain != "local" {
+		t.Errorf("expected DNS domain 'local', got %q", cfg.DNS.Domain)
+	}
+}
+
+func TestValidate_DNSInvalidPort(t *testing.T) {
+	clearEnvVars()
+
+	// Set invalid DNS port
+	os.Setenv("KONSUL_DNS_PORT", "0")
+	defer clearEnvVars()
+
+	_, err := Load()
+	if err == nil {
+		t.Error("expected Load() to fail validation with invalid DNS port")
+	}
+}
+
+func TestValidate_DNSInvalidDomain(t *testing.T) {
+	clearEnvVars()
+
+	// Set empty DNS domain
+	os.Setenv("KONSUL_DNS_DOMAIN", "")
+	defer clearEnvVars()
+
+	_, err := Load()
+	if err == nil {
+		t.Error("expected Load() to fail validation with empty DNS domain")
+	}
+}
+
+func TestValidate_DNSValidConfig(t *testing.T) {
+	clearEnvVars()
+
+	// Set valid DNS configuration
+	os.Setenv("KONSUL_DNS_ENABLED", "true")
+	os.Setenv("KONSUL_DNS_HOST", "localhost")
+	os.Setenv("KONSUL_DNS_PORT", "53")
+	os.Setenv("KONSUL_DNS_DOMAIN", "internal")
+
+	defer clearEnvVars()
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() failed with valid DNS config: %v", err)
+	}
+
+	// Verify all values are set correctly
+	if !cfg.DNS.Enabled {
+		t.Error("expected DNS to be enabled")
+	}
+	if cfg.DNS.Host != "localhost" {
+		t.Errorf("expected DNS host 'localhost', got %q", cfg.DNS.Host)
+	}
+	if cfg.DNS.Port != 53 {
+		t.Errorf("expected DNS port 53, got %d", cfg.DNS.Port)
+	}
+	if cfg.DNS.Domain != "internal" {
+		t.Errorf("expected DNS domain 'internal', got %q", cfg.DNS.Domain)
+	}
+}
+
 // clearEnvVars clears all KONSUL environment variables
 func clearEnvVars() {
 	os.Unsetenv("KONSUL_HOST")
