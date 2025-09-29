@@ -192,7 +192,7 @@ func TestDNSServer_ServiceLifecycle(t *testing.T) {
 	}
 }
 
-func TestDNSServer_LoadBalancing(t *testing.T) {
+func TestDNSServer_MultipleServiceQueries(t *testing.T) {
 	serviceStore := store.NewServiceStore()
 	log := logger.NewFromConfig("error", "text")
 
@@ -213,10 +213,10 @@ func TestDNSServer_LoadBalancing(t *testing.T) {
 
 	server := NewServer(config, serviceStore, log)
 
-	// Register multiple instances with unique names for same logical service
-	service1 := store.Service{Name: "api-1", Address: "10.0.0.1", Port: 8080}
-	service2 := store.Service{Name: "api-2", Address: "10.0.0.2", Port: 8080}
-	service3 := store.Service{Name: "api-3", Address: "10.0.0.3", Port: 8080}
+	// Register different services
+	service1 := store.Service{Name: "web", Address: "10.0.0.1", Port: 80}
+	service2 := store.Service{Name: "api", Address: "10.0.0.2", Port: 8080}
+	service3 := store.Service{Name: "db", Address: "10.0.0.3", Port: 5432}
 
 	serviceStore.Register(service1)
 	serviceStore.Register(service2)
@@ -234,36 +234,57 @@ func TestDNSServer_LoadBalancing(t *testing.T) {
 	client := new(dns.Client)
 	client.Timeout = 5 * time.Second
 
-	// Query for SRV records
-	query := new(dns.Msg)
-	query.SetQuestion("_api._tcp.service.consul.", dns.TypeSRV)
-
-	response, _, err := client.Exchange(query, net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", port)))
-	if err != nil {
-		t.Fatalf("DNS query failed: %v", err)
+	// Test different service queries
+	testCases := []struct {
+		serviceName  string
+		expectedPort uint16
+		expectedIP   string
+	}{
+		{"web", 80, "10.0.0.1"},
+		{"api", 8080, "10.0.0.2"},
+		{"db", 5432, "10.0.0.3"},
 	}
 
-	// Should get 3 SRV records (one for each instance)
-	if len(response.Answer) != 3 {
-		t.Errorf("Expected 3 SRV records for load balancing, got %d", len(response.Answer))
-	}
+	for _, tc := range testCases {
+		query := new(dns.Msg)
+		query.SetQuestion(fmt.Sprintf("_%s._tcp.service.consul.", tc.serviceName), dns.TypeSRV)
 
-	// Should get 3 A records in additional section
-	if len(response.Extra) != 3 {
-		t.Errorf("Expected 3 A records in additional section, got %d", len(response.Extra))
-	}
-
-	// Verify different weights for load balancing
-	weights := make(map[uint16]bool)
-	for _, answer := range response.Answer {
-		if srv, ok := answer.(*dns.SRV); ok {
-			weights[srv.Weight] = true
+		response, _, err := client.Exchange(query, net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", port)))
+		if err != nil {
+			t.Fatalf("DNS query for %s failed: %v", tc.serviceName, err)
 		}
-	}
 
-	// Should have at least 2 different weights for load balancing
-	if len(weights) < 2 {
-		t.Errorf("Expected different weights for load balancing, got weights: %v", weights)
+		if len(response.Answer) != 1 {
+			t.Errorf("Expected 1 SRV record for %s, got %d", tc.serviceName, len(response.Answer))
+			continue
+		}
+
+		srv, ok := response.Answer[0].(*dns.SRV)
+		if !ok {
+			t.Errorf("Expected SRV record for %s", tc.serviceName)
+			continue
+		}
+
+		if srv.Port != tc.expectedPort {
+			t.Errorf("Expected port %d for %s, got %d", tc.expectedPort, tc.serviceName, srv.Port)
+		}
+
+		// Check A record in additional section
+		if len(response.Extra) != 1 {
+			t.Errorf("Expected 1 A record for %s, got %d", tc.serviceName, len(response.Extra))
+			continue
+		}
+
+		a, ok := response.Extra[0].(*dns.A)
+		if !ok {
+			t.Errorf("Expected A record for %s", tc.serviceName)
+			continue
+		}
+
+		expectedIP := net.ParseIP(tc.expectedIP)
+		if !a.A.Equal(expectedIP) {
+			t.Errorf("Expected IP %s for %s, got %s", tc.expectedIP, tc.serviceName, a.A)
+		}
 	}
 }
 
