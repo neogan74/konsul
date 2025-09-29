@@ -170,7 +170,7 @@ func TestDNSServer_ServiceLifecycle(t *testing.T) {
 	service := store.Service{Name: "web", Address: "192.168.1.100", Port: 80}
 	serviceStore.Register(service)
 
-	response, _, err = client.Exchange(query, net.JoinHostPort("127.0.0.1", string(rune(port))))
+	response, _, err = client.Exchange(query, net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", port)))
 	if err != nil {
 		t.Fatalf("DNS query failed: %v", err)
 	}
@@ -182,7 +182,7 @@ func TestDNSServer_ServiceLifecycle(t *testing.T) {
 	// Test 3: Deregister service - should get NXDOMAIN again
 	serviceStore.Deregister("web")
 
-	response, _, err = client.Exchange(query, net.JoinHostPort("127.0.0.1", string(rune(port))))
+	response, _, err = client.Exchange(query, net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", port)))
 	if err != nil {
 		t.Fatalf("DNS query failed: %v", err)
 	}
