@@ -314,7 +314,8 @@ func TestValidate_DNSInvalidPort(t *testing.T) {
 func TestValidate_DNSInvalidDomain(t *testing.T) {
 	clearEnvVars()
 
-	// Set empty DNS domain
+	// Set DNS enabled with empty domain
+	os.Setenv("KONSUL_DNS_ENABLED", "true")
 	os.Setenv("KONSUL_DNS_DOMAIN", "")
 	defer clearEnvVars()
 
