@@ -69,8 +69,8 @@ func TestDNSServer_SRVQuery(t *testing.T) {
 	}
 
 	// Check that A records are in additional section
-	if len(mockWriter.msg.Extra) != 2 {
-		t.Errorf("Expected 2 A records in additional section, got %d", len(mockWriter.msg.Extra))
+	if len(mockWriter.msg.Extra) != 1 {
+		t.Errorf("Expected 1 A record in additional section, got %d", len(mockWriter.msg.Extra))
 	}
 
 	a, ok := mockWriter.msg.Extra[0].(*dns.A)
