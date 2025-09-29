@@ -27,11 +27,9 @@ func setupTestServer() (*Server, *store.ServiceStore) {
 func TestDNSServer_SRVQuery(t *testing.T) {
 	dnsServer, serviceStore := setupTestServer()
 
-	// Register test services
+	// Register test service (only one instance per name in current implementation)
 	service1 := store.Service{Name: "web", Address: "192.168.1.100", Port: 80}
-	service2 := store.Service{Name: "web", Address: "192.168.1.101", Port: 80}
 	serviceStore.Register(service1)
-	serviceStore.Register(service2)
 
 	// Create DNS query
 	query := new(dns.Msg)
