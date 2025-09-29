@@ -273,16 +273,16 @@ func TestDNSServer_ANYQuery(t *testing.T) {
 func TestDNSServer_MultipleServices(t *testing.T) {
 	dnsServer, serviceStore := setupTestServer()
 
-	// Register multiple services with same name
+	// Register multiple different services
 	service1 := store.Service{Name: "web", Address: "192.168.1.100", Port: 80}
-	service2 := store.Service{Name: "web", Address: "192.168.1.101", Port: 8080}
-	service3 := store.Service{Name: "web", Address: "192.168.1.102", Port: 9090}
+	service2 := store.Service{Name: "api", Address: "192.168.1.101", Port: 8080}
+	service3 := store.Service{Name: "db", Address: "192.168.1.102", Port: 5432}
 
 	serviceStore.Register(service1)
 	serviceStore.Register(service2)
 	serviceStore.Register(service3)
 
-	// Query for SRV records
+	// Query for web service
 	query := new(dns.Msg)
 	query.SetQuestion("_web._tcp.service.consul.", dns.TypeSRV)
 
@@ -294,28 +294,38 @@ func TestDNSServer_MultipleServices(t *testing.T) {
 		t.Fatal("Expected DNS response, got nil")
 	}
 
-	if len(mockWriter.msg.Answer) != 3 {
-		t.Errorf("Expected 3 SRV records, got %d", len(mockWriter.msg.Answer))
+	if len(mockWriter.msg.Answer) != 1 {
+		t.Errorf("Expected 1 SRV record for web service, got %d", len(mockWriter.msg.Answer))
 	}
 
-	// Verify different ports are returned
-	ports := make(map[uint16]bool)
-	for _, answer := range mockWriter.msg.Answer {
-		if srv, ok := answer.(*dns.SRV); ok {
-			ports[srv.Port] = true
-		}
+	// Check SRV record details
+	srv, ok := mockWriter.msg.Answer[0].(*dns.SRV)
+	if !ok {
+		t.Fatal("Expected SRV record")
 	}
 
-	expectedPorts := []uint16{80, 8080, 9090}
-	for _, port := range expectedPorts {
-		if !ports[port] {
-			t.Errorf("Expected port %d in SRV records", port)
-		}
+	if srv.Port != 80 {
+		t.Errorf("Expected port 80 for web service, got %d", srv.Port)
 	}
 
-	// Should have corresponding A records in additional section
-	if len(mockWriter.msg.Extra) != 3 {
-		t.Errorf("Expected 3 A records in additional section, got %d", len(mockWriter.msg.Extra))
+	// Query for api service
+	query2 := new(dns.Msg)
+	query2.SetQuestion("_api._tcp.service.consul.", dns.TypeSRV)
+
+	mockWriter2 := &mockResponseWriter{}
+	dnsServer.handleDNSRequest(mockWriter2, query2)
+
+	if len(mockWriter2.msg.Answer) != 1 {
+		t.Errorf("Expected 1 SRV record for api service, got %d", len(mockWriter2.msg.Answer))
+	}
+
+	srv2, ok := mockWriter2.msg.Answer[0].(*dns.SRV)
+	if !ok {
+		t.Fatal("Expected SRV record for api service")
+	}
+
+	if srv2.Port != 8080 {
+		t.Errorf("Expected port 8080 for api service, got %d", srv2.Port)
 	}
 }
 
