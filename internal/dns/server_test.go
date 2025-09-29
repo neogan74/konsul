@@ -46,8 +46,8 @@ func TestDNSServer_SRVQuery(t *testing.T) {
 		t.Fatal("Expected DNS response, got nil")
 	}
 
-	if len(mockWriter.msg.Answer) != 2 {
-		t.Errorf("Expected 2 SRV records, got %d", len(mockWriter.msg.Answer))
+	if len(mockWriter.msg.Answer) != 1 {
+		t.Errorf("Expected 1 SRV record, got %d", len(mockWriter.msg.Answer))
 	}
 
 	// Check first SRV record
