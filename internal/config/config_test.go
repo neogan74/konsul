@@ -314,14 +314,19 @@ func TestValidate_DNSInvalidPort(t *testing.T) {
 func TestValidate_DNSInvalidDomain(t *testing.T) {
 	clearEnvVars()
 
-	// Set DNS enabled with empty domain
+	// Test that empty domain env var falls back to default and passes validation
 	os.Setenv("KONSUL_DNS_ENABLED", "true")
 	os.Setenv("KONSUL_DNS_DOMAIN", "")
 	defer clearEnvVars()
 
-	_, err := Load()
-	if err == nil {
-		t.Error("expected Load() to fail validation with empty DNS domain")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() should not fail with empty domain env var: %v", err)
+	}
+
+	// Should fall back to default domain
+	if cfg.DNS.Domain != "consul" {
+		t.Errorf("expected DNS domain to fall back to 'consul', got %q", cfg.DNS.Domain)
 	}
 }
 
