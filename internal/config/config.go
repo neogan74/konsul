@@ -171,6 +171,25 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	// Validate auth configuration if enabled
+	if c.Auth.Enabled || c.Auth.RequireAuth {
+		if c.Auth.JWTSecret == "" {
+			return fmt.Errorf("JWT secret must be specified when auth is enabled")
+		}
+
+		if c.Auth.JWTExpiry <= 0 {
+			return fmt.Errorf("JWT expiry must be positive")
+		}
+
+		if c.Auth.RefreshExpiry <= 0 {
+			return fmt.Errorf("refresh expiry must be positive")
+		}
+
+		if c.Auth.Issuer == "" {
+			return fmt.Errorf("JWT issuer must be specified when auth is enabled")
+		}
+	}
+
 	return nil
 }
 
