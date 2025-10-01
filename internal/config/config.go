@@ -53,6 +53,18 @@ type DNSConfig struct {
 	Domain  string
 }
 
+// AuthConfig contains authentication configuration
+type AuthConfig struct {
+	Enabled        bool
+	JWTSecret      string
+	JWTExpiry      time.Duration
+	RefreshExpiry  time.Duration
+	Issuer         string
+	APIKeyPrefix   string
+	RequireAuth    bool
+	PublicPaths    []string
+}
+
 // Load loads configuration from environment variables with defaults
 func Load() (*Config, error) {
 	config := &Config{
@@ -81,6 +93,16 @@ func Load() (*Config, error) {
 			Host:    getEnvString("KONSUL_DNS_HOST", ""),
 			Port:    getEnvInt("KONSUL_DNS_PORT", 8600),
 			Domain:  getEnvString("KONSUL_DNS_DOMAIN", "consul"),
+		},
+		Auth: AuthConfig{
+			Enabled:       getEnvBool("KONSUL_AUTH_ENABLED", false),
+			JWTSecret:     getEnvString("KONSUL_JWT_SECRET", ""),
+			JWTExpiry:     getEnvDuration("KONSUL_JWT_EXPIRY", 15*time.Minute),
+			RefreshExpiry: getEnvDuration("KONSUL_REFRESH_EXPIRY", 7*24*time.Hour),
+			Issuer:        getEnvString("KONSUL_JWT_ISSUER", "konsul"),
+			APIKeyPrefix:  getEnvString("KONSUL_APIKEY_PREFIX", "konsul"),
+			RequireAuth:   getEnvBool("KONSUL_REQUIRE_AUTH", false),
+			PublicPaths:   getEnvStringSlice("KONSUL_PUBLIC_PATHS", []string{"/health", "/health/live", "/health/ready", "/metrics"}),
 		},
 	}
 
