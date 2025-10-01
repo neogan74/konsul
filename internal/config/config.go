@@ -14,6 +14,7 @@ type Config struct {
 	Log         LogConfig
 	Persistence PersistenceConfig
 	DNS         DNSConfig
+	Auth        AuthConfig
 }
 
 // ServerConfig contains HTTP server configuration
