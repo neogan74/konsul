@@ -12,13 +12,115 @@ In development now :> [!WARNING]
 
 ## Service Discovery (map)
 
-| Method | endpoint  | Description                                |
+| Method | Endpoint  | Description                                |
 | ------ | --------- | ------------                               |
-| PUT    | /register | service registration                       |
-| GET    | /services/ | get all registered services in JSON       |
-| GET    | /services/<name> | get service with given name in JSON |
-| DELETE | /deregister/<name> | deregister service                |
-| PUT    | /heartbeat/<name> | update service TTL                |
+| PUT    | /register | Service registration                       |
+| GET    | /services/ | Get all registered services in JSON       |
+| GET    | /services/<name> | Get service with given name in JSON |
+| DELETE | /deregister/<name> | Deregister service                |
+| PUT    | /heartbeat/<name> | Update service TTL                |
+
+## Authentication & Authorization
+
+Konsul supports JWT-based authentication and API key authentication. When enabled, protected endpoints require a valid JWT token or API key.
+
+### Authentication Endpoints
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| POST   | /auth/login | Login and get JWT tokens | No |
+| POST   | /auth/refresh | Refresh expired token | No |
+| GET    | /auth/verify | Verify current token | Yes |
+
+### API Key Management Endpoints
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| POST   | /auth/apikeys | Create new API key | Yes (JWT) |
+| GET    | /auth/apikeys | List all API keys | Yes (JWT) |
+| GET    | /auth/apikeys/:id | Get specific API key | Yes (JWT) |
+| PUT    | /auth/apikeys/:id | Update API key | Yes (JWT) |
+| DELETE | /auth/apikeys/:id | Delete API key | Yes (JWT) |
+| POST   | /auth/apikeys/:id/revoke | Revoke API key | Yes (JWT) |
+
+### Using JWT Authentication
+
+**1. Login to get tokens:**
+```bash
+curl -X POST http://localhost:8888/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "user123",
+    "username": "admin",
+    "roles": ["admin"]
+  }'
+```
+
+**Response:**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
+  "expires_in": 900
+}
+```
+
+**2. Use token in requests:**
+```bash
+curl http://localhost:8888/kv/mykey \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+**3. Refresh expired token:**
+```bash
+curl -X POST http://localhost:8888/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
+    "username": "admin",
+    "roles": ["admin"]
+  }'
+```
+
+### Using API Key Authentication
+
+**1. Create an API key (requires JWT):**
+```bash
+curl -X POST http://localhost:8888/auth/apikeys \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "production-api-key",
+    "permissions": ["read", "write"],
+    "metadata": {"env": "production"},
+    "expires_in": 31536000
+  }'
+```
+
+**Response:**
+```json
+{
+  "key": "konsul_a1b2c3d4e5f6...",
+  "api_key": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "name": "production-api-key",
+    "permissions": ["read", "write"],
+    "created_at": "2025-09-17T10:30:00Z",
+    "enabled": true
+  }
+}
+```
+
+**2. Use API key in requests (two methods):**
+```bash
+# Method 1: X-API-Key header
+curl http://localhost:8888/kv/mykey \
+  -H "X-API-Key: konsul_a1b2c3d4e5f6..."
+
+# Method 2: Authorization header
+curl http://localhost:8888/kv/mykey \
+  -H "Authorization: ApiKey konsul_a1b2c3d4e5f6..."
+```
 
 #### Example:
 ```
