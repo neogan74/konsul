@@ -197,6 +197,27 @@ KONSUL_HOST=0.0.0.0 KONSUL_PORT=80 KONSUL_LOG_FORMAT=json KONSUL_LOG_LEVEL=info 
 
 # Debug mode with verbose logging
 KONSUL_LOG_LEVEL=debug KONSUL_LOG_FORMAT=text ./konsul
+
+# Enable authentication with JWT
+KONSUL_AUTH_ENABLED=true \
+KONSUL_JWT_SECRET="your-super-secret-key-min-32-chars" \
+KONSUL_JWT_EXPIRY=30m \
+KONSUL_REQUIRE_AUTH=true \
+./konsul
+
+# Enable authentication with custom public paths
+KONSUL_AUTH_ENABLED=true \
+KONSUL_JWT_SECRET="your-secret-key" \
+KONSUL_PUBLIC_PATHS="/health,/health/live,/health/ready,/metrics,/custom/public" \
+./konsul
+
+# Enable persistence with authentication
+KONSUL_AUTH_ENABLED=true \
+KONSUL_JWT_SECRET="your-secret-key" \
+KONSUL_PERSISTENCE_ENABLED=true \
+KONSUL_PERSISTENCE_TYPE=badger \
+KONSUL_DATA_DIR=/var/lib/konsul \
+./konsul
 ```
 
 ## Monitoring & Health Checks
