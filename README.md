@@ -41,6 +41,8 @@ PUT /register
 
 Configure via environment variables:
 
+### Server Configuration
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `KONSUL_PORT` | `8888` | Server port |
@@ -49,6 +51,39 @@ Configure via environment variables:
 | `KONSUL_CLEANUP_INTERVAL` | `60s` | Cleanup interval |
 | `KONSUL_LOG_LEVEL` | `info` | Log level (debug/info/warn/error) |
 | `KONSUL_LOG_FORMAT` | `text` | Log format (text/json) |
+
+### Authentication Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `KONSUL_AUTH_ENABLED` | `false` | Enable authentication system |
+| `KONSUL_JWT_SECRET` | `` | JWT signing secret (required if auth enabled) |
+| `KONSUL_JWT_EXPIRY` | `15m` | JWT token expiry duration |
+| `KONSUL_REFRESH_EXPIRY` | `168h` (7 days) | Refresh token expiry duration |
+| `KONSUL_JWT_ISSUER` | `konsul` | JWT issuer name |
+| `KONSUL_APIKEY_PREFIX` | `konsul` | API key prefix |
+| `KONSUL_REQUIRE_AUTH` | `false` | Require authentication for all endpoints |
+| `KONSUL_PUBLIC_PATHS` | `/health,/health/live,/health/ready,/metrics` | Comma-separated list of public paths |
+
+### Persistence Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `KONSUL_PERSISTENCE_ENABLED` | `false` | Enable persistence |
+| `KONSUL_PERSISTENCE_TYPE` | `badger` | Persistence type (memory/badger) |
+| `KONSUL_DATA_DIR` | `./data` | Data directory for persistence |
+| `KONSUL_BACKUP_DIR` | `./backups` | Backup directory |
+| `KONSUL_SYNC_WRITES` | `true` | Enable synchronous writes |
+| `KONSUL_WAL_ENABLED` | `true` | Enable write-ahead log |
+
+### DNS Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `KONSUL_DNS_ENABLED` | `true` | Enable DNS server |
+| `KONSUL_DNS_HOST` | `` | DNS server host |
+| `KONSUL_DNS_PORT` | `8600` | DNS server port |
+| `KONSUL_DNS_DOMAIN` | `consul` | DNS domain suffix |
 
 **Examples:**
 ```bash
