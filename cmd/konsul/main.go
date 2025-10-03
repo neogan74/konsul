@@ -52,6 +52,28 @@ func main() {
 	app.Use(middleware.RequestLogging(appLogger))
 	app.Use(middleware.MetricsMiddleware())
 
+	// Initialize rate limiting
+	var rateLimitService *ratelimit.Service
+	if cfg.RateLimit.Enabled {
+		rateLimitService = ratelimit.NewService(ratelimit.Config{
+			Enabled:         cfg.RateLimit.Enabled,
+			RequestsPerSec:  cfg.RateLimit.RequestsPerSec,
+			Burst:           cfg.RateLimit.Burst,
+			ByIP:            cfg.RateLimit.ByIP,
+			ByAPIKey:        cfg.RateLimit.ByAPIKey,
+			CleanupInterval: cfg.RateLimit.CleanupInterval,
+		})
+
+		app.Use(middleware.RateLimitMiddleware(rateLimitService))
+
+		appLogger.Info("Rate limiting enabled",
+			logger.Float64("requests_per_sec", cfg.RateLimit.RequestsPerSec),
+			logger.Int("burst", cfg.RateLimit.Burst),
+			logger.Bool("by_ip", cfg.RateLimit.ByIP),
+			logger.Bool("by_apikey", cfg.RateLimit.ByAPIKey),
+		)
+	}
+
 	// Initialize persistence engine
 	var engine persistence.Engine
 	if cfg.Persistence.Enabled {
