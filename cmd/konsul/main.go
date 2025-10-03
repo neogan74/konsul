@@ -67,10 +67,10 @@ func main() {
 		app.Use(middleware.RateLimitMiddleware(rateLimitService))
 
 		appLogger.Info("Rate limiting enabled",
-			logger.Float64("requests_per_sec", cfg.RateLimit.RequestsPerSec),
+			logger.String("requests_per_sec", fmt.Sprintf("%.1f", cfg.RateLimit.RequestsPerSec)),
 			logger.Int("burst", cfg.RateLimit.Burst),
-			logger.Bool("by_ip", cfg.RateLimit.ByIP),
-			logger.Bool("by_apikey", cfg.RateLimit.ByAPIKey),
+			logger.String("by_ip", fmt.Sprintf("%t", cfg.RateLimit.ByIP)),
+			logger.String("by_apikey", fmt.Sprintf("%t", cfg.RateLimit.ByAPIKey)),
 		)
 	}
 
