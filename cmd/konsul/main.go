@@ -18,6 +18,7 @@ import (
 	"github.com/neogan74/konsul/internal/metrics"
 	"github.com/neogan74/konsul/internal/middleware"
 	"github.com/neogan74/konsul/internal/persistence"
+	"github.com/neogan74/konsul/internal/ratelimit"
 	"github.com/neogan74/konsul/internal/store"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
