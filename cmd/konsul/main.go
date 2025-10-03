@@ -72,6 +72,21 @@ func main() {
 			logger.String("by_ip", fmt.Sprintf("%t", cfg.RateLimit.ByIP)),
 			logger.String("by_apikey", fmt.Sprintf("%t", cfg.RateLimit.ByAPIKey)),
 		)
+
+		// Update rate limit metrics periodically
+		go func() {
+			ticker := time.NewTicker(10 * time.Second)
+			defer ticker.Stop()
+			for range ticker.C {
+				stats := rateLimitService.Stats()
+				if ipCount, ok := stats["ip_limiters"].(int); ok {
+					metrics.RateLimitActiveClients.WithLabelValues("ip").Set(float64(ipCount))
+				}
+				if keyCount, ok := stats["apikey_limiters"].(int); ok {
+					metrics.RateLimitActiveClients.WithLabelValues("apikey").Set(float64(keyCount))
+				}
+			}
+		}()
 	}
 
 	// Initialize persistence engine
