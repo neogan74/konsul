@@ -13,7 +13,10 @@ func RateLimitMiddleware(service *ratelimit.Service) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		// Get client identifier (IP or API key)
 		clientIP := c.IP()
-		apiKeyID := GetAPIKeyID(c)
+		apiKeyID := ""
+		if key := GetAPIKey(c); key != nil {
+			apiKeyID = key.ID
+		}
 
 		var allowed bool
 		var identifier string
