@@ -29,7 +29,15 @@
   - [x] Comprehensive test coverage
 - [ ] TLS/SSL support
 - [ ] ACL for KV store access
-- [ ] Rate limiting per client
+- [x] Rate limiting per client
+  - [x] Token bucket algorithm implementation
+  - [x] Per-IP rate limiting
+  - [x] Per-API-key rate limiting
+  - [x] Configurable rates and burst sizes
+  - [x] Rate limit middleware
+  - [x] Prometheus metrics for rate limiting
+  - [x] Automatic cleanup of unused limiters
+  - [x] Comprehensive test coverage
 
 ## 4. Monitoring & Metrics
 - [x] Prometheus metrics endpoint (/metrics)
