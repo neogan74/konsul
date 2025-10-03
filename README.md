@@ -60,7 +60,59 @@ KONSUL_HOST=0.0.0.0 KONSUL_PORT=80 KONSUL_LOG_FORMAT=json KONSUL_LOG_LEVEL=info 
 
 # Debug mode with verbose logging
 KONSUL_LOG_LEVEL=debug KONSUL_LOG_FORMAT=text ./konsul
+
+# Enable rate limiting
+KONSUL_RATE_LIMIT_ENABLED=true \
+KONSUL_RATE_LIMIT_REQUESTS_PER_SEC=100 \
+KONSUL_RATE_LIMIT_BURST=20 \
+KONSUL_RATE_LIMIT_BY_IP=true \
+./konsul
 ```
+
+## Rate Limiting
+
+Konsul includes a token bucket rate limiter to protect against abuse and ensure fair usage.
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `KONSUL_RATE_LIMIT_ENABLED` | `false` | Enable rate limiting |
+| `KONSUL_RATE_LIMIT_REQUESTS_PER_SEC` | `100.0` | Requests allowed per second |
+| `KONSUL_RATE_LIMIT_BURST` | `20` | Burst size (max requests in short period) |
+| `KONSUL_RATE_LIMIT_BY_IP` | `true` | Enable per-IP rate limiting |
+| `KONSUL_RATE_LIMIT_BY_APIKEY` | `false` | Enable per-API-key rate limiting |
+| `KONSUL_RATE_LIMIT_CLEANUP` | `5m` | Cleanup interval for unused limiters |
+
+### How It Works
+
+- **Token Bucket Algorithm**: Allows bursts while maintaining average rate
+- **Per-IP Limiting**: Each IP address gets independent rate limit
+- **Per-API-Key Limiting**: Each authenticated API key gets independent rate limit
+- **Automatic Cleanup**: Unused limiters are cleaned up periodically
+
+### Response Headers
+
+When rate limited, responses include:
+- `X-RateLimit-Limit: exceeded` - Rate limit status
+- `X-RateLimit-Reset: <timestamp>` - When limit resets
+
+### Error Response
+
+```json
+{
+  "error": "rate limit exceeded",
+  "message": "Too many requests. Please try again later.",
+  "identifier": "ip:192.168.1.1"
+}
+```
+
+### Metrics
+
+Rate limiting exposes Prometheus metrics:
+- `konsul_rate_limit_requests_total{limiter_type,status}` - Total requests checked
+- `konsul_rate_limit_exceeded_total{limiter_type}` - Total violations
+- `konsul_rate_limit_active_clients{limiter_type}` - Active clients being tracked
 
 ## Monitoring & Health Checks
 
