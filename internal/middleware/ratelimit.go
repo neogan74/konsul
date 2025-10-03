@@ -56,7 +56,10 @@ func RateLimitWithConfig(requestsPerSec float64, burst int) fiber.Handler {
 
 	return func(c *fiber.Ctx) error {
 		clientIP := c.IP()
-		apiKeyID := GetAPIKeyID(c)
+		apiKeyID := ""
+		if key := GetAPIKey(c); key != nil {
+			apiKeyID = key.ID
+		}
 
 		identifier := clientIP
 		if apiKeyID != "" {
