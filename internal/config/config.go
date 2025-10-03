@@ -14,6 +14,7 @@ type Config struct {
 	Log         LogConfig
 	Persistence PersistenceConfig
 	DNS         DNSConfig
+	RateLimit   RateLimitConfig
 }
 
 // ServerConfig contains HTTP server configuration
@@ -52,6 +53,16 @@ type DNSConfig struct {
 	Domain  string
 }
 
+// RateLimitConfig contains rate limiting configuration
+type RateLimitConfig struct {
+	Enabled         bool
+	RequestsPerSec  float64
+	Burst           int
+	ByIP            bool
+	ByAPIKey        bool
+	CleanupInterval time.Duration
+}
+
 // Load loads configuration from environment variables with defaults
 func Load() (*Config, error) {
 	config := &Config{
@@ -80,6 +91,14 @@ func Load() (*Config, error) {
 			Host:    getEnvString("KONSUL_DNS_HOST", ""),
 			Port:    getEnvInt("KONSUL_DNS_PORT", 8600),
 			Domain:  getEnvString("KONSUL_DNS_DOMAIN", "consul"),
+		},
+		RateLimit: RateLimitConfig{
+			Enabled:         getEnvBool("KONSUL_RATE_LIMIT_ENABLED", false),
+			RequestsPerSec:  getEnvFloat("KONSUL_RATE_LIMIT_REQUESTS_PER_SEC", 100.0),
+			Burst:           getEnvInt("KONSUL_RATE_LIMIT_BURST", 20),
+			ByIP:            getEnvBool("KONSUL_RATE_LIMIT_BY_IP", true),
+			ByAPIKey:        getEnvBool("KONSUL_RATE_LIMIT_BY_APIKEY", false),
+			CleanupInterval: getEnvDuration("KONSUL_RATE_LIMIT_CLEANUP", 5*time.Minute),
 		},
 	}
 
@@ -148,6 +167,21 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	// Validate rate limit configuration if enabled
+	if c.RateLimit.Enabled {
+		if c.RateLimit.RequestsPerSec <= 0 {
+			return fmt.Errorf("rate limit requests per second must be positive")
+		}
+
+		if c.RateLimit.Burst <= 0 {
+			return fmt.Errorf("rate limit burst must be positive")
+		}
+
+		if !c.RateLimit.ByIP && !c.RateLimit.ByAPIKey {
+			return fmt.Errorf("rate limiting must be enabled for at least IP or API key")
+		}
+	}
+
 	return nil
 }
 
@@ -192,6 +226,16 @@ func getEnvBool(key string, defaultValue bool) bool {
 	if value := os.Getenv(key); value != "" {
 		if boolValue, err := strconv.ParseBool(value); err == nil {
 			return boolValue
+		}
+	}
+	return defaultValue
+}
+
+// getEnvFloat gets a float environment variable with a default value
+func getEnvFloat(key string, defaultValue float64) float64 {
+	if value := os.Getenv(key); value != "" {
+		if floatValue, err := strconv.ParseFloat(value, 64); err == nil {
+			return floatValue
 		}
 	}
 	return defaultValue
