@@ -25,16 +25,23 @@ func RateLimitMiddleware(service *ratelimit.Service) fiber.Handler {
 		var identifier string
 
 		// Check API key rate limit first if available
+		var limiterType string
 		if apiKeyID != "" {
 			allowed = service.AllowAPIKey(apiKeyID)
 			identifier = fmt.Sprintf("apikey:%s", apiKeyID)
+			limiterType = "apikey"
 		} else {
 			// Fall back to IP-based rate limiting
 			allowed = service.AllowIP(clientIP)
 			identifier = fmt.Sprintf("ip:%s", clientIP)
+			limiterType = "ip"
 		}
 
 		if !allowed {
+			// Record rate limit exceeded
+			metrics.RateLimitExceeded.WithLabelValues(limiterType).Inc()
+			metrics.RateLimitRequestsTotal.WithLabelValues(limiterType, "exceeded").Inc()
+
 			// Rate limit exceeded
 			c.Set("X-RateLimit-Limit", "exceeded")
 			c.Set("X-RateLimit-Reset", fmt.Sprintf("%d", time.Now().Add(time.Second).Unix()))
@@ -45,6 +52,9 @@ func RateLimitMiddleware(service *ratelimit.Service) fiber.Handler {
 				"identifier": identifier,
 			})
 		}
+
+		// Record successful rate limit check
+		metrics.RateLimitRequestsTotal.WithLabelValues(limiterType, "allowed").Inc()
 
 		// Set rate limit headers (informational)
 		c.Set("X-RateLimit-Limit", "ok")
