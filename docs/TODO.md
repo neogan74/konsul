@@ -15,7 +15,18 @@
 - [ ] Add data replication across nodes
 
 ## 3. Security Features
-- [ ] Authentication (API keys/JWT)
+- [x] Authentication (API keys/JWT)
+  - [x] JWT service with token generation and validation
+  - [x] Refresh token support
+  - [x] API key service with CRUD operations
+  - [x] JWT middleware for HTTP handlers
+  - [x] API key middleware for HTTP handlers
+  - [x] Role-based access (roles in JWT claims)
+  - [x] Permission-based access (permissions in API keys)
+  - [x] Configurable public paths
+  - [x] Auth endpoints (login, refresh, verify)
+  - [x] API key management endpoints
+  - [x] Comprehensive test coverage
 - [ ] TLS/SSL support
 - [ ] ACL for KV store access
 - [ ] Rate limiting per client
@@ -79,3 +90,7 @@
 ✅ Configuration Management (env variables)
 ✅ Error Handling & Structured Logging
 ✅ Zap Logger Integration
+✅ JWT Authentication & Authorization
+✅ API Key Management System
+✅ Authentication Middleware (JWT & API Key)
+✅ Role & Permission Based Access Control
