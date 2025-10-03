@@ -102,3 +102,6 @@
 ✅ API Key Management System
 ✅ Authentication Middleware (JWT & API Key)
 ✅ Role & Permission Based Access Control
+✅ Token Bucket Rate Limiting
+✅ Per-IP and Per-API-Key Rate Limiting
+✅ Rate Limit Metrics & Monitoring
