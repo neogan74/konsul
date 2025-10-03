@@ -11,11 +11,13 @@ import (
 // RateLimitMiddleware creates a middleware for rate limiting
 func RateLimitMiddleware(service *ratelimit.Service) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		// Get client identifier (IP or API key)
+		// Get client identifier (IP or API key from context)
 		clientIP := c.IP()
 		apiKeyID := ""
-		if key := GetAPIKey(c); key != nil {
-			apiKeyID = key.ID
+
+		// Try to get API key ID from context (set by API key auth middleware)
+		if id, ok := c.Locals("api_key_id").(string); ok && id != "" {
+			apiKeyID = id
 		}
 
 		var allowed bool
