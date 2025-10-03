@@ -19,6 +19,7 @@ import (
 	"github.com/neogan74/konsul/internal/metrics"
 	"github.com/neogan74/konsul/internal/middleware"
 	"github.com/neogan74/konsul/internal/persistence"
+	"github.com/neogan74/konsul/internal/ratelimit"
 	"github.com/neogan74/konsul/internal/store"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -52,26 +53,41 @@ func main() {
 	app.Use(middleware.RequestLogging(appLogger))
 	app.Use(middleware.MetricsMiddleware())
 
-	// Initialize auth services
-	var jwtService *auth.JWTService
-	var apiKeyService *auth.APIKeyService
-	var authHandler *handlers.AuthHandler
+	// Initialize rate limiting
+	var rateLimitService *ratelimit.Service
+	if cfg.RateLimit.Enabled {
+		rateLimitService = ratelimit.NewService(ratelimit.Config{
+			Enabled:         cfg.RateLimit.Enabled,
+			RequestsPerSec:  cfg.RateLimit.RequestsPerSec,
+			Burst:           cfg.RateLimit.Burst,
+			ByIP:            cfg.RateLimit.ByIP,
+			ByAPIKey:        cfg.RateLimit.ByAPIKey,
+			CleanupInterval: cfg.RateLimit.CleanupInterval,
+		})
 
-	if cfg.Auth.Enabled {
-		jwtService = auth.NewJWTService(
-			cfg.Auth.JWTSecret,
-			cfg.Auth.JWTExpiry,
-			cfg.Auth.RefreshExpiry,
-			cfg.Auth.Issuer,
-		)
-		apiKeyService = auth.NewAPIKeyService(cfg.Auth.APIKeyPrefix)
-		authHandler = handlers.NewAuthHandler(jwtService, apiKeyService)
+		app.Use(middleware.RateLimitMiddleware(rateLimitService))
 
-		appLogger.Info("Authentication enabled",
-			logger.String("issuer", cfg.Auth.Issuer),
-			logger.Duration("jwt_expiry", cfg.Auth.JWTExpiry),
-			logger.Duration("refresh_expiry", cfg.Auth.RefreshExpiry),
+		appLogger.Info("Rate limiting enabled",
+			logger.String("requests_per_sec", fmt.Sprintf("%.1f", cfg.RateLimit.RequestsPerSec)),
+			logger.Int("burst", cfg.RateLimit.Burst),
+			logger.String("by_ip", fmt.Sprintf("%t", cfg.RateLimit.ByIP)),
+			logger.String("by_apikey", fmt.Sprintf("%t", cfg.RateLimit.ByAPIKey)),
 		)
+
+		// Update rate limit metrics periodically
+		go func() {
+			ticker := time.NewTicker(10 * time.Second)
+			defer ticker.Stop()
+			for range ticker.C {
+				stats := rateLimitService.Stats()
+				if ipCount, ok := stats["ip_limiters"].(int); ok {
+					metrics.RateLimitActiveClients.WithLabelValues("ip").Set(float64(ipCount))
+				}
+				if keyCount, ok := stats["apikey_limiters"].(int); ok {
+					metrics.RateLimitActiveClients.WithLabelValues("apikey").Set(float64(keyCount))
+				}
+			}
+		}()
 	}
 
 	// Initialize persistence engine

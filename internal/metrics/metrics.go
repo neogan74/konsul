@@ -86,4 +86,29 @@ var (
 		},
 		[]string{"version", "go_version"},
 	)
+
+	// Rate limiting metrics
+	RateLimitRequestsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "konsul_rate_limit_requests_total",
+			Help: "Total number of requests checked against rate limits",
+		},
+		[]string{"limiter_type", "status"},
+	)
+
+	RateLimitExceeded = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "konsul_rate_limit_exceeded_total",
+			Help: "Total number of requests that exceeded rate limits",
+		},
+		[]string{"limiter_type"},
+	)
+
+	RateLimitActiveClients = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "konsul_rate_limit_active_clients",
+			Help: "Number of active clients being rate limited",
+		},
+		[]string{"limiter_type"},
+	)
 )
