@@ -112,6 +112,9 @@ KONSUL_LOG_LEVEL=debug KONSUL_LOG_FORMAT=text ./konsul
 - `konsul_registered_services_total` - Number of registered services
 - `konsul_service_heartbeats_total` - Service heartbeats by service, status
 - `konsul_expired_services_total` - Total expired services cleaned up
+- `konsul_rate_limit_requests_total` - Total rate limit checks by type and status
+- `konsul_rate_limit_exceeded_total` - Total rate limit violations by type
+- `konsul_rate_limit_active_clients` - Number of active rate limited clients by type
 - `konsul_build_info` - Build information (version, Go version)
 
 ## Error Handling
