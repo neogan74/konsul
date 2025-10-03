@@ -11,6 +11,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
+	"github.com/neogan74/konsul/internal/auth"
 	"github.com/neogan74/konsul/internal/config"
 	"github.com/neogan74/konsul/internal/dns"
 	"github.com/neogan74/konsul/internal/handlers"
@@ -151,6 +152,26 @@ func main() {
 	// Initialize store metrics
 	metrics.KVStoreSize.Set(float64(len(kv.List())))
 	metrics.RegisteredServicesTotal.Set(float64(len(svcStore.List())))
+
+	// Auth endpoints (public)
+	if cfg.Auth.Enabled {
+		app.Post("/auth/login", authHandler.Login)
+		app.Post("/auth/refresh", authHandler.Refresh)
+		app.Get("/auth/verify", middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths), authHandler.Verify)
+
+		// API key management endpoints (protected)
+		app.Post("/auth/apikeys", middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths), authHandler.CreateAPIKey)
+		app.Get("/auth/apikeys", middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths), authHandler.ListAPIKeys)
+		app.Get("/auth/apikeys/:id", middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths), authHandler.GetAPIKey)
+		app.Put("/auth/apikeys/:id", middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths), authHandler.UpdateAPIKey)
+		app.Delete("/auth/apikeys/:id", middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths), authHandler.DeleteAPIKey)
+		app.Post("/auth/apikeys/:id/revoke", middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths), authHandler.RevokeAPIKey)
+	}
+
+	// Apply auth middleware to protected routes if required
+	if cfg.Auth.RequireAuth && cfg.Auth.Enabled {
+		app.Use(middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths))
+	}
 
 	// KV endpoints
 	app.Get("/kv/", kvHandler.List)

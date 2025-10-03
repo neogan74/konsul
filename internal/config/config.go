@@ -15,6 +15,7 @@ type Config struct {
 	Persistence PersistenceConfig
 	DNS         DNSConfig
 	RateLimit   RateLimitConfig
+	Auth        AuthConfig
 }
 
 // ServerConfig contains HTTP server configuration
@@ -61,6 +62,16 @@ type RateLimitConfig struct {
 	ByIP            bool
 	ByAPIKey        bool
 	CleanupInterval time.Duration
+// AuthConfig contains authentication configuration
+type AuthConfig struct {
+	Enabled        bool
+	JWTSecret      string
+	JWTExpiry      time.Duration
+	RefreshExpiry  time.Duration
+	Issuer         string
+	APIKeyPrefix   string
+	RequireAuth    bool
+	PublicPaths    []string
 }
 
 // Load loads configuration from environment variables with defaults
@@ -99,6 +110,15 @@ func Load() (*Config, error) {
 			ByIP:            getEnvBool("KONSUL_RATE_LIMIT_BY_IP", true),
 			ByAPIKey:        getEnvBool("KONSUL_RATE_LIMIT_BY_APIKEY", false),
 			CleanupInterval: getEnvDuration("KONSUL_RATE_LIMIT_CLEANUP", 5*time.Minute),
+		Auth: AuthConfig{
+			Enabled:       getEnvBool("KONSUL_AUTH_ENABLED", false),
+			JWTSecret:     getEnvString("KONSUL_JWT_SECRET", ""),
+			JWTExpiry:     getEnvDuration("KONSUL_JWT_EXPIRY", 15*time.Minute),
+			RefreshExpiry: getEnvDuration("KONSUL_REFRESH_EXPIRY", 7*24*time.Hour),
+			Issuer:        getEnvString("KONSUL_JWT_ISSUER", "konsul"),
+			APIKeyPrefix:  getEnvString("KONSUL_APIKEY_PREFIX", "konsul"),
+			RequireAuth:   getEnvBool("KONSUL_REQUIRE_AUTH", false),
+			PublicPaths:   getEnvStringSlice("KONSUL_PUBLIC_PATHS", []string{"/health", "/health/live", "/health/ready", "/metrics"}),
 		},
 	}
 
@@ -179,6 +199,22 @@ func (c *Config) Validate() error {
 
 		if !c.RateLimit.ByIP && !c.RateLimit.ByAPIKey {
 			return fmt.Errorf("rate limiting must be enabled for at least IP or API key")
+	// Validate auth configuration if enabled
+	if c.Auth.Enabled || c.Auth.RequireAuth {
+		if c.Auth.JWTSecret == "" {
+			return fmt.Errorf("JWT secret must be specified when auth is enabled")
+		}
+
+		if c.Auth.JWTExpiry <= 0 {
+			return fmt.Errorf("JWT expiry must be positive")
+		}
+
+		if c.Auth.RefreshExpiry <= 0 {
+			return fmt.Errorf("refresh expiry must be positive")
+		}
+
+		if c.Auth.Issuer == "" {
+			return fmt.Errorf("JWT issuer must be specified when auth is enabled")
 		}
 	}
 
@@ -236,7 +272,61 @@ func getEnvFloat(key string, defaultValue float64) float64 {
 	if value := os.Getenv(key); value != "" {
 		if floatValue, err := strconv.ParseFloat(value, 64); err == nil {
 			return floatValue
+// getEnvStringSlice gets a comma-separated string environment variable as a slice with a default value
+func getEnvStringSlice(key string, defaultValue []string) []string {
+	if value := os.Getenv(key); value != "" {
+		result := []string{}
+		for _, v := range splitAndTrim(value, ",") {
+			if v != "" {
+				result = append(result, v)
+			}
+		}
+		if len(result) > 0 {
+			return result
 		}
 	}
 	return defaultValue
+}
+
+// splitAndTrim splits a string by delimiter and trims spaces from each element
+func splitAndTrim(s, delimiter string) []string {
+	parts := []string{}
+	for _, part := range splitString(s, delimiter) {
+		trimmed := trimSpace(part)
+		parts = append(parts, trimmed)
+	}
+	return parts
+}
+
+// splitString splits a string by delimiter
+func splitString(s, delimiter string) []string {
+	if s == "" {
+		return []string{}
+	}
+	result := []string{}
+	current := ""
+	for i := 0; i < len(s); i++ {
+		if i+len(delimiter) <= len(s) && s[i:i+len(delimiter)] == delimiter {
+			result = append(result, current)
+			current = ""
+			i += len(delimiter) - 1
+		} else {
+			current += string(s[i])
+		}
+	}
+	result = append(result, current)
+	return result
+}
+
+// trimSpace removes leading and trailing whitespace
+func trimSpace(s string) string {
+	start := 0
+	end := len(s)
+	for start < end && (s[start] == ' ' || s[start] == '\t' || s[start] == '\n' || s[start] == '\r') {
+		start++
+	}
+	for end > start && (s[end-1] == ' ' || s[end-1] == '\t' || s[end-1] == '\n' || s[end-1] == '\r') {
+		end--
+	}
+	return s[start:end]
 }
