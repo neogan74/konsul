@@ -487,14 +487,14 @@ func handleBackupCreate(serverURL string, tlsConfig *TLSConfig, args []string) {
 	fmt.Printf("Successfully created backup: %s\n", filename)
 }
 
-func handleBackupRestore(serverURL string, args []string) {
+func handleBackupRestore(serverURL string, tlsConfig *TLSConfig, args []string) {
 	if len(args) != 1 {
 		fmt.Println("Usage: konsulctl backup restore <backup-file>")
 		os.Exit(1)
 	}
 
 	backupFile := args[0]
-	client := NewKonsulClient(serverURL)
+	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
 
 	err := client.RestoreBackup(backupFile)
 	if err != nil {
