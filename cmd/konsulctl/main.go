@@ -505,13 +505,13 @@ func handleBackupRestore(serverURL string, tlsConfig *TLSConfig, args []string) 
 	fmt.Printf("Successfully restored from backup: %s\n", backupFile)
 }
 
-func handleBackupList(serverURL string, args []string) {
+func handleBackupList(serverURL string, tlsConfig *TLSConfig, args []string) {
 	if len(args) != 0 {
 		fmt.Println("Usage: konsulctl backup list")
 		os.Exit(1)
 	}
 
-	client := NewKonsulClient(serverURL)
+	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
 
 	backups, err := client.ListBackups()
 	if err != nil {
