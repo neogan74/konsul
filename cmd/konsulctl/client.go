@@ -2,10 +2,13 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -13,6 +16,15 @@ import (
 type KonsulClient struct {
 	BaseURL    string
 	HTTPClient *http.Client
+}
+
+// TLSConfig holds TLS configuration for the client
+type TLSConfig struct {
+	Enabled        bool
+	SkipVerify     bool
+	CACertFile     string
+	ClientCertFile string
+	ClientKeyFile  string
 }
 
 type KVRequest struct {
@@ -38,19 +50,19 @@ type Service struct {
 }
 
 type CheckDefinition struct {
-	ID           string            `json:"id,omitempty"`
-	Name         string            `json:"name"`
-	ServiceID    string            `json:"service_id,omitempty"`
-	HTTP         string            `json:"http,omitempty"`
-	TCP          string            `json:"tcp,omitempty"`
-	GRPC         string            `json:"grpc,omitempty"`
-	TTL          string            `json:"ttl,omitempty"`
-	Interval     string            `json:"interval,omitempty"`
-	Timeout      string            `json:"timeout,omitempty"`
-	Method       string            `json:"method,omitempty"`
-	Headers      map[string]string `json:"headers,omitempty"`
-	TLSSkipVerify bool             `json:"tls_skip_verify,omitempty"`
-	GRPCUseTLS   bool              `json:"grpc_use_tls,omitempty"`
+	ID            string            `json:"id,omitempty"`
+	Name          string            `json:"name"`
+	ServiceID     string            `json:"service_id,omitempty"`
+	HTTP          string            `json:"http,omitempty"`
+	TCP           string            `json:"tcp,omitempty"`
+	GRPC          string            `json:"grpc,omitempty"`
+	TTL           string            `json:"ttl,omitempty"`
+	Interval      string            `json:"interval,omitempty"`
+	Timeout       string            `json:"timeout,omitempty"`
+	Method        string            `json:"method,omitempty"`
+	Headers       map[string]string `json:"headers,omitempty"`
+	TLSSkipVerify bool              `json:"tls_skip_verify,omitempty"`
+	GRPCUseTLS    bool              `json:"grpc_use_tls,omitempty"`
 }
 
 type ServiceRegisterRequest struct {
