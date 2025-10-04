@@ -38,6 +38,10 @@
   - [x] Prometheus metrics for rate limiting
   - [x] Automatic cleanup of unused limiters
   - [x] Comprehensive test coverage
+  - [ ] Admin API endpoints for rate limit management
+  - [ ] konsulctl commands to view/reset rate limits
+  - [ ] konsulctl commands to temporarily adjust rate limits
+  - [ ] Rate limit statistics and reporting via CLI
 
 ## 4. Monitoring & Metrics
 - [x] Prometheus metrics endpoint (/metrics)
@@ -69,7 +73,10 @@
 ## 8. Developer Experience
 - [ ] Docker image with multi-stage build
 - [ ] Kubernetes manifests/Helm chart
-- [x] CLI client tool
+- [x] CLI client tool (konsulctl)
+  - [ ] Rate limit management commands
+  - [ ] Rate limit statistics viewing
+  - [ ] Admin operations (reset limits, adjust temporarily)
 - [ ] SDK/client libraries (Go, Python, JS)
 
 ## 9. Consul-Inspired Features (High Value)
