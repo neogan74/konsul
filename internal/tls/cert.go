@@ -44,7 +44,7 @@ func GenerateSelfSignedCert(certFile, keyFile string) error {
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 		DNSNames:              []string{"localhost"},
-		IPAddresses:           []string{"127.0.0.1"},
+		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
 	}
 
 	// Create self-signed certificate
