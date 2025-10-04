@@ -75,14 +75,14 @@ type RateLimitConfig struct {
 
 // AuthConfig contains authentication configuration
 type AuthConfig struct {
-	Enabled        bool
-	JWTSecret      string
-	JWTExpiry      time.Duration
-	RefreshExpiry  time.Duration
-	Issuer         string
-	APIKeyPrefix   string
-	RequireAuth    bool
-	PublicPaths    []string
+	Enabled       bool
+	JWTSecret     string
+	JWTExpiry     time.Duration
+	RefreshExpiry time.Duration
+	Issuer        string
+	APIKeyPrefix  string
+	RequireAuth   bool
+	PublicPaths   []string
 }
 
 // Load loads configuration from environment variables with defaults
@@ -229,6 +229,9 @@ func (c *Config) Validate() error {
 
 		if !c.RateLimit.ByIP && !c.RateLimit.ByAPIKey {
 			return fmt.Errorf("rate limiting must be enabled for at least IP or API key")
+		}
+	}
+
 	// Validate auth configuration if enabled
 	if c.Auth.Enabled || c.Auth.RequireAuth {
 		if c.Auth.JWTSecret == "" {
@@ -302,6 +305,11 @@ func getEnvFloat(key string, defaultValue float64) float64 {
 	if value := os.Getenv(key); value != "" {
 		if floatValue, err := strconv.ParseFloat(value, 64); err == nil {
 			return floatValue
+		}
+	}
+	return defaultValue
+}
+
 // getEnvStringSlice gets a comma-separated string environment variable as a slice with a default value
 func getEnvStringSlice(key string, defaultValue []string) []string {
 	if value := os.Getenv(key); value != "" {
