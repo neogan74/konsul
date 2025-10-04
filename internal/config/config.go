@@ -22,6 +22,15 @@ type Config struct {
 type ServerConfig struct {
 	Host string
 	Port int
+	TLS  TLSConfig
+}
+
+// TLSConfig contains TLS/SSL configuration
+type TLSConfig struct {
+	Enabled  bool
+	CertFile string
+	KeyFile  string
+	AutoCert bool // Auto-generate self-signed cert for development
 }
 
 // ServiceConfig contains service discovery configuration
