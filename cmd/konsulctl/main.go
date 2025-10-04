@@ -320,13 +320,13 @@ func handleServiceRegister(serverURL string, tlsConfig *TLSConfig, args []string
 	fmt.Printf("Successfully registered service: %s at %s:%s%s\n", name, address, port, checkInfo)
 }
 
-func handleServiceList(serverURL string, args []string) {
+func handleServiceList(serverURL string, tlsConfig *TLSConfig, args []string) {
 	if len(args) != 0 {
 		fmt.Println("Usage: konsulctl service list")
 		os.Exit(1)
 	}
 
-	client := NewKonsulClient(serverURL)
+	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
 
 	services, err := client.ListServices()
 	if err != nil {
@@ -345,14 +345,14 @@ func handleServiceList(serverURL string, args []string) {
 	}
 }
 
-func handleServiceDeregister(serverURL string, args []string) {
+func handleServiceDeregister(serverURL string, tlsConfig *TLSConfig, args []string) {
 	if len(args) != 1 {
 		fmt.Println("Usage: konsulctl service deregister <name>")
 		os.Exit(1)
 	}
 
 	name := args[0]
-	client := NewKonsulClient(serverURL)
+	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
 
 	err := client.DeregisterService(name)
 	if err != nil {
