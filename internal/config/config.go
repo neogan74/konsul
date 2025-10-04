@@ -71,6 +71,8 @@ type RateLimitConfig struct {
 	ByIP            bool
 	ByAPIKey        bool
 	CleanupInterval time.Duration
+}
+
 // AuthConfig contains authentication configuration
 type AuthConfig struct {
 	Enabled        bool
