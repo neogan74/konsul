@@ -140,7 +140,7 @@ func handleKVGet(serverURL string, tlsConfig *TLSConfig, args []string) {
 	fmt.Printf("%s\n", value)
 }
 
-func handleKVSet(serverURL string, args []string) {
+func handleKVSet(serverURL string, tlsConfig *TLSConfig, args []string) {
 	if len(args) != 2 {
 		fmt.Println("Usage: konsulctl kv set <key> <value>")
 		os.Exit(1)
@@ -148,7 +148,7 @@ func handleKVSet(serverURL string, args []string) {
 
 	key := args[0]
 	value := args[1]
-	client := NewKonsulClient(serverURL)
+	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
 
 	err := client.SetKV(key, value)
 	if err != nil {
