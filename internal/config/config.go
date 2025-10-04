@@ -127,6 +127,7 @@ func Load() (*Config, error) {
 			ByIP:            getEnvBool("KONSUL_RATE_LIMIT_BY_IP", true),
 			ByAPIKey:        getEnvBool("KONSUL_RATE_LIMIT_BY_APIKEY", false),
 			CleanupInterval: getEnvDuration("KONSUL_RATE_LIMIT_CLEANUP", 5*time.Minute),
+		},
 		Auth: AuthConfig{
 			Enabled:       getEnvBool("KONSUL_AUTH_ENABLED", false),
 			JWTSecret:     getEnvString("KONSUL_JWT_SECRET", ""),
