@@ -150,6 +150,18 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid port: %d (must be 1-65535)", c.Server.Port)
 	}
 
+	// Validate TLS configuration if enabled
+	if c.Server.TLS.Enabled {
+		if !c.Server.TLS.AutoCert {
+			if c.Server.TLS.CertFile == "" {
+				return fmt.Errorf("TLS cert file must be specified when TLS is enabled")
+			}
+			if c.Server.TLS.KeyFile == "" {
+				return fmt.Errorf("TLS key file must be specified when TLS is enabled")
+			}
+		}
+	}
+
 	if c.Service.TTL <= 0 {
 		return fmt.Errorf("invalid service TTL: %v (must be positive)", c.Service.TTL)
 	}
