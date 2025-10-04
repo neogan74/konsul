@@ -21,6 +21,7 @@ import (
 	"github.com/neogan74/konsul/internal/persistence"
 	"github.com/neogan74/konsul/internal/ratelimit"
 	"github.com/neogan74/konsul/internal/store"
+	konsultls "github.com/neogan74/konsul/internal/tls"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -153,6 +154,20 @@ func main() {
 	metrics.KVStoreSize.Set(float64(len(kv.List())))
 	metrics.RegisteredServicesTotal.Set(float64(len(svcStore.List())))
 
+	// Initialize auth services if enabled
+	var jwtService *auth.JWTService
+	var authHandler *handlers.AuthHandler
+	if cfg.Auth.Enabled {
+		jwtService = auth.NewJWTService(
+			cfg.Auth.JWTSecret,
+			cfg.Auth.JWTExpiry,
+			cfg.Auth.RefreshExpiry,
+			cfg.Auth.Issuer,
+		)
+		apiKeyService := auth.NewAPIKeyService(cfg.Auth.APIKeyPrefix)
+		authHandler = handlers.NewAuthHandler(jwtService, apiKeyService)
+	}
+
 	// Auth endpoints (public)
 	if cfg.Auth.Enabled {
 		app.Post("/auth/login", authHandler.Login)
@@ -238,15 +253,56 @@ func main() {
 		}
 	}
 
-	appLogger.Info("Server starting", logger.String("address", cfg.Address()))
+	// Handle TLS configuration
+	if cfg.Server.TLS.Enabled {
+		if cfg.Server.TLS.AutoCert {
+			certFile := "./certs/server.crt"
+			keyFile := "./certs/server.key"
+
+			// Create certs directory if it doesn't exist
+			if err := os.MkdirAll("./certs", 0755); err != nil {
+				appLogger.Error("Failed to create certs directory", logger.Error(err))
+				log.Fatalf("Failed to create certs directory: %v", err)
+			}
+
+			// Generate self-signed certificate if files don't exist
+			if _, err := os.Stat(certFile); os.IsNotExist(err) {
+				appLogger.Info("Generating self-signed TLS certificate for development")
+				if err := konsultls.GenerateSelfSignedCert(certFile, keyFile); err != nil {
+					appLogger.Error("Failed to generate self-signed certificate", logger.Error(err))
+					log.Fatalf("Failed to generate certificate: %v", err)
+				}
+				appLogger.Info("Self-signed certificate generated",
+					logger.String("cert", certFile),
+					logger.String("key", keyFile))
+			}
+
+			cfg.Server.TLS.CertFile = certFile
+			cfg.Server.TLS.KeyFile = keyFile
+		}
+
+		appLogger.Info("Server starting with TLS",
+			logger.String("address", cfg.Address()),
+			logger.String("cert", cfg.Server.TLS.CertFile),
+			logger.String("key", cfg.Server.TLS.KeyFile))
+	} else {
+		appLogger.Info("Server starting", logger.String("address", cfg.Address()))
+	}
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		if err := app.Listen(cfg.Address()); err != nil {
-			appLogger.Error("Failed to start server", logger.Error(err))
-			log.Fatalf("Listen error: %v", err)
+		if cfg.Server.TLS.Enabled {
+			if err := app.ListenTLS(cfg.Address(), cfg.Server.TLS.CertFile, cfg.Server.TLS.KeyFile); err != nil {
+				appLogger.Error("Failed to start TLS server", logger.Error(err))
+				log.Fatalf("Listen TLS error: %v", err)
+			}
+		} else {
+			if err := app.Listen(cfg.Address()); err != nil {
+				appLogger.Error("Failed to start server", logger.Error(err))
+				log.Fatalf("Listen error: %v", err)
+			}
 		}
 	}()
 	<-quit

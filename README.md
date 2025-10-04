@@ -154,6 +154,15 @@ Configure via environment variables:
 | `KONSUL_LOG_LEVEL` | `info` | Log level (debug/info/warn/error) |
 | `KONSUL_LOG_FORMAT` | `text` | Log format (text/json) |
 
+### TLS/SSL Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `KONSUL_TLS_ENABLED` | `false` | Enable TLS/SSL |
+| `KONSUL_TLS_CERT_FILE` | `` | Path to TLS certificate file |
+| `KONSUL_TLS_KEY_FILE` | `` | Path to TLS private key file |
+| `KONSUL_TLS_AUTO_CERT` | `false` | Auto-generate self-signed certificate for development |
+
 ### Authentication Configuration
 
 | Variable | Default | Description |
@@ -197,6 +206,17 @@ KONSUL_HOST=0.0.0.0 KONSUL_PORT=80 KONSUL_LOG_FORMAT=json KONSUL_LOG_LEVEL=info 
 
 # Debug mode with verbose logging
 KONSUL_LOG_LEVEL=debug KONSUL_LOG_FORMAT=text ./konsul
+
+# Enable TLS with auto-generated self-signed certificate (development)
+KONSUL_TLS_ENABLED=true \
+KONSUL_TLS_AUTO_CERT=true \
+./konsul
+
+# Enable TLS with custom certificates (production)
+KONSUL_TLS_ENABLED=true \
+KONSUL_TLS_CERT_FILE=/path/to/cert.pem \
+KONSUL_TLS_KEY_FILE=/path/to/key.pem \
+./konsul
 
 # Enable rate limiting
 KONSUL_RATE_LIMIT_ENABLED=true \

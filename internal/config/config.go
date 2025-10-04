@@ -22,6 +22,15 @@ type Config struct {
 type ServerConfig struct {
 	Host string
 	Port int
+	TLS  TLSConfig
+}
+
+// TLSConfig contains TLS/SSL configuration
+type TLSConfig struct {
+	Enabled  bool
+	CertFile string
+	KeyFile  string
+	AutoCert bool // Auto-generate self-signed cert for development
 }
 
 // ServiceConfig contains service discovery configuration
@@ -62,16 +71,18 @@ type RateLimitConfig struct {
 	ByIP            bool
 	ByAPIKey        bool
 	CleanupInterval time.Duration
+}
+
 // AuthConfig contains authentication configuration
 type AuthConfig struct {
-	Enabled        bool
-	JWTSecret      string
-	JWTExpiry      time.Duration
-	RefreshExpiry  time.Duration
-	Issuer         string
-	APIKeyPrefix   string
-	RequireAuth    bool
-	PublicPaths    []string
+	Enabled       bool
+	JWTSecret     string
+	JWTExpiry     time.Duration
+	RefreshExpiry time.Duration
+	Issuer        string
+	APIKeyPrefix  string
+	RequireAuth   bool
+	PublicPaths   []string
 }
 
 // Load loads configuration from environment variables with defaults
@@ -80,6 +91,12 @@ func Load() (*Config, error) {
 		Server: ServerConfig{
 			Host: getEnvString("KONSUL_HOST", ""),
 			Port: getEnvInt("KONSUL_PORT", 8888),
+			TLS: TLSConfig{
+				Enabled:  getEnvBool("KONSUL_TLS_ENABLED", false),
+				CertFile: getEnvString("KONSUL_TLS_CERT_FILE", ""),
+				KeyFile:  getEnvString("KONSUL_TLS_KEY_FILE", ""),
+				AutoCert: getEnvBool("KONSUL_TLS_AUTO_CERT", false),
+			},
 		},
 		Service: ServiceConfig{
 			TTL:             getEnvDuration("KONSUL_SERVICE_TTL", 30*time.Second),
@@ -110,6 +127,7 @@ func Load() (*Config, error) {
 			ByIP:            getEnvBool("KONSUL_RATE_LIMIT_BY_IP", true),
 			ByAPIKey:        getEnvBool("KONSUL_RATE_LIMIT_BY_APIKEY", false),
 			CleanupInterval: getEnvDuration("KONSUL_RATE_LIMIT_CLEANUP", 5*time.Minute),
+		},
 		Auth: AuthConfig{
 			Enabled:       getEnvBool("KONSUL_AUTH_ENABLED", false),
 			JWTSecret:     getEnvString("KONSUL_JWT_SECRET", ""),
@@ -133,6 +151,18 @@ func Load() (*Config, error) {
 func (c *Config) Validate() error {
 	if c.Server.Port <= 0 || c.Server.Port > 65535 {
 		return fmt.Errorf("invalid port: %d (must be 1-65535)", c.Server.Port)
+	}
+
+	// Validate TLS configuration if enabled
+	if c.Server.TLS.Enabled {
+		if !c.Server.TLS.AutoCert {
+			if c.Server.TLS.CertFile == "" {
+				return fmt.Errorf("TLS cert file must be specified when TLS is enabled")
+			}
+			if c.Server.TLS.KeyFile == "" {
+				return fmt.Errorf("TLS key file must be specified when TLS is enabled")
+			}
+		}
 	}
 
 	if c.Service.TTL <= 0 {
@@ -199,6 +229,9 @@ func (c *Config) Validate() error {
 
 		if !c.RateLimit.ByIP && !c.RateLimit.ByAPIKey {
 			return fmt.Errorf("rate limiting must be enabled for at least IP or API key")
+		}
+	}
+
 	// Validate auth configuration if enabled
 	if c.Auth.Enabled || c.Auth.RequireAuth {
 		if c.Auth.JWTSecret == "" {
@@ -272,6 +305,11 @@ func getEnvFloat(key string, defaultValue float64) float64 {
 	if value := os.Getenv(key); value != "" {
 		if floatValue, err := strconv.ParseFloat(value, 64); err == nil {
 			return floatValue
+		}
+	}
+	return defaultValue
+}
+
 // getEnvStringSlice gets a comma-separated string environment variable as a slice with a default value
 func getEnvStringSlice(key string, defaultValue []string) []string {
 	if value := os.Getenv(key); value != "" {
