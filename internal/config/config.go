@@ -89,6 +89,12 @@ func Load() (*Config, error) {
 		Server: ServerConfig{
 			Host: getEnvString("KONSUL_HOST", ""),
 			Port: getEnvInt("KONSUL_PORT", 8888),
+			TLS: TLSConfig{
+				Enabled:  getEnvBool("KONSUL_TLS_ENABLED", false),
+				CertFile: getEnvString("KONSUL_TLS_CERT_FILE", ""),
+				KeyFile:  getEnvString("KONSUL_TLS_KEY_FILE", ""),
+				AutoCert: getEnvBool("KONSUL_TLS_AUTO_CERT", false),
+			},
 		},
 		Service: ServiceConfig{
 			TTL:             getEnvDuration("KONSUL_SERVICE_TTL", 30*time.Second),
