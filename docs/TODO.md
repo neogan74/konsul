@@ -109,3 +109,4 @@
 ✅ Token Bucket Rate Limiting
 ✅ Per-IP and Per-API-Key Rate Limiting
 ✅ Rate Limit Metrics & Monitoring
+✅ TLS/SSL Support with Auto-Generated Certificates
