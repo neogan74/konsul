@@ -154,6 +154,20 @@ func main() {
 	metrics.KVStoreSize.Set(float64(len(kv.List())))
 	metrics.RegisteredServicesTotal.Set(float64(len(svcStore.List())))
 
+	// Initialize auth services if enabled
+	var jwtService *auth.JWTService
+	var authHandler *handlers.AuthHandler
+	if cfg.Auth.Enabled {
+		jwtService = auth.NewJWTService(auth.JWTConfig{
+			Secret:        cfg.Auth.JWTSecret,
+			Expiry:        cfg.Auth.JWTExpiry,
+			RefreshExpiry: cfg.Auth.RefreshExpiry,
+			Issuer:        cfg.Auth.Issuer,
+		})
+		apiKeyService := auth.NewAPIKeyService(cfg.Auth.APIKeyPrefix, engine)
+		authHandler = handlers.NewAuthHandler(jwtService, apiKeyService)
+	}
+
 	// Auth endpoints (public)
 	if cfg.Auth.Enabled {
 		app.Post("/auth/login", authHandler.Login)
