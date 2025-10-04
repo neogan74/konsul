@@ -82,10 +82,44 @@ type RestoreRequest struct {
 }
 
 func NewKonsulClient(baseURL string) *KonsulClient {
+	return NewKonsulClientWithTLS(baseURL, nil)
+}
+
+func NewKonsulClientWithTLS(baseURL string, tlsConfig *TLSConfig) *KonsulClient {
+	transport := &http.Transport{}
+
+	// Configure TLS if provided
+	if tlsConfig != nil && (tlsConfig.Enabled || strings.HasPrefix(baseURL, "https://")) {
+		tlsClientConfig := &tls.Config{
+			InsecureSkipVerify: tlsConfig.SkipVerify,
+		}
+
+		// Load CA certificate if provided
+		if tlsConfig.CACertFile != "" {
+			caCert, err := os.ReadFile(tlsConfig.CACertFile)
+			if err == nil {
+				caCertPool := x509.NewCertPool()
+				caCertPool.AppendCertsFromPEM(caCert)
+				tlsClientConfig.RootCAs = caCertPool
+			}
+		}
+
+		// Load client certificate if provided
+		if tlsConfig.ClientCertFile != "" && tlsConfig.ClientKeyFile != "" {
+			cert, err := tls.LoadX509KeyPair(tlsConfig.ClientCertFile, tlsConfig.ClientKeyFile)
+			if err == nil {
+				tlsClientConfig.Certificates = []tls.Certificate{cert}
+			}
+		}
+
+		transport.TLSClientConfig = tlsClientConfig
+	}
+
 	return &KonsulClient{
 		BaseURL: strings.TrimRight(baseURL, "/"),
 		HTTPClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout:   30 * time.Second,
+			Transport: transport,
 		},
 	}
 }
