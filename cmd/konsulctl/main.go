@@ -530,13 +530,13 @@ func handleBackupList(serverURL string, tlsConfig *TLSConfig, args []string) {
 	}
 }
 
-func handleBackupExport(serverURL string, args []string) {
+func handleBackupExport(serverURL string, tlsConfig *TLSConfig, args []string) {
 	if len(args) != 0 {
 		fmt.Println("Usage: konsulctl backup export")
 		os.Exit(1)
 	}
 
-	client := NewKonsulClient(serverURL)
+	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
 
 	data, err := client.ExportData()
 	if err != nil {
