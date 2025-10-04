@@ -154,6 +154,15 @@ Configure via environment variables:
 | `KONSUL_LOG_LEVEL` | `info` | Log level (debug/info/warn/error) |
 | `KONSUL_LOG_FORMAT` | `text` | Log format (text/json) |
 
+### TLS/SSL Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `KONSUL_TLS_ENABLED` | `false` | Enable TLS/SSL |
+| `KONSUL_TLS_CERT_FILE` | `` | Path to TLS certificate file |
+| `KONSUL_TLS_KEY_FILE` | `` | Path to TLS private key file |
+| `KONSUL_TLS_AUTO_CERT` | `false` | Auto-generate self-signed certificate for development |
+
 ### Authentication Configuration
 
 | Variable | Default | Description |
