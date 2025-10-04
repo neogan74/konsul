@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 )
 
 const version = "1.0.0"
@@ -80,8 +81,16 @@ func handleKVCommand(args []string) {
 	}
 
 	var serverURL string
+	var tlsSkipVerify bool
+	var tlsCACert string
+	var tlsClientCert string
+	var tlsClientKey string
 	flagSet := flag.NewFlagSet("kv", flag.ExitOnError)
 	flagSet.StringVar(&serverURL, "server", "http://localhost:8888", "Konsul server URL")
+	flagSet.BoolVar(&tlsSkipVerify, "tls-skip-verify", false, "Skip TLS certificate verification")
+	flagSet.StringVar(&tlsCACert, "ca-cert", "", "Path to CA certificate file")
+	flagSet.StringVar(&tlsClientCert, "client-cert", "", "Path to client certificate file")
+	flagSet.StringVar(&tlsClientKey, "client-key", "", "Path to client key file")
 
 	subcommand := args[0]
 	subArgs := args[1:]
@@ -89,15 +98,23 @@ func handleKVCommand(args []string) {
 	flagSet.Parse(subArgs)
 	remainingArgs := flagSet.Args()
 
+	tlsConfig := &TLSConfig{
+		Enabled:        strings.HasPrefix(serverURL, "https://"),
+		SkipVerify:     tlsSkipVerify,
+		CACertFile:     tlsCACert,
+		ClientCertFile: tlsClientCert,
+		ClientKeyFile:  tlsClientKey,
+	}
+
 	switch subcommand {
 	case "get":
-		handleKVGet(serverURL, remainingArgs)
+		handleKVGet(serverURL, tlsConfig, remainingArgs)
 	case "set":
-		handleKVSet(serverURL, remainingArgs)
+		handleKVSet(serverURL, tlsConfig, remainingArgs)
 	case "delete":
-		handleKVDelete(serverURL, remainingArgs)
+		handleKVDelete(serverURL, tlsConfig, remainingArgs)
 	case "list":
-		handleKVList(serverURL, remainingArgs)
+		handleKVList(serverURL, tlsConfig, remainingArgs)
 	default:
 		fmt.Printf("Unknown KV subcommand: %s\n", subcommand)
 		fmt.Println("Available: get, set, delete, list")
@@ -105,14 +122,14 @@ func handleKVCommand(args []string) {
 	}
 }
 
-func handleKVGet(serverURL string, args []string) {
+func handleKVGet(serverURL string, tlsConfig *TLSConfig, args []string) {
 	if len(args) != 1 {
 		fmt.Println("Usage: konsulctl kv get <key>")
 		os.Exit(1)
 	}
 
 	key := args[0]
-	client := NewKonsulClient(serverURL)
+	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
 
 	value, err := client.GetKV(key)
 	if err != nil {
@@ -123,7 +140,7 @@ func handleKVGet(serverURL string, args []string) {
 	fmt.Printf("%s\n", value)
 }
 
-func handleKVSet(serverURL string, args []string) {
+func handleKVSet(serverURL string, tlsConfig *TLSConfig, args []string) {
 	if len(args) != 2 {
 		fmt.Println("Usage: konsulctl kv set <key> <value>")
 		os.Exit(1)
@@ -131,7 +148,7 @@ func handleKVSet(serverURL string, args []string) {
 
 	key := args[0]
 	value := args[1]
-	client := NewKonsulClient(serverURL)
+	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
 
 	err := client.SetKV(key, value)
 	if err != nil {
@@ -142,14 +159,14 @@ func handleKVSet(serverURL string, args []string) {
 	fmt.Printf("Successfully set %s = %s\n", key, value)
 }
 
-func handleKVDelete(serverURL string, args []string) {
+func handleKVDelete(serverURL string, tlsConfig *TLSConfig, args []string) {
 	if len(args) != 1 {
 		fmt.Println("Usage: konsulctl kv delete <key>")
 		os.Exit(1)
 	}
 
 	key := args[0]
-	client := NewKonsulClient(serverURL)
+	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
 
 	err := client.DeleteKV(key)
 	if err != nil {
@@ -160,13 +177,13 @@ func handleKVDelete(serverURL string, args []string) {
 	fmt.Printf("Successfully deleted key: %s\n", key)
 }
 
-func handleKVList(serverURL string, args []string) {
+func handleKVList(serverURL string, tlsConfig *TLSConfig, args []string) {
 	if len(args) != 0 {
 		fmt.Println("Usage: konsulctl kv list")
 		os.Exit(1)
 	}
 
-	client := NewKonsulClient(serverURL)
+	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
 
 	keys, err := client.ListKV()
 	if err != nil {
@@ -193,8 +210,16 @@ func handleServiceCommand(args []string) {
 	}
 
 	var serverURL string
+	var tlsSkipVerify bool
+	var tlsCACert string
+	var tlsClientCert string
+	var tlsClientKey string
 	flagSet := flag.NewFlagSet("service", flag.ExitOnError)
 	flagSet.StringVar(&serverURL, "server", "http://localhost:8888", "Konsul server URL")
+	flagSet.BoolVar(&tlsSkipVerify, "tls-skip-verify", false, "Skip TLS certificate verification")
+	flagSet.StringVar(&tlsCACert, "ca-cert", "", "Path to CA certificate file")
+	flagSet.StringVar(&tlsClientCert, "client-cert", "", "Path to client certificate file")
+	flagSet.StringVar(&tlsClientKey, "client-key", "", "Path to client key file")
 
 	subcommand := args[0]
 	subArgs := args[1:]
@@ -202,15 +227,23 @@ func handleServiceCommand(args []string) {
 	flagSet.Parse(subArgs)
 	remainingArgs := flagSet.Args()
 
+	tlsConfig := &TLSConfig{
+		Enabled:        strings.HasPrefix(serverURL, "https://"),
+		SkipVerify:     tlsSkipVerify,
+		CACertFile:     tlsCACert,
+		ClientCertFile: tlsClientCert,
+		ClientKeyFile:  tlsClientKey,
+	}
+
 	switch subcommand {
 	case "register":
-		handleServiceRegister(serverURL, remainingArgs)
+		handleServiceRegister(serverURL, tlsConfig, remainingArgs)
 	case "list":
-		handleServiceList(serverURL, remainingArgs)
+		handleServiceList(serverURL, tlsConfig, remainingArgs)
 	case "deregister":
-		handleServiceDeregister(serverURL, remainingArgs)
+		handleServiceDeregister(serverURL, tlsConfig, remainingArgs)
 	case "heartbeat":
-		handleServiceHeartbeat(serverURL, remainingArgs)
+		handleServiceHeartbeat(serverURL, tlsConfig, remainingArgs)
 	default:
 		fmt.Printf("Unknown service subcommand: %s\n", subcommand)
 		fmt.Println("Available: register, list, deregister, heartbeat")
@@ -218,7 +251,7 @@ func handleServiceCommand(args []string) {
 	}
 }
 
-func handleServiceRegister(serverURL string, args []string) {
+func handleServiceRegister(serverURL string, tlsConfig *TLSConfig, args []string) {
 	if len(args) < 3 {
 		fmt.Println("Usage: konsulctl service register <name> <address> <port> [--check-http <url>] [--check-tcp <addr>] [--check-interval <duration>]")
 		os.Exit(1)
@@ -271,7 +304,7 @@ func handleServiceRegister(serverURL string, args []string) {
 		}
 	}
 
-	client := NewKonsulClient(serverURL)
+	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
 
 	err := client.RegisterServiceWithChecks(name, address, port, checks)
 	if err != nil {
@@ -287,13 +320,13 @@ func handleServiceRegister(serverURL string, args []string) {
 	fmt.Printf("Successfully registered service: %s at %s:%s%s\n", name, address, port, checkInfo)
 }
 
-func handleServiceList(serverURL string, args []string) {
+func handleServiceList(serverURL string, tlsConfig *TLSConfig, args []string) {
 	if len(args) != 0 {
 		fmt.Println("Usage: konsulctl service list")
 		os.Exit(1)
 	}
 
-	client := NewKonsulClient(serverURL)
+	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
 
 	services, err := client.ListServices()
 	if err != nil {
@@ -312,14 +345,14 @@ func handleServiceList(serverURL string, args []string) {
 	}
 }
 
-func handleServiceDeregister(serverURL string, args []string) {
+func handleServiceDeregister(serverURL string, tlsConfig *TLSConfig, args []string) {
 	if len(args) != 1 {
 		fmt.Println("Usage: konsulctl service deregister <name>")
 		os.Exit(1)
 	}
 
 	name := args[0]
-	client := NewKonsulClient(serverURL)
+	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
 
 	err := client.DeregisterService(name)
 	if err != nil {
@@ -330,14 +363,14 @@ func handleServiceDeregister(serverURL string, args []string) {
 	fmt.Printf("Successfully deregistered service: %s\n", name)
 }
 
-func handleServiceHeartbeat(serverURL string, args []string) {
+func handleServiceHeartbeat(serverURL string, tlsConfig *TLSConfig, args []string) {
 	if len(args) != 1 {
 		fmt.Println("Usage: konsulctl service heartbeat <name>")
 		os.Exit(1)
 	}
 
 	name := args[0]
-	client := NewKonsulClient(serverURL)
+	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
 
 	err := client.ServiceHeartbeat(name)
 	if err != nil {
@@ -396,8 +429,16 @@ func handleBackupCommand(args []string) {
 	}
 
 	var serverURL string
+	var tlsSkipVerify bool
+	var tlsCACert string
+	var tlsClientCert string
+	var tlsClientKey string
 	flagSet := flag.NewFlagSet("backup", flag.ExitOnError)
 	flagSet.StringVar(&serverURL, "server", "http://localhost:8888", "Konsul server URL")
+	flagSet.BoolVar(&tlsSkipVerify, "tls-skip-verify", false, "Skip TLS certificate verification")
+	flagSet.StringVar(&tlsCACert, "ca-cert", "", "Path to CA certificate file")
+	flagSet.StringVar(&tlsClientCert, "client-cert", "", "Path to client certificate file")
+	flagSet.StringVar(&tlsClientKey, "client-key", "", "Path to client key file")
 
 	subcommand := args[0]
 	subArgs := args[1:]
@@ -405,15 +446,23 @@ func handleBackupCommand(args []string) {
 	flagSet.Parse(subArgs)
 	remainingArgs := flagSet.Args()
 
+	tlsConfig := &TLSConfig{
+		Enabled:        strings.HasPrefix(serverURL, "https://"),
+		SkipVerify:     tlsSkipVerify,
+		CACertFile:     tlsCACert,
+		ClientCertFile: tlsClientCert,
+		ClientKeyFile:  tlsClientKey,
+	}
+
 	switch subcommand {
 	case "create":
-		handleBackupCreate(serverURL, remainingArgs)
+		handleBackupCreate(serverURL, tlsConfig, remainingArgs)
 	case "restore":
-		handleBackupRestore(serverURL, remainingArgs)
+		handleBackupRestore(serverURL, tlsConfig, remainingArgs)
 	case "list":
-		handleBackupList(serverURL, remainingArgs)
+		handleBackupList(serverURL, tlsConfig, remainingArgs)
 	case "export":
-		handleBackupExport(serverURL, remainingArgs)
+		handleBackupExport(serverURL, tlsConfig, remainingArgs)
 	default:
 		fmt.Printf("Unknown backup subcommand: %s\n", subcommand)
 		fmt.Println("Available: create, restore, list, export")
@@ -421,13 +470,13 @@ func handleBackupCommand(args []string) {
 	}
 }
 
-func handleBackupCreate(serverURL string, args []string) {
+func handleBackupCreate(serverURL string, tlsConfig *TLSConfig, args []string) {
 	if len(args) != 0 {
 		fmt.Println("Usage: konsulctl backup create")
 		os.Exit(1)
 	}
 
-	client := NewKonsulClient(serverURL)
+	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
 
 	filename, err := client.CreateBackup()
 	if err != nil {
@@ -438,14 +487,14 @@ func handleBackupCreate(serverURL string, args []string) {
 	fmt.Printf("Successfully created backup: %s\n", filename)
 }
 
-func handleBackupRestore(serverURL string, args []string) {
+func handleBackupRestore(serverURL string, tlsConfig *TLSConfig, args []string) {
 	if len(args) != 1 {
 		fmt.Println("Usage: konsulctl backup restore <backup-file>")
 		os.Exit(1)
 	}
 
 	backupFile := args[0]
-	client := NewKonsulClient(serverURL)
+	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
 
 	err := client.RestoreBackup(backupFile)
 	if err != nil {
@@ -456,13 +505,13 @@ func handleBackupRestore(serverURL string, args []string) {
 	fmt.Printf("Successfully restored from backup: %s\n", backupFile)
 }
 
-func handleBackupList(serverURL string, args []string) {
+func handleBackupList(serverURL string, tlsConfig *TLSConfig, args []string) {
 	if len(args) != 0 {
 		fmt.Println("Usage: konsulctl backup list")
 		os.Exit(1)
 	}
 
-	client := NewKonsulClient(serverURL)
+	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
 
 	backups, err := client.ListBackups()
 	if err != nil {
@@ -481,13 +530,13 @@ func handleBackupList(serverURL string, args []string) {
 	}
 }
 
-func handleBackupExport(serverURL string, args []string) {
+func handleBackupExport(serverURL string, tlsConfig *TLSConfig, args []string) {
 	if len(args) != 0 {
 		fmt.Println("Usage: konsulctl backup export")
 		os.Exit(1)
 	}
 
-	client := NewKonsulClient(serverURL)
+	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
 
 	data, err := client.ExportData()
 	if err != nil {

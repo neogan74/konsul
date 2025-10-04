@@ -139,6 +139,32 @@ PUT /register
 - Background process runs at configurable interval removing expired services (default: 60s)
 - Services automatically expire if no heartbeat received within TTL
 
+## CLI Tool (konsulctl)
+
+The `konsulctl` command-line tool supports all TLS options for secure communication with the server:
+
+**TLS Options (available for all commands):**
+- `--server <url>` - Konsul server URL (use `https://` for TLS)
+- `--tls-skip-verify` - Skip TLS certificate verification (for self-signed certs)
+- `--ca-cert <file>` - Path to CA certificate file
+- `--client-cert <file>` - Path to client certificate file (for mTLS)
+- `--client-key <file>` - Path to client key file (for mTLS)
+
+**Examples:**
+```bash
+# Connect to TLS server with self-signed certificate
+konsulctl kv set --server https://localhost:8888 --tls-skip-verify mykey myvalue
+
+# Connect with custom CA certificate
+konsulctl service list --server https://localhost:8888 --ca-cert /path/to/ca.crt
+
+# Connect with mutual TLS (client authentication)
+konsulctl backup create --server https://localhost:8888 \
+  --ca-cert /path/to/ca.crt \
+  --client-cert /path/to/client.crt \
+  --client-key /path/to/client.key
+```
+
 ## Configuration
 
 Configure via environment variables:
