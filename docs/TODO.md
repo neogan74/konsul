@@ -27,7 +27,11 @@
   - [x] Auth endpoints (login, refresh, verify)
   - [x] API key management endpoints
   - [x] Comprehensive test coverage
-- [ ] TLS/SSL support
+- [x] TLS/SSL support
+  - [x] TLS configuration (cert/key files)
+  - [x] Auto-generated self-signed certificates for development
+  - [x] Environment variable configuration
+  - [x] ListenTLS integration with Fiber
 - [ ] ACL for KV store access
 - [x] Rate limiting per client
   - [x] Token bucket algorithm implementation
