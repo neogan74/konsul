@@ -207,6 +207,17 @@ KONSUL_HOST=0.0.0.0 KONSUL_PORT=80 KONSUL_LOG_FORMAT=json KONSUL_LOG_LEVEL=info 
 # Debug mode with verbose logging
 KONSUL_LOG_LEVEL=debug KONSUL_LOG_FORMAT=text ./konsul
 
+# Enable TLS with auto-generated self-signed certificate (development)
+KONSUL_TLS_ENABLED=true \
+KONSUL_TLS_AUTO_CERT=true \
+./konsul
+
+# Enable TLS with custom certificates (production)
+KONSUL_TLS_ENABLED=true \
+KONSUL_TLS_CERT_FILE=/path/to/cert.pem \
+KONSUL_TLS_KEY_FILE=/path/to/key.pem \
+./konsul
+
 # Enable rate limiting
 KONSUL_RATE_LIMIT_ENABLED=true \
 KONSUL_RATE_LIMIT_REQUESTS_PER_SEC=100 \
