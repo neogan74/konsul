@@ -159,14 +159,14 @@ func handleKVSet(serverURL string, tlsConfig *TLSConfig, args []string) {
 	fmt.Printf("Successfully set %s = %s\n", key, value)
 }
 
-func handleKVDelete(serverURL string, args []string) {
+func handleKVDelete(serverURL string, tlsConfig *TLSConfig, args []string) {
 	if len(args) != 1 {
 		fmt.Println("Usage: konsulctl kv delete <key>")
 		os.Exit(1)
 	}
 
 	key := args[0]
-	client := NewKonsulClient(serverURL)
+	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
 
 	err := client.DeleteKV(key)
 	if err != nil {
