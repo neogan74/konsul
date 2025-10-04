@@ -429,8 +429,16 @@ func handleBackupCommand(args []string) {
 	}
 
 	var serverURL string
+	var tlsSkipVerify bool
+	var tlsCACert string
+	var tlsClientCert string
+	var tlsClientKey string
 	flagSet := flag.NewFlagSet("backup", flag.ExitOnError)
 	flagSet.StringVar(&serverURL, "server", "http://localhost:8888", "Konsul server URL")
+	flagSet.BoolVar(&tlsSkipVerify, "tls-skip-verify", false, "Skip TLS certificate verification")
+	flagSet.StringVar(&tlsCACert, "ca-cert", "", "Path to CA certificate file")
+	flagSet.StringVar(&tlsClientCert, "client-cert", "", "Path to client certificate file")
+	flagSet.StringVar(&tlsClientKey, "client-key", "", "Path to client key file")
 
 	subcommand := args[0]
 	subArgs := args[1:]
@@ -438,15 +446,23 @@ func handleBackupCommand(args []string) {
 	flagSet.Parse(subArgs)
 	remainingArgs := flagSet.Args()
 
+	tlsConfig := &TLSConfig{
+		Enabled:        strings.HasPrefix(serverURL, "https://"),
+		SkipVerify:     tlsSkipVerify,
+		CACertFile:     tlsCACert,
+		ClientCertFile: tlsClientCert,
+		ClientKeyFile:  tlsClientKey,
+	}
+
 	switch subcommand {
 	case "create":
-		handleBackupCreate(serverURL, remainingArgs)
+		handleBackupCreate(serverURL, tlsConfig, remainingArgs)
 	case "restore":
-		handleBackupRestore(serverURL, remainingArgs)
+		handleBackupRestore(serverURL, tlsConfig, remainingArgs)
 	case "list":
-		handleBackupList(serverURL, remainingArgs)
+		handleBackupList(serverURL, tlsConfig, remainingArgs)
 	case "export":
-		handleBackupExport(serverURL, remainingArgs)
+		handleBackupExport(serverURL, tlsConfig, remainingArgs)
 	default:
 		fmt.Printf("Unknown backup subcommand: %s\n", subcommand)
 		fmt.Println("Available: create, restore, list, export")
