@@ -363,14 +363,14 @@ func handleServiceDeregister(serverURL string, tlsConfig *TLSConfig, args []stri
 	fmt.Printf("Successfully deregistered service: %s\n", name)
 }
 
-func handleServiceHeartbeat(serverURL string, args []string) {
+func handleServiceHeartbeat(serverURL string, tlsConfig *TLSConfig, args []string) {
 	if len(args) != 1 {
 		fmt.Println("Usage: konsulctl service heartbeat <name>")
 		os.Exit(1)
 	}
 
 	name := args[0]
-	client := NewKonsulClient(serverURL)
+	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
 
 	err := client.ServiceHeartbeat(name)
 	if err != nil {
