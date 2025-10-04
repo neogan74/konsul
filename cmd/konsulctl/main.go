@@ -251,7 +251,7 @@ func handleServiceCommand(args []string) {
 	}
 }
 
-func handleServiceRegister(serverURL string, args []string) {
+func handleServiceRegister(serverURL string, tlsConfig *TLSConfig, args []string) {
 	if len(args) < 3 {
 		fmt.Println("Usage: konsulctl service register <name> <address> <port> [--check-http <url>] [--check-tcp <addr>] [--check-interval <duration>]")
 		os.Exit(1)
@@ -304,7 +304,7 @@ func handleServiceRegister(serverURL string, args []string) {
 		}
 	}
 
-	client := NewKonsulClient(serverURL)
+	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
 
 	err := client.RegisterServiceWithChecks(name, address, port, checks)
 	if err != nil {
