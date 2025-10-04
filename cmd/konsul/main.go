@@ -158,13 +158,13 @@ func main() {
 	var jwtService *auth.JWTService
 	var authHandler *handlers.AuthHandler
 	if cfg.Auth.Enabled {
-		jwtService = auth.NewJWTService(auth.JWTConfig{
-			Secret:        cfg.Auth.JWTSecret,
-			Expiry:        cfg.Auth.JWTExpiry,
-			RefreshExpiry: cfg.Auth.RefreshExpiry,
-			Issuer:        cfg.Auth.Issuer,
-		})
-		apiKeyService := auth.NewAPIKeyService(cfg.Auth.APIKeyPrefix, engine)
+		jwtService = auth.NewJWTService(
+			cfg.Auth.JWTSecret,
+			cfg.Auth.JWTExpiry,
+			cfg.Auth.RefreshExpiry,
+			cfg.Auth.Issuer,
+		)
+		apiKeyService := auth.NewAPIKeyService(cfg.Auth.APIKeyPrefix)
 		authHandler = handlers.NewAuthHandler(jwtService, apiKeyService)
 	}
 
