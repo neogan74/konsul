@@ -210,8 +210,16 @@ func handleServiceCommand(args []string) {
 	}
 
 	var serverURL string
+	var tlsSkipVerify bool
+	var tlsCACert string
+	var tlsClientCert string
+	var tlsClientKey string
 	flagSet := flag.NewFlagSet("service", flag.ExitOnError)
 	flagSet.StringVar(&serverURL, "server", "http://localhost:8888", "Konsul server URL")
+	flagSet.BoolVar(&tlsSkipVerify, "tls-skip-verify", false, "Skip TLS certificate verification")
+	flagSet.StringVar(&tlsCACert, "ca-cert", "", "Path to CA certificate file")
+	flagSet.StringVar(&tlsClientCert, "client-cert", "", "Path to client certificate file")
+	flagSet.StringVar(&tlsClientKey, "client-key", "", "Path to client key file")
 
 	subcommand := args[0]
 	subArgs := args[1:]
@@ -219,15 +227,23 @@ func handleServiceCommand(args []string) {
 	flagSet.Parse(subArgs)
 	remainingArgs := flagSet.Args()
 
+	tlsConfig := &TLSConfig{
+		Enabled:        strings.HasPrefix(serverURL, "https://"),
+		SkipVerify:     tlsSkipVerify,
+		CACertFile:     tlsCACert,
+		ClientCertFile: tlsClientCert,
+		ClientKeyFile:  tlsClientKey,
+	}
+
 	switch subcommand {
 	case "register":
-		handleServiceRegister(serverURL, remainingArgs)
+		handleServiceRegister(serverURL, tlsConfig, remainingArgs)
 	case "list":
-		handleServiceList(serverURL, remainingArgs)
+		handleServiceList(serverURL, tlsConfig, remainingArgs)
 	case "deregister":
-		handleServiceDeregister(serverURL, remainingArgs)
+		handleServiceDeregister(serverURL, tlsConfig, remainingArgs)
 	case "heartbeat":
-		handleServiceHeartbeat(serverURL, remainingArgs)
+		handleServiceHeartbeat(serverURL, tlsConfig, remainingArgs)
 	default:
 		fmt.Printf("Unknown service subcommand: %s\n", subcommand)
 		fmt.Println("Available: register, list, deregister, heartbeat")
