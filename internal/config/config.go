@@ -16,6 +16,7 @@ type Config struct {
 	DNS         DNSConfig
 	RateLimit   RateLimitConfig
 	Auth        AuthConfig
+	Tracing     TracingConfig
 }
 
 // ServerConfig contains HTTP server configuration
@@ -83,6 +84,17 @@ type AuthConfig struct {
 	APIKeyPrefix  string
 	RequireAuth   bool
 	PublicPaths   []string
+}
+
+// TracingConfig contains OpenTelemetry tracing configuration
+type TracingConfig struct {
+	Enabled        bool
+	Endpoint       string
+	ServiceName    string
+	ServiceVersion string
+	Environment    string
+	SamplingRatio  float64
+	InsecureConn   bool
 }
 
 // Load loads configuration from environment variables with defaults
