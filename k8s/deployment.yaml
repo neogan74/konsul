@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: konsul
+  namespace: konsul
+  labels:
+    app.kubernetes.io/name: konsul
+    app.kubernetes.io/component: service-discovery
+    app.kubernetes.io/version: "0.1.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: konsul
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: konsul
+        app.kubernetes.io/component: service-discovery
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8888"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: konsul
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: konsul
+        image: konsul:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8888
+          protocol: TCP
+        - name: dns-tcp
+          containerPort: 8600
+          protocol: TCP
+        - name: dns-udp
+          containerPort: 8600
+          protocol: UDP
+        envFrom:
+        - configMapRef:
+            name: konsul-config
+        env:
+        - name: KONSUL_HOST
+          value: "0.0.0.0"
+        - name: KONSUL_PORT
+          value: "8888"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 3
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: data
+          mountPath: /app/data
+        - name: backups
+          mountPath: /app/backups
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: konsul-data
+      - name: backups
+        persistentVolumeClaim:
+          claimName: konsul-backups
