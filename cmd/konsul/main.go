@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -21,6 +22,7 @@ import (
 	"github.com/neogan74/konsul/internal/persistence"
 	"github.com/neogan74/konsul/internal/ratelimit"
 	"github.com/neogan74/konsul/internal/store"
+	"github.com/neogan74/konsul/internal/telemetry"
 	konsultls "github.com/neogan74/konsul/internal/tls"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
