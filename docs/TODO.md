@@ -75,9 +75,21 @@
 - [ ] API versioning (v1, v2)
 
 ## 8. Developer Experience
-- [ ] Docker image with multi-stage build
-- [ ] Kubernetes manifests/Helm chart
+- [x] Docker image with multi-stage build
+  - [x] Multi-stage Dockerfile with optimized layers
+  - [x] Non-root user security
+  - [x] Health checks
+  - [x] Build args for versioning
+  - [x] Both konsul and konsulctl binaries included
+- [x] Kubernetes manifests/Helm chart
+  - [x] Complete K8s manifests (namespace, deployment, service, configmap, pvc, rbac)
+  - [x] Helm chart with full templating
+  - [x] Configurable values for all features
+  - [x] ServiceMonitor for Prometheus
+  - [x] Ingress support
+  - [x] Security contexts and RBAC
 - [x] CLI client tool (konsulctl)
+  - [x] TLS support for all commands
   - [ ] Rate limit management commands
   - [ ] Rate limit statistics viewing
   - [ ] Admin operations (reset limits, adjust temporarily)
@@ -117,3 +129,8 @@
 ✅ Per-IP and Per-API-Key Rate Limiting
 ✅ Rate Limit Metrics & Monitoring
 ✅ TLS/SSL Support with Auto-Generated Certificates
+✅ CLI Tool with TLS Support
+✅ Docker Multi-Stage Build (56MB image)
+✅ Kubernetes Manifests (Complete YAML)
+✅ Helm Chart with Full Configuration
+✅ Production-Ready Deployment Options

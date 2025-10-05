@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "konsul.fullname" . }}
+  labels:
+    {{- include "konsul.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    logLevel: {{ .Values.config.logLevel }}
+    logFormat: {{ .Values.config.logFormat }}
+    serviceTTL: {{ .Values.config.serviceTTL }}
+    cleanupInterval: {{ .Values.config.cleanupInterval }}
+
+    dns:
+      enabled: {{ .Values.config.dns.enabled }}
+      port: {{ .Values.config.dns.port }}
+      domain: {{ .Values.config.dns.domain }}
+
+    persistence:
+      enabled: {{ .Values.config.persistence.enabled }}
+      type: {{ .Values.config.persistence.type }}
+      dataDir: {{ .Values.config.persistence.dataDir }}
+      backupDir: {{ .Values.config.persistence.backupDir }}
+      syncWrites: {{ .Values.config.persistence.syncWrites }}
+      walEnabled: {{ .Values.config.persistence.walEnabled }}
+
+    auth:
+      enabled: {{ .Values.config.auth.enabled }}
+      {{- if .Values.config.auth.jwtSecret }}
+      jwtSecret: {{ .Values.config.auth.jwtSecret }}
+      {{- end }}
+      jwtExpiry: {{ .Values.config.auth.jwtExpiry }}
+      refreshExpiry: {{ .Values.config.auth.refreshExpiry }}
+      issuer: {{ .Values.config.auth.issuer }}
+      requireAuth: {{ .Values.config.auth.requireAuth }}
+
+    tls:
+      enabled: {{ .Values.config.tls.enabled }}
+      autoCert: {{ .Values.config.tls.autoCert }}
+      {{- if .Values.config.tls.certFile }}
+      certFile: {{ .Values.config.tls.certFile }}
+      {{- end }}
+      {{- if .Values.config.tls.keyFile }}
+      keyFile: {{ .Values.config.tls.keyFile }}
+      {{- end }}
+
+    rateLimit:
+      enabled: {{ .Values.config.rateLimit.enabled }}
+      requestsPerSec: {{ .Values.config.rateLimit.requestsPerSec }}
+      burst: {{ .Values.config.rateLimit.burst }}
+      byIP: {{ .Values.config.rateLimit.byIP }}
+      byAPIKey: {{ .Values.config.rateLimit.byAPIKey }}

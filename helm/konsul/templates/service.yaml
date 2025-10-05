@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "konsul.fullname" . }}
+  labels:
+    {{- include "konsul.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  - port: {{ .Values.service.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  {{- if .Values.config.dns.enabled }}
+  - port: {{ .Values.service.dnsPort }}
+    targetPort: dns-tcp
+    protocol: TCP
+    name: dns-tcp
+  - port: {{ .Values.service.dnsPort }}
+    targetPort: dns-udp
+    protocol: UDP
+    name: dns-udp
+  {{- end }}
+  selector:
+    {{- include "konsul.selectorLabels" . | nindent 4 }}

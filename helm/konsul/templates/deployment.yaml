@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "konsul.fullname" . }}
+  labels:
+    {{- include "konsul.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "konsul.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "konsul.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "konsul.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: {{ .Chart.Name }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.service.port }}
+          protocol: TCP
+        {{- if .Values.config.dns.enabled }}
+        - name: dns-tcp
+          containerPort: {{ .Values.config.dns.port }}
+          protocol: TCP
+        - name: dns-udp
+          containerPort: {{ .Values.config.dns.port }}
+          protocol: UDP
+        {{- end }}
+        env:
+        - name: KONSUL_LOG_LEVEL
+          value: {{ .Values.config.logLevel | quote }}
+        - name: KONSUL_LOG_FORMAT
+          value: {{ .Values.config.logFormat | quote }}
+        - name: KONSUL_HTTP_PORT
+          value: {{ .Values.service.port | quote }}
+        - name: KONSUL_DNS_PORT
+          value: {{ .Values.config.dns.port | quote }}
+        - name: KONSUL_DNS_ENABLED
+          value: {{ .Values.config.dns.enabled | quote }}
+        - name: KONSUL_DATA_DIR
+          value: {{ .Values.config.persistence.dataDir | quote }}
+        - name: KONSUL_BACKUP_DIR
+          value: {{ .Values.config.persistence.backupDir | quote }}
+        - name: KONSUL_CONFIG_FILE
+          value: /etc/konsul/config.yaml
+        {{- if .Values.config.auth.enabled }}
+        - name: KONSUL_AUTH_ENABLED
+          value: "true"
+        {{- if .Values.config.auth.jwtSecret }}
+        - name: KONSUL_JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "konsul.fullname" . }}-auth
+              key: jwt-secret
+              optional: true
+        {{- end }}
+        {{- end }}
+        livenessProbe:
+          {{- toYaml .Values.livenessProbe | nindent 10 }}
+        readinessProbe:
+          {{- toYaml .Values.readinessProbe | nindent 10 }}
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        volumeMounts:
+        - name: config
+          mountPath: /etc/konsul
+          readOnly: true
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          mountPath: {{ .Values.config.persistence.dataDir }}
+        - name: backups
+          mountPath: {{ .Values.config.persistence.backupDir }}
+        {{- end }}
+        {{- if .Values.config.tls.enabled }}
+        - name: tls
+          mountPath: /etc/konsul/tls
+          readOnly: true
+        {{- end }}
+      volumes:
+      - name: config
+        configMap:
+          name: {{ include "konsul.fullname" . }}
+      {{- if .Values.persistence.enabled }}
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ include "konsul.fullname" . }}-data
+      - name: backups
+        persistentVolumeClaim:
+          claimName: {{ include "konsul.fullname" . }}-backups
+      {{- else }}
+      - name: data
+        emptyDir: {}
+      - name: backups
+        emptyDir: {}
+      {{- end }}
+      {{- if .Values.config.tls.enabled }}
+      - name: tls
+        secret:
+          secretName: {{ include "konsul.fullname" . }}-tls
+          optional: true
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

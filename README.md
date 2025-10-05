@@ -389,3 +389,52 @@ All API endpoints return structured error responses with:
   "path": "/services/nonexistent"
 }
 ```
+
+## Deployment
+
+Konsul supports multiple deployment methods:
+
+### Docker
+
+```bash
+# Quick start
+docker run -d -p 8888:8888 -p 8600:8600/udp konsul:latest
+
+# With persistence and TLS
+docker run -d \
+  -p 8888:8888 \
+  -p 8600:8600/udp \
+  -e KONSUL_PERSISTENCE_ENABLED=true \
+  -e KONSUL_TLS_ENABLED=true \
+  -e KONSUL_TLS_AUTO_CERT=true \
+  -v konsul-data:/app/data \
+  konsul:latest
+```
+
+### Kubernetes
+
+```bash
+# Using kubectl
+kubectl apply -f k8s/
+
+# Check status
+kubectl get pods -n konsul
+```
+
+### Helm
+
+```bash
+# Install
+helm install konsul ./helm/konsul --namespace konsul --create-namespace
+
+# With custom values
+helm install konsul ./helm/konsul \
+  --namespace konsul \
+  --create-namespace \
+  --values my-values.yaml
+
+# Upgrade
+helm upgrade konsul ./helm/konsul --namespace konsul
+```
+
+**See [Deployment Guide](docs/deployment.md) for detailed instructions.**

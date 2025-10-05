@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: konsul-data
+  namespace: konsul
+  labels:
+    app.kubernetes.io/name: konsul
+    app.kubernetes.io/component: service-discovery
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: standard
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: konsul-backups
+  namespace: konsul
+  labels:
+    app.kubernetes.io/name: konsul
+    app.kubernetes.io/component: service-discovery
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: standard

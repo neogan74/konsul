@@ -1,0 +1,19 @@
+apiVersion: v2
+name: konsul
+description: A Helm chart for Konsul - Lightweight service discovery and KV store
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - service-discovery
+  - kv-store
+  - consul
+  - dns
+  - configuration
+home: https://github.com/neogan74/konsul
+sources:
+  - https://github.com/neogan74/konsul
+maintainers:
+  - name: Konsul Team
+    email: maintainers@konsul.io
+icon: https://raw.githubusercontent.com/neogan74/konsul/main/docs/logo.png

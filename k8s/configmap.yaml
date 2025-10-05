@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: konsul-config
+  namespace: konsul
+  labels:
+    app.kubernetes.io/name: konsul
+    app.kubernetes.io/component: service-discovery
+data:
+  KONSUL_LOG_LEVEL: "info"
+  KONSUL_LOG_FORMAT: "json"
+  KONSUL_SERVICE_TTL: "30s"
+  KONSUL_CLEANUP_INTERVAL: "60s"
+  KONSUL_DNS_ENABLED: "true"
+  KONSUL_DNS_PORT: "8600"
+  KONSUL_DNS_DOMAIN: "consul"
+  KONSUL_PERSISTENCE_ENABLED: "true"
+  KONSUL_PERSISTENCE_TYPE: "badger"
+  KONSUL_DATA_DIR: "/app/data"
+  KONSUL_BACKUP_DIR: "/app/backups"
