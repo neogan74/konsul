@@ -1,0 +1,54 @@
+# Binaries
+konsul
+konsulctl
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test files
+*.test
+*.out
+coverage.html
+coverage.out
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Data directories
+data/
+backups/
+certs/
+
+# Documentation (not needed in container)
+docs/
+*.md
+!README.md
+
+# CI/CD
+.github/
+
+# Kubernetes
+k8s/
+helm/
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Misc
+tmp/
+*.log
