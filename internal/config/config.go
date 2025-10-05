@@ -150,6 +150,15 @@ func Load() (*Config, error) {
 			RequireAuth:   getEnvBool("KONSUL_REQUIRE_AUTH", false),
 			PublicPaths:   getEnvStringSlice("KONSUL_PUBLIC_PATHS", []string{"/health", "/health/live", "/health/ready", "/metrics"}),
 		},
+		Tracing: TracingConfig{
+			Enabled:        getEnvBool("KONSUL_TRACING_ENABLED", false),
+			Endpoint:       getEnvString("KONSUL_TRACING_ENDPOINT", "otel-collector:4318"),
+			ServiceName:    getEnvString("KONSUL_TRACING_SERVICE_NAME", "konsul"),
+			ServiceVersion: getEnvString("KONSUL_TRACING_SERVICE_VERSION", "1.0.0"),
+			Environment:    getEnvString("KONSUL_TRACING_ENVIRONMENT", "development"),
+			SamplingRatio:  getEnvFloat("KONSUL_TRACING_SAMPLING_RATIO", 1.0),
+			InsecureConn:   getEnvBool("KONSUL_TRACING_INSECURE", true),
+		},
 	}
 
 	if err := config.Validate(); err != nil {
