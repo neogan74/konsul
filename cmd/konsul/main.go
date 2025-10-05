@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -21,6 +22,7 @@ import (
 	"github.com/neogan74/konsul/internal/persistence"
 	"github.com/neogan74/konsul/internal/ratelimit"
 	"github.com/neogan74/konsul/internal/store"
+	"github.com/neogan74/konsul/internal/telemetry"
 	konsultls "github.com/neogan74/konsul/internal/tls"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -48,11 +50,46 @@ func main() {
 	// Set build info metrics
 	metrics.BuildInfo.WithLabelValues(version, runtime.Version()).Set(1)
 
+	// Initialize OpenTelemetry tracing
+	ctx := context.Background()
+	tracingCfg := telemetry.TracingConfig{
+		Enabled:        cfg.Tracing.Enabled,
+		Endpoint:       cfg.Tracing.Endpoint,
+		ServiceName:    cfg.Tracing.ServiceName,
+		ServiceVersion: cfg.Tracing.ServiceVersion,
+		Environment:    cfg.Tracing.Environment,
+		SamplingRatio:  cfg.Tracing.SamplingRatio,
+		InsecureConn:   cfg.Tracing.InsecureConn,
+	}
+
+	tracerProvider, err := telemetry.InitTracing(ctx, tracingCfg)
+	if err != nil {
+		appLogger.Error("Failed to initialize tracing", logger.Error(err))
+	} else if cfg.Tracing.Enabled {
+		appLogger.Info("OpenTelemetry tracing initialized",
+			logger.String("endpoint", cfg.Tracing.Endpoint),
+			logger.String("service_name", cfg.Tracing.ServiceName))
+
+		// Ensure graceful shutdown of tracer provider
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := tracerProvider.Shutdown(shutdownCtx); err != nil {
+				appLogger.Error("Failed to shutdown tracer provider", logger.Error(err))
+			}
+		}()
+	}
+
 	app := fiber.New()
 
 	// Add middleware
 	app.Use(middleware.RequestLogging(appLogger))
 	app.Use(middleware.MetricsMiddleware())
+
+	// Add tracing middleware if enabled
+	if cfg.Tracing.Enabled {
+		app.Use(middleware.TracingMiddleware(cfg.Tracing.ServiceName))
+	}
 
 	// Initialize rate limiting
 	var rateLimitService *ratelimit.Service

@@ -118,9 +118,9 @@ services:
     volumes:
       - ./monitoring/otel:/etc
     ports:
-      - "4317:4317"   # OTLP gRPC receiver
-      - "4318:4318"   # OTLP HTTP receiver
-      - "8889:8889"   # Prometheus metrics exporter
+      - "14317:4317"   # OTLP gRPC receiver
+      - "14318:4318"   # OTLP HTTP receiver
+      - "18889:8889"   # Prometheus metrics exporter
     networks:
       - observability
     restart: unless-stopped

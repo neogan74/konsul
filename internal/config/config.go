@@ -16,6 +16,7 @@ type Config struct {
 	DNS         DNSConfig
 	RateLimit   RateLimitConfig
 	Auth        AuthConfig
+	Tracing     TracingConfig
 }
 
 // ServerConfig contains HTTP server configuration
@@ -85,6 +86,17 @@ type AuthConfig struct {
 	PublicPaths   []string
 }
 
+// TracingConfig contains OpenTelemetry tracing configuration
+type TracingConfig struct {
+	Enabled        bool
+	Endpoint       string
+	ServiceName    string
+	ServiceVersion string
+	Environment    string
+	SamplingRatio  float64
+	InsecureConn   bool
+}
+
 // Load loads configuration from environment variables with defaults
 func Load() (*Config, error) {
 	config := &Config{
@@ -137,6 +149,15 @@ func Load() (*Config, error) {
 			APIKeyPrefix:  getEnvString("KONSUL_APIKEY_PREFIX", "konsul"),
 			RequireAuth:   getEnvBool("KONSUL_REQUIRE_AUTH", false),
 			PublicPaths:   getEnvStringSlice("KONSUL_PUBLIC_PATHS", []string{"/health", "/health/live", "/health/ready", "/metrics"}),
+		},
+		Tracing: TracingConfig{
+			Enabled:        getEnvBool("KONSUL_TRACING_ENABLED", false),
+			Endpoint:       getEnvString("KONSUL_TRACING_ENDPOINT", "otel-collector:4318"),
+			ServiceName:    getEnvString("KONSUL_TRACING_SERVICE_NAME", "konsul"),
+			ServiceVersion: getEnvString("KONSUL_TRACING_SERVICE_VERSION", "1.0.0"),
+			Environment:    getEnvString("KONSUL_TRACING_ENVIRONMENT", "development"),
+			SamplingRatio:  getEnvFloat("KONSUL_TRACING_SAMPLING_RATIO", 1.0),
+			InsecureConn:   getEnvBool("KONSUL_TRACING_INSECURE", true),
 		},
 	}
 
