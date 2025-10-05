@@ -5,7 +5,6 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/propagation"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -13,11 +12,10 @@ import (
 // TracingMiddleware creates a middleware for OpenTelemetry tracing
 func TracingMiddleware(serviceName string) fiber.Handler {
 	tracer := otel.Tracer(serviceName)
-	propagator := otel.GetTextMapPropagator()
 
 	return func(c *fiber.Ctx) error {
-		// Extract context from incoming request
-		ctx := propagator.Extract(c.UserContext(), &fiberCarrier{c: c})
+		// Extract context from incoming request (W3C Trace Context)
+		ctx := otel.GetTextMapPropagator().Extract(c.UserContext(), &fiberCarrier{c: c})
 
 		// Start a new span
 		spanName := c.Method() + " " + c.Route().Path
@@ -34,7 +32,7 @@ func TracingMiddleware(serviceName string) fiber.Handler {
 				semconv.HTTPScheme(c.Protocol()),
 				semconv.HTTPTarget(c.Path()),
 				semconv.NetHostName(c.Hostname()),
-				semconv.HTTPUserAgent(c.Get("User-Agent")),
+				attribute.String("http.user_agent", c.Get("User-Agent")),
 				attribute.String("http.client_ip", c.IP()),
 			),
 		)
