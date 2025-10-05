@@ -129,3 +129,8 @@
 ✅ Per-IP and Per-API-Key Rate Limiting
 ✅ Rate Limit Metrics & Monitoring
 ✅ TLS/SSL Support with Auto-Generated Certificates
+✅ CLI Tool with TLS Support
+✅ Docker Multi-Stage Build (56MB image)
+✅ Kubernetes Manifests (Complete YAML)
+✅ Helm Chart with Full Configuration
+✅ Production-Ready Deployment Options
