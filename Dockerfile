@@ -38,6 +38,11 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 # Final stage
 FROM alpine:latest
 
+# Build args for metadata
+ARG VERSION=dev
+ARG BUILD_DATE
+ARG VCS_REF
+
 # Add metadata labels
 LABEL org.opencontainers.image.title="Konsul" \
       org.opencontainers.image.description="Lightweight service discovery and KV store" \
