@@ -86,6 +86,11 @@ func main() {
 	app.Use(middleware.RequestLogging(appLogger))
 	app.Use(middleware.MetricsMiddleware())
 
+	// Add tracing middleware if enabled
+	if cfg.Tracing.Enabled {
+		app.Use(middleware.TracingMiddleware(cfg.Tracing.ServiceName))
+	}
+
 	// Initialize rate limiting
 	var rateLimitService *ratelimit.Service
 	if cfg.RateLimit.Enabled {
