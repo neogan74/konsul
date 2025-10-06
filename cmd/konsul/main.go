@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"embed"
 	"fmt"
+	"io/fs"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"runtime"
@@ -12,6 +15,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
+	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/neogan74/konsul/internal/auth"
 	"github.com/neogan74/konsul/internal/config"
 	"github.com/neogan74/konsul/internal/dns"
@@ -26,6 +30,9 @@ import (
 	konsultls "github.com/neogan74/konsul/internal/tls"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+//go:embed ../../web/admin/dist/*
+var adminUI embed.FS
 
 func main() {
 	// Load configuration
@@ -257,6 +264,26 @@ func main() {
 
 	// Metrics endpoint for Prometheus
 	app.Get("/metrics", adaptor.HTTPHandler(promhttp.Handler()))
+
+	// Admin UI (embedded static files)
+	uiFS, err := fs.Sub(adminUI, "web/admin/dist")
+	if err != nil {
+		appLogger.Warn("Failed to load embedded admin UI", logger.Error(err))
+	} else {
+		app.Use("/ui", filesystem.New(filesystem.Config{
+			Root:       http.FS(uiFS),
+			PathPrefix: "",
+			Browse:     false,
+			Index:      "index.html",
+		}))
+
+		// Redirect root to UI
+		app.Get("/", func(c *fiber.Ctx) error {
+			return c.Redirect("/ui")
+		})
+
+		appLogger.Info("Admin UI available at /ui")
+	}
 
 	// Start background cleanup process
 	go func() {
