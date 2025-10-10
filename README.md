@@ -438,3 +438,9 @@ helm upgrade konsul ./helm/konsul --namespace konsul
 ```
 
 **See [Deployment Guide](docs/deployment.md) for detailed instructions.**
+
+## Documentation
+
+- [Deployment Guide](docs/deployment.md) - Production deployment instructions
+- [Architecture Decision Records (ADRs)](docs/adr/) - Architectural decisions and rationale
+- [TODO](docs/TODO.md) - Development roadmap and planned features
