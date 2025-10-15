@@ -1,0 +1,37 @@
+{
+  "name": "developer",
+  "description": "Developer access with limited permissions",
+  "kv": [
+    {
+      "path": "app/config/*",
+      "capabilities": ["read", "list"]
+    },
+    {
+      "path": "app/data/*",
+      "capabilities": ["read", "write", "list"]
+    },
+    {
+      "path": "app/secrets/*",
+      "capabilities": ["deny"]
+    }
+  ],
+  "service": [
+    {
+      "name": "web-*",
+      "capabilities": ["read", "write", "register", "deregister"]
+    },
+    {
+      "name": "api-*",
+      "capabilities": ["read", "write", "register", "deregister"]
+    },
+    {
+      "name": "database",
+      "capabilities": ["read"]
+    }
+  ],
+  "health": [
+    {
+      "capabilities": ["read"]
+    }
+  ]
+}
