@@ -17,6 +17,7 @@ type Claims struct {
 	UserID   string   `json:"user_id"`
 	Username string   `json:"username"`
 	Roles    []string `json:"roles"`
+	Policies []string `json:"policies,omitempty"` // ACL policies attached to this token
 	jwt.RegisteredClaims
 }
 
@@ -37,10 +38,16 @@ func NewJWTService(secretKey string, tokenExpiry, refreshExpiry time.Duration, i
 }
 
 func (j *JWTService) GenerateToken(userID, username string, roles []string) (string, error) {
+	return j.GenerateTokenWithPolicies(userID, username, roles, nil)
+}
+
+// GenerateTokenWithPolicies generates a JWT token with policies
+func (j *JWTService) GenerateTokenWithPolicies(userID, username string, roles, policies []string) (string, error) {
 	claims := Claims{
 		UserID:   userID,
 		Username: username,
 		Roles:    roles,
+		Policies: policies,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.tokenExpiry)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -120,12 +127,17 @@ func (j *JWTService) ValidateRefreshToken(tokenString string) (string, error) {
 }
 
 func (j *JWTService) RefreshToken(refreshTokenString string, username string, roles []string) (string, string, error) {
+	return j.RefreshTokenWithPolicies(refreshTokenString, username, roles, nil)
+}
+
+// RefreshTokenWithPolicies refreshes a token with policies
+func (j *JWTService) RefreshTokenWithPolicies(refreshTokenString string, username string, roles, policies []string) (string, string, error) {
 	userID, err := j.ValidateRefreshToken(refreshTokenString)
 	if err != nil {
 		return "", "", err
 	}
 
-	newToken, err := j.GenerateToken(userID, username, roles)
+	newToken, err := j.GenerateTokenWithPolicies(userID, username, roles, policies)
 	if err != nil {
 		return "", "", err
 	}
