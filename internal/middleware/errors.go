@@ -36,6 +36,16 @@ func UnprocessableEntity(c *fiber.Ctx, message string) error {
 	return errorResponse(c, fiber.StatusUnprocessableEntity, "Unprocessable Entity", message)
 }
 
+// Conflict returns a 409 Conflict error response
+func Conflict(c *fiber.Ctx, message string) error {
+	return errorResponse(c, fiber.StatusConflict, "Conflict", message)
+}
+
+// InternalError returns a 500 Internal Server Error response (alias for InternalServerError)
+func InternalError(c *fiber.Ctx, message string) error {
+	return InternalServerError(c, message)
+}
+
 // errorResponse creates a structured error response
 func errorResponse(c *fiber.Ctx, status int, error string, message string) error {
 	response := ErrorResponse{
@@ -59,4 +69,3 @@ func errorResponse(c *fiber.Ctx, status int, error string, message string) error
 
 	return c.Status(status).JSON(response)
 }
-
