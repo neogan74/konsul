@@ -172,6 +172,52 @@ func (s *Store) cleanupExpired() {
 	}
 }
 
+// GetClients returns information about all active clients
+func (s *Store) GetClients(clientType string) []ClientInfo {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	clients := make([]ClientInfo, 0, len(s.limiters))
+	for key, limiter := range s.limiters {
+		limiter.mu.Lock()
+		info := ClientInfo{
+			Identifier: key,
+			Type:       clientType,
+			Tokens:     limiter.tokens,
+			MaxTokens:  limiter.burst,
+			Rate:       limiter.rate,
+			LastUpdate: limiter.lastUpdate.Format(time.RFC3339),
+		}
+		limiter.mu.Unlock()
+		clients = append(clients, info)
+	}
+
+	return clients
+}
+
+// GetClientStatus returns status for a specific client
+func (s *Store) GetClientStatus(identifier string, clientType string) *ClientInfo {
+	s.mu.RLock()
+	limiter, exists := s.limiters[identifier]
+	s.mu.RUnlock()
+
+	if !exists {
+		return nil
+	}
+
+	limiter.mu.Lock()
+	defer limiter.mu.Unlock()
+
+	return &ClientInfo{
+		Identifier: identifier,
+		Type:       clientType,
+		Tokens:     limiter.tokens,
+		MaxTokens:  limiter.burst,
+		Rate:       limiter.rate,
+		LastUpdate: limiter.lastUpdate.Format(time.RFC3339),
+	}
+}
+
 // Config represents rate limiter configuration
 type Config struct {
 	Enabled         bool
@@ -251,4 +297,93 @@ func (s *Service) Stats() map[string]interface{} {
 	}
 
 	return stats
+}
+
+// GetConfig returns the current rate limit configuration
+func (s *Service) GetConfig() Config {
+	return s.config
+}
+
+// ResetAllIP resets all IP-based rate limiters
+func (s *Service) ResetAllIP() {
+	if s.ipStore != nil {
+		s.ipStore.ResetAll()
+	}
+}
+
+// ResetAllAPIKey resets all API-key-based rate limiters
+func (s *Service) ResetAllAPIKey() {
+	if s.keyStore != nil {
+		s.keyStore.ResetAll()
+	}
+}
+
+// ClientInfo represents information about a rate-limited client
+type ClientInfo struct {
+	Identifier string  `json:"identifier"`
+	Type       string  `json:"type"`        // "ip" or "apikey"
+	Tokens     float64 `json:"tokens"`      // Current available tokens
+	MaxTokens  int     `json:"max_tokens"`  // Burst size
+	Rate       float64 `json:"rate"`        // Tokens per second
+	LastUpdate string  `json:"last_update"` // Last activity timestamp
+}
+
+// GetActiveClients returns list of currently tracked clients
+func (s *Service) GetActiveClients(filterType string) []ClientInfo {
+	var clients []ClientInfo
+
+	if filterType == "all" || filterType == "ip" {
+		if s.ipStore != nil {
+			clients = append(clients, s.ipStore.GetClients("ip")...)
+		}
+	}
+
+	if filterType == "all" || filterType == "apikey" {
+		if s.keyStore != nil {
+			clients = append(clients, s.keyStore.GetClients("apikey")...)
+		}
+	}
+
+	return clients
+}
+
+// GetClientStatus returns status for a specific client
+func (s *Service) GetClientStatus(identifier string) *ClientInfo {
+	// Try IP store first
+	if s.ipStore != nil {
+		if info := s.ipStore.GetClientStatus(identifier, "ip"); info != nil {
+			return info
+		}
+	}
+
+	// Try API key store
+	if s.keyStore != nil {
+		if info := s.keyStore.GetClientStatus(identifier, "apikey"); info != nil {
+			return info
+		}
+	}
+
+	return nil
+}
+
+// UpdateConfig dynamically updates rate limit configuration
+// Returns true if changes were applied
+func (s *Service) UpdateConfig(requestsPerSec *float64, burst *int) bool {
+	changed := false
+
+	if requestsPerSec != nil && *requestsPerSec != s.config.RequestsPerSec {
+		s.config.RequestsPerSec = *requestsPerSec
+		changed = true
+	}
+
+	if burst != nil && *burst != s.config.Burst {
+		s.config.Burst = *burst
+		changed = true
+	}
+
+	// Note: Changes only affect new limiters
+	// Existing limiters retain their original configuration
+	// To apply to all, would need to reset all limiters
+
+	return changed
 }
