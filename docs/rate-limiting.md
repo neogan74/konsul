@@ -874,11 +874,39 @@ func (s *RedisStore) Allow(key string) bool {
 
 ---
 
+## Admin API
+
+For administrators, Konsul provides a Management API for monitoring and controlling rate limits in real-time.
+
+**Features:**
+- View rate limit statistics
+- Monitor active rate-limited clients
+- Reset rate limits for specific clients
+- Dynamically update configuration
+- Bulk reset operations
+
+**Documentation:** See [Rate Limiting Management API](rate-limiting-api.md)
+
+**Quick Example:**
+```bash
+# Get current statistics
+curl http://localhost:8888/admin/ratelimit/stats \
+  -H "Authorization: Bearer $TOKEN"
+
+# Reset rate limit for a specific IP
+curl -X POST http://localhost:8888/admin/ratelimit/reset/ip/192.168.1.100 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
 ## See Also
 
+- [Rate Limiting Management API](rate-limiting-api.md) - Complete API reference
 - [Metrics Documentation](metrics.md)
 - [Authentication Documentation](authentication.md)
-- [ADR-0006: Rate Limiting](adr/0006-rate-limiting.md) _(if exists)_
+- [ADR-0013: Token Bucket Rate Limiting](adr/0013-token-bucket-rate-limiting.md)
+- [ADR-0014: Rate Limiting Management API](adr/0014-rate-limiting-management-api.md)
 - [Prometheus Metrics](https://prometheus.io/docs/)
 
 ---
