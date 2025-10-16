@@ -15,8 +15,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
-	"github.com/neogan74/konsul/internal/acl"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
+	"github.com/neogan74/konsul/internal/acl"
 	"github.com/neogan74/konsul/internal/auth"
 	"github.com/neogan74/konsul/internal/config"
 	"github.com/neogan74/konsul/internal/dns"
@@ -265,6 +265,34 @@ func main() {
 		aclRoutes.Put("/policies/:name", aclHandler.UpdatePolicy)
 		aclRoutes.Delete("/policies/:name", aclHandler.DeletePolicy)
 		aclRoutes.Post("/test", aclHandler.TestPolicy)
+	}
+
+	// Rate limit management endpoints (requires admin permission)
+	if cfg.RateLimit.Enabled {
+		rateLimitHandler := handlers.NewRateLimitHandler(rateLimitService, appLogger)
+		adminRateLimitRoutes := app.Group("/admin/ratelimit")
+
+		// Apply authentication and ACL middleware
+		if cfg.Auth.Enabled {
+			adminRateLimitRoutes.Use(middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths))
+			if cfg.ACL.Enabled {
+				adminRateLimitRoutes.Use(middleware.ACLMiddleware(aclEvaluator, acl.ResourceTypeAdmin, acl.CapabilityWrite))
+			}
+		}
+
+		// Read-only endpoints (for monitoring)
+		adminRateLimitRoutes.Get("/stats", rateLimitHandler.GetStats)
+		adminRateLimitRoutes.Get("/config", rateLimitHandler.GetConfig)
+		adminRateLimitRoutes.Get("/clients", rateLimitHandler.GetActiveClients)
+		adminRateLimitRoutes.Get("/client/:identifier", rateLimitHandler.GetClientStatus)
+
+		// Write endpoints (for management)
+		adminRateLimitRoutes.Post("/reset/ip/:ip", rateLimitHandler.ResetIP)
+		adminRateLimitRoutes.Post("/reset/apikey/:key_id", rateLimitHandler.ResetAPIKey)
+		adminRateLimitRoutes.Post("/reset/all", rateLimitHandler.ResetAll)
+		adminRateLimitRoutes.Put("/config", rateLimitHandler.UpdateConfig)
+
+		appLogger.Info("Rate limit admin endpoints registered")
 	}
 
 	// KV endpoints - with ACL enforcement if enabled

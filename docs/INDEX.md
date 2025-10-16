@@ -77,6 +77,11 @@ Start here if you're new to Konsul:
   - Per-IP and per-API-key strategies
   - Metrics and monitoring
   - Troubleshooting
+- **[Rate Limiting Management API](rate-limiting-api.md)** - Admin API for managing rate limits
+  - Real-time statistics
+  - Reset operations
+  - Dynamic configuration
+  - Client monitoring
 
 ---
 
