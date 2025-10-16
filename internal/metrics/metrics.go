@@ -111,4 +111,36 @@ var (
 		},
 		[]string{"limiter_type"},
 	)
+
+	// ACL metrics
+	ACLEvaluationsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "konsul_acl_evaluations_total",
+			Help: "Total number of ACL policy evaluations",
+		},
+		[]string{"resource_type", "capability", "result"},
+	)
+
+	ACLEvaluationDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "konsul_acl_evaluation_duration_seconds",
+			Help:    "ACL policy evaluation latencies in seconds",
+			Buckets: []float64{0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1},
+		},
+		[]string{"resource_type"},
+	)
+
+	ACLPoliciesLoaded = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "konsul_acl_policies_loaded",
+			Help: "Number of ACL policies currently loaded",
+		},
+	)
+
+	ACLPolicyLoadErrors = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "konsul_acl_policy_load_errors_total",
+			Help: "Total number of ACL policy load errors",
+		},
+	)
 )

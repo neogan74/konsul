@@ -1,0 +1,31 @@
+{
+  "name": "admin",
+  "description": "Full administrative access to all resources",
+  "kv": [
+    {
+      "path": "*",
+      "capabilities": ["read", "write", "list", "delete"]
+    }
+  ],
+  "service": [
+    {
+      "name": "*",
+      "capabilities": ["read", "write", "register", "deregister", "list"]
+    }
+  ],
+  "health": [
+    {
+      "capabilities": ["read", "write"]
+    }
+  ],
+  "backup": [
+    {
+      "capabilities": ["create", "restore", "export", "import", "list", "delete"]
+    }
+  ],
+  "admin": [
+    {
+      "capabilities": ["read", "write"]
+    }
+  ]
+}

@@ -17,6 +17,7 @@ type Config struct {
 	RateLimit   RateLimitConfig
 	Auth        AuthConfig
 	Tracing     TracingConfig
+	ACL         ACLConfig
 }
 
 // ServerConfig contains HTTP server configuration
@@ -97,6 +98,13 @@ type TracingConfig struct {
 	InsecureConn   bool
 }
 
+// ACLConfig contains ACL (Access Control List) configuration
+type ACLConfig struct {
+	Enabled       bool
+	DefaultPolicy string // "allow" or "deny"
+	PolicyDir     string // Directory containing policy JSON files
+}
+
 // Load loads configuration from environment variables with defaults
 func Load() (*Config, error) {
 	config := &Config{
@@ -158,6 +166,11 @@ func Load() (*Config, error) {
 			Environment:    getEnvString("KONSUL_TRACING_ENVIRONMENT", "development"),
 			SamplingRatio:  getEnvFloat("KONSUL_TRACING_SAMPLING_RATIO", 1.0),
 			InsecureConn:   getEnvBool("KONSUL_TRACING_INSECURE", true),
+		},
+		ACL: ACLConfig{
+			Enabled:       getEnvBool("KONSUL_ACL_ENABLED", false),
+			DefaultPolicy: getEnvString("KONSUL_ACL_DEFAULT_POLICY", "deny"),
+			PolicyDir:     getEnvString("KONSUL_ACL_POLICY_DIR", "./policies"),
 		},
 	}
 
@@ -269,6 +282,17 @@ func (c *Config) Validate() error {
 
 		if c.Auth.Issuer == "" {
 			return fmt.Errorf("JWT issuer must be specified when auth is enabled")
+		}
+	}
+
+	// Validate ACL configuration if enabled
+	if c.ACL.Enabled {
+		if c.ACL.DefaultPolicy != "allow" && c.ACL.DefaultPolicy != "deny" {
+			return fmt.Errorf("ACL default policy must be 'allow' or 'deny', got: %s", c.ACL.DefaultPolicy)
+		}
+
+		if !c.Auth.Enabled {
+			return fmt.Errorf("ACL requires authentication to be enabled")
 		}
 	}
 

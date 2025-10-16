@@ -15,6 +15,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
+	"github.com/neogan74/konsul/internal/acl"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/neogan74/konsul/internal/auth"
 	"github.com/neogan74/konsul/internal/config"
@@ -212,6 +213,25 @@ func main() {
 		authHandler = handlers.NewAuthHandler(jwtService, apiKeyService)
 	}
 
+	// Initialize ACL system if enabled
+	var aclEvaluator *acl.Evaluator
+	var aclHandler *handlers.ACLHandler
+	if cfg.ACL.Enabled {
+		aclEvaluator = acl.NewEvaluator(appLogger)
+		aclHandler = handlers.NewACLHandler(aclEvaluator, cfg.ACL.PolicyDir, appLogger)
+
+		// Load policies from disk
+		if err := aclHandler.LoadPolicies(); err != nil {
+			appLogger.Error("Failed to load ACL policies", logger.Error(err))
+		} else {
+			policyCount := aclEvaluator.Count()
+			metrics.ACLPoliciesLoaded.Set(float64(policyCount))
+			appLogger.Info("ACL system initialized",
+				logger.Int("policies", policyCount),
+				logger.String("policy_dir", cfg.ACL.PolicyDir))
+		}
+	}
+
 	// Auth endpoints (public)
 	if cfg.Auth.Enabled {
 		app.Post("/auth/login", authHandler.Login)
@@ -232,11 +252,33 @@ func main() {
 		app.Use(middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths))
 	}
 
-	// KV endpoints
-	app.Get("/kv/", kvHandler.List)
-	app.Get("/kv/:key", kvHandler.Get)
-	app.Put("/kv/:key", kvHandler.Set)
-	app.Delete("/kv/:key", kvHandler.Delete)
+	// ACL management endpoints (requires admin ACL permission)
+	if cfg.ACL.Enabled {
+		aclRoutes := app.Group("/acl")
+		if cfg.Auth.Enabled {
+			aclRoutes.Use(middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths))
+			aclRoutes.Use(middleware.ACLMiddleware(aclEvaluator, acl.ResourceTypeAdmin, acl.CapabilityWrite))
+		}
+		aclRoutes.Post("/policies", aclHandler.CreatePolicy)
+		aclRoutes.Get("/policies", aclHandler.ListPolicies)
+		aclRoutes.Get("/policies/:name", aclHandler.GetPolicy)
+		aclRoutes.Put("/policies/:name", aclHandler.UpdatePolicy)
+		aclRoutes.Delete("/policies/:name", aclHandler.DeletePolicy)
+		aclRoutes.Post("/test", aclHandler.TestPolicy)
+	}
+
+	// KV endpoints - with ACL enforcement if enabled
+	if cfg.ACL.Enabled {
+		app.Get("/kv/", middleware.ACLMiddleware(aclEvaluator, acl.ResourceTypeKV, acl.CapabilityList), kvHandler.List)
+		app.Get("/kv/:key", middleware.ACLMiddleware(aclEvaluator, acl.ResourceTypeKV, acl.CapabilityRead), kvHandler.Get)
+		app.Put("/kv/:key", middleware.ACLMiddleware(aclEvaluator, acl.ResourceTypeKV, acl.CapabilityWrite), kvHandler.Set)
+		app.Delete("/kv/:key", middleware.ACLMiddleware(aclEvaluator, acl.ResourceTypeKV, acl.CapabilityDelete), kvHandler.Delete)
+	} else {
+		app.Get("/kv/", kvHandler.List)
+		app.Get("/kv/:key", kvHandler.Get)
+		app.Put("/kv/:key", kvHandler.Set)
+		app.Delete("/kv/:key", kvHandler.Delete)
+	}
 
 	// Service discovery endpoints
 	app.Put("/register", serviceHandler.Register)

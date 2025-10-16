@@ -1,0 +1,26 @@
+{
+  "name": "readonly",
+  "description": "Read-only access to all resources",
+  "kv": [
+    {
+      "path": "*",
+      "capabilities": ["read", "list"]
+    }
+  ],
+  "service": [
+    {
+      "name": "*",
+      "capabilities": ["read", "list"]
+    }
+  ],
+  "health": [
+    {
+      "capabilities": ["read"]
+    }
+  ],
+  "backup": [
+    {
+      "capabilities": ["list"]
+    }
+  ]
+}
