@@ -81,6 +81,66 @@ type RestoreRequest struct {
 	BackupPath string `json:"backup_path"`
 }
 
+// Rate limit types
+type RateLimitStats struct {
+	Success bool                   `json:"success"`
+	Data    map[string]interface{} `json:"data"`
+}
+
+type RateLimitConfig struct {
+	Success bool `json:"success"`
+	Config  struct {
+		Enabled         bool    `json:"enabled"`
+		RequestsPerSec  float64 `json:"requests_per_sec"`
+		Burst           int     `json:"burst"`
+		ByIP            bool    `json:"by_ip"`
+		ByAPIKey        bool    `json:"by_apikey"`
+		CleanupInterval string  `json:"cleanup_interval"`
+	} `json:"config"`
+}
+
+type RateLimitClient struct {
+	Identifier string  `json:"identifier"`
+	Type       string  `json:"type"`
+	Tokens     float64 `json:"tokens"`
+	MaxTokens  int     `json:"max_tokens"`
+	Rate       float64 `json:"rate"`
+	LastUpdate string  `json:"last_update"`
+}
+
+type RateLimitClientsResponse struct {
+	Success bool               `json:"success"`
+	Count   int                `json:"count"`
+	Clients []*RateLimitClient `json:"clients"`
+}
+
+type RateLimitClientStatus struct {
+	Success bool             `json:"success"`
+	Client  *RateLimitClient `json:"client"`
+}
+
+type RateLimitResetResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	IP      string `json:"ip,omitempty"`
+	KeyID   string `json:"key_id,omitempty"`
+	Type    string `json:"type,omitempty"`
+}
+
+type RateLimitConfigUpdate struct {
+	RequestsPerSec *float64 `json:"requests_per_sec,omitempty"`
+	Burst          *int     `json:"burst,omitempty"`
+}
+
+type RateLimitConfigUpdateResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Config  struct {
+		RequestsPerSec float64 `json:"requests_per_sec"`
+		Burst          int     `json:"burst"`
+	} `json:"config,omitempty"`
+}
+
 func NewKonsulClient(baseURL string) *KonsulClient {
 	return NewKonsulClientWithTLS(baseURL, nil)
 }
@@ -551,4 +611,254 @@ func (c *KonsulClient) ExportData() (string, error) {
 	}
 
 	return string(body), nil
+}
+
+// Rate limit admin methods
+
+func (c *KonsulClient) GetRateLimitStats() (*RateLimitStats, error) {
+	url := fmt.Sprintf("%s/admin/ratelimit/stats", c.BaseURL)
+
+	resp, err := c.HTTPClient.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != 200 {
+		var errResp ErrorResponse
+		if err := json.Unmarshal(body, &errResp); err == nil {
+			return nil, fmt.Errorf("server error: %s - %s", errResp.Error, errResp.Message)
+		}
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var stats RateLimitStats
+	if err := json.Unmarshal(body, &stats); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &stats, nil
+}
+
+func (c *KonsulClient) GetRateLimitConfig() (*RateLimitConfig, error) {
+	url := fmt.Sprintf("%s/admin/ratelimit/config", c.BaseURL)
+
+	resp, err := c.HTTPClient.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != 200 {
+		var errResp ErrorResponse
+		if err := json.Unmarshal(body, &errResp); err == nil {
+			return nil, fmt.Errorf("server error: %s - %s", errResp.Error, errResp.Message)
+		}
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var config RateLimitConfig
+	if err := json.Unmarshal(body, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &config, nil
+}
+
+func (c *KonsulClient) GetRateLimitClients(limiterType string) (*RateLimitClientsResponse, error) {
+	url := fmt.Sprintf("%s/admin/ratelimit/clients?type=%s", c.BaseURL, limiterType)
+
+	resp, err := c.HTTPClient.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != 200 {
+		var errResp ErrorResponse
+		if err := json.Unmarshal(body, &errResp); err == nil {
+			return nil, fmt.Errorf("server error: %s - %s", errResp.Error, errResp.Message)
+		}
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var clients RateLimitClientsResponse
+	if err := json.Unmarshal(body, &clients); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &clients, nil
+}
+
+func (c *KonsulClient) GetRateLimitClientStatus(identifier string) (*RateLimitClient, error) {
+	url := fmt.Sprintf("%s/admin/ratelimit/client/%s", c.BaseURL, identifier)
+
+	resp, err := c.HTTPClient.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode == 404 {
+		return nil, fmt.Errorf("client not found")
+	}
+
+	if resp.StatusCode != 200 {
+		var errResp ErrorResponse
+		if err := json.Unmarshal(body, &errResp); err == nil {
+			return nil, fmt.Errorf("server error: %s - %s", errResp.Error, errResp.Message)
+		}
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var status RateLimitClientStatus
+	if err := json.Unmarshal(body, &status); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return status.Client, nil
+}
+
+func (c *KonsulClient) ResetRateLimitIP(ip string) error {
+	url := fmt.Sprintf("%s/admin/ratelimit/reset/ip/%s", c.BaseURL, ip)
+
+	req, err := http.NewRequest("POST", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		var errResp ErrorResponse
+		if err := json.Unmarshal(body, &errResp); err == nil {
+			return fmt.Errorf("server error: %s - %s", errResp.Error, errResp.Message)
+		}
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+func (c *KonsulClient) ResetRateLimitAPIKey(keyID string) error {
+	url := fmt.Sprintf("%s/admin/ratelimit/reset/apikey/%s", c.BaseURL, keyID)
+
+	req, err := http.NewRequest("POST", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		var errResp ErrorResponse
+		if err := json.Unmarshal(body, &errResp); err == nil {
+			return fmt.Errorf("server error: %s - %s", errResp.Error, errResp.Message)
+		}
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+func (c *KonsulClient) ResetRateLimitAll(limiterType string) error {
+	url := fmt.Sprintf("%s/admin/ratelimit/reset/all?type=%s", c.BaseURL, limiterType)
+
+	req, err := http.NewRequest("POST", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		var errResp ErrorResponse
+		if err := json.Unmarshal(body, &errResp); err == nil {
+			return fmt.Errorf("server error: %s - %s", errResp.Error, errResp.Message)
+		}
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+func (c *KonsulClient) UpdateRateLimitConfig(requestsPerSec *float64, burst *int) (*RateLimitConfigUpdateResponse, error) {
+	url := fmt.Sprintf("%s/admin/ratelimit/config", c.BaseURL)
+
+	update := RateLimitConfigUpdate{
+		RequestsPerSec: requestsPerSec,
+		Burst:          burst,
+	}
+
+	jsonData, err := json.Marshal(update)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != 200 {
+		var errResp ErrorResponse
+		if err := json.Unmarshal(body, &errResp); err == nil {
+			return nil, fmt.Errorf("server error: %s - %s", errResp.Error, errResp.Message)
+		}
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var updateResp RateLimitConfigUpdateResponse
+	if err := json.Unmarshal(body, &updateResp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &updateResp, nil
 }
