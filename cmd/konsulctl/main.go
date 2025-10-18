@@ -10,9 +10,11 @@ import (
 const version = "1.0.0"
 
 func main() {
+	cli := NewCLI()
+
 	if len(os.Args) < 2 {
 		printUsage()
-		os.Exit(1)
+		cli.Exit(1)
 	}
 
 	command := os.Args[1]
@@ -28,15 +30,16 @@ func main() {
 	case "dns":
 		handleDNSCommand(args)
 	case "ratelimit":
-		handleRateLimitCommand(args)
+		rateLimitCmd := NewRateLimitCommands(cli)
+		rateLimitCmd.Handle(args)
 	case "version":
-		fmt.Printf("konsulctl version %s\n", version)
+		cli.Printf("konsulctl version %s\n", version)
 	case "help", "-h", "--help":
 		printUsage()
 	default:
-		fmt.Printf("Unknown command: %s\n", command)
+		cli.Printf("Unknown command: %s\n", command)
 		printUsage()
-		os.Exit(1)
+		cli.Exit(1)
 	}
 }
 
@@ -557,263 +560,4 @@ func handleBackupExport(serverURL string, tlsConfig *TLSConfig, args []string) {
 	}
 
 	fmt.Printf("%s\n", data)
-}
-
-func handleRateLimitCommand(args []string) {
-	if len(args) == 0 {
-		fmt.Println("Rate limit subcommand required")
-		fmt.Println("Usage: konsulctl ratelimit <stats|config|clients|client|reset|update> [options]")
-		os.Exit(1)
-	}
-
-	var serverURL string
-	var tlsSkipVerify bool
-	var tlsCACert string
-	var tlsClientCert string
-	var tlsClientKey string
-	flagSet := flag.NewFlagSet("ratelimit", flag.ExitOnError)
-	flagSet.StringVar(&serverURL, "server", "http://localhost:8888", "Konsul server URL")
-	flagSet.BoolVar(&tlsSkipVerify, "tls-skip-verify", false, "Skip TLS certificate verification")
-	flagSet.StringVar(&tlsCACert, "ca-cert", "", "Path to CA certificate file")
-	flagSet.StringVar(&tlsClientCert, "client-cert", "", "Path to client certificate file")
-	flagSet.StringVar(&tlsClientKey, "client-key", "", "Path to client key file")
-
-	subcommand := args[0]
-	subArgs := args[1:]
-
-	flagSet.Parse(subArgs)
-	remainingArgs := flagSet.Args()
-
-	tlsConfig := &TLSConfig{
-		Enabled:        strings.HasPrefix(serverURL, "https://"),
-		SkipVerify:     tlsSkipVerify,
-		CACertFile:     tlsCACert,
-		ClientCertFile: tlsClientCert,
-		ClientKeyFile:  tlsClientKey,
-	}
-
-	switch subcommand {
-	case "stats":
-		handleRateLimitStats(serverURL, tlsConfig, remainingArgs)
-	case "config":
-		handleRateLimitConfig(serverURL, tlsConfig, remainingArgs)
-	case "clients":
-		handleRateLimitClients(serverURL, tlsConfig, remainingArgs)
-	case "client":
-		handleRateLimitClientStatus(serverURL, tlsConfig, remainingArgs)
-	case "reset":
-		handleRateLimitReset(serverURL, tlsConfig, remainingArgs)
-	case "update":
-		handleRateLimitUpdate(serverURL, tlsConfig, remainingArgs)
-	default:
-		fmt.Printf("Unknown rate limit subcommand: %s\n", subcommand)
-		fmt.Println("Available: stats, config, clients, client, reset, update")
-		os.Exit(1)
-	}
-}
-
-func handleRateLimitStats(serverURL string, tlsConfig *TLSConfig, args []string) {
-	if len(args) != 0 {
-		fmt.Println("Usage: konsulctl ratelimit stats")
-		os.Exit(1)
-	}
-
-	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
-
-	stats, err := client.GetRateLimitStats()
-	if err != nil {
-		fmt.Printf("Error getting rate limit stats: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Println("Rate Limit Statistics:")
-	fmt.Printf("  IP Limiters: %v\n", stats.Data["ip_limiters"])
-	fmt.Printf("  API Key Limiters: %v\n", stats.Data["apikey_limiters"])
-}
-
-func handleRateLimitConfig(serverURL string, tlsConfig *TLSConfig, args []string) {
-	if len(args) != 0 {
-		fmt.Println("Usage: konsulctl ratelimit config")
-		os.Exit(1)
-	}
-
-	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
-
-	config, err := client.GetRateLimitConfig()
-	if err != nil {
-		fmt.Printf("Error getting rate limit config: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Println("Rate Limit Configuration:")
-	fmt.Printf("  Enabled: %t\n", config.Config.Enabled)
-	fmt.Printf("  Requests per second: %.1f\n", config.Config.RequestsPerSec)
-	fmt.Printf("  Burst: %d\n", config.Config.Burst)
-	fmt.Printf("  By IP: %t\n", config.Config.ByIP)
-	fmt.Printf("  By API Key: %t\n", config.Config.ByAPIKey)
-	fmt.Printf("  Cleanup interval: %s\n", config.Config.CleanupInterval)
-}
-
-func handleRateLimitClients(serverURL string, tlsConfig *TLSConfig, args []string) {
-	// Parse optional --type flag
-	var clientType string
-	flagSet := flag.NewFlagSet("clients", flag.ExitOnError)
-	flagSet.StringVar(&clientType, "type", "all", "Client type: all, ip, or apikey")
-	flagSet.Parse(args)
-
-	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
-
-	clients, err := client.GetRateLimitClients(clientType)
-	if err != nil {
-		fmt.Printf("Error getting rate limit clients: %v\n", err)
-		os.Exit(1)
-	}
-
-	if clients.Count == 0 {
-		fmt.Println("No active rate-limited clients")
-		return
-	}
-
-	fmt.Printf("Active Rate-Limited Clients (%d):\n", clients.Count)
-	fmt.Println()
-	for _, c := range clients.Clients {
-		fmt.Printf("  Identifier: %s\n", c.Identifier)
-		fmt.Printf("  Type: %s\n", c.Type)
-		fmt.Printf("  Tokens: %.2f / %d\n", c.Tokens, c.MaxTokens)
-		fmt.Printf("  Rate: %.1f req/s\n", c.Rate)
-		fmt.Printf("  Last update: %s\n", c.LastUpdate)
-		fmt.Println()
-	}
-}
-
-func handleRateLimitClientStatus(serverURL string, tlsConfig *TLSConfig, args []string) {
-	if len(args) != 1 {
-		fmt.Println("Usage: konsulctl ratelimit client <identifier>")
-		os.Exit(1)
-	}
-
-	identifier := args[0]
-	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
-
-	status, err := client.GetRateLimitClientStatus(identifier)
-	if err != nil {
-		fmt.Printf("Error getting client status: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Printf("Client Status: %s\n", status.Identifier)
-	fmt.Printf("  Type: %s\n", status.Type)
-	fmt.Printf("  Tokens: %.2f / %d\n", status.Tokens, status.MaxTokens)
-	fmt.Printf("  Rate: %.1f req/s\n", status.Rate)
-	fmt.Printf("  Last update: %s\n", status.LastUpdate)
-
-	// Show percentage
-	percentage := (status.Tokens / float64(status.MaxTokens)) * 100
-	fmt.Printf("  Capacity: %.1f%%\n", percentage)
-}
-
-func handleRateLimitReset(serverURL string, tlsConfig *TLSConfig, args []string) {
-	if len(args) < 1 {
-		fmt.Println("Usage: konsulctl ratelimit reset <ip|apikey|all> <value>")
-		fmt.Println("  ip <ip-address>        Reset rate limit for specific IP")
-		fmt.Println("  apikey <key-id>        Reset rate limit for specific API key")
-		fmt.Println("  all [--type <type>]    Reset all rate limiters (type: all, ip, or apikey)")
-		os.Exit(1)
-	}
-
-	resetType := args[0]
-	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
-
-	switch resetType {
-	case "ip":
-		if len(args) != 2 {
-			fmt.Println("Usage: konsulctl ratelimit reset ip <ip-address>")
-			os.Exit(1)
-		}
-		ip := args[1]
-		err := client.ResetRateLimitIP(ip)
-		if err != nil {
-			fmt.Printf("Error resetting rate limit for IP: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Printf("Successfully reset rate limit for IP: %s\n", ip)
-
-	case "apikey":
-		if len(args) != 2 {
-			fmt.Println("Usage: konsulctl ratelimit reset apikey <key-id>")
-			os.Exit(1)
-		}
-		keyID := args[1]
-		err := client.ResetRateLimitAPIKey(keyID)
-		if err != nil {
-			fmt.Printf("Error resetting rate limit for API key: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Printf("Successfully reset rate limit for API key: %s\n", keyID)
-
-	case "all":
-		// Parse optional --type flag
-		var limiterType string
-		flagSet := flag.NewFlagSet("reset-all", flag.ExitOnError)
-		flagSet.StringVar(&limiterType, "type", "all", "Limiter type: all, ip, or apikey")
-		flagSet.Parse(args[1:])
-
-		err := client.ResetRateLimitAll(limiterType)
-		if err != nil {
-			fmt.Printf("Error resetting rate limiters: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Printf("Successfully reset all %s rate limiters\n", limiterType)
-
-	default:
-		fmt.Printf("Unknown reset type: %s\n", resetType)
-		fmt.Println("Available: ip, apikey, all")
-		os.Exit(1)
-	}
-}
-
-func handleRateLimitUpdate(serverURL string, tlsConfig *TLSConfig, args []string) {
-	var rate float64
-	var burst int
-	flagSet := flag.NewFlagSet("update", flag.ExitOnError)
-	flagSet.Float64Var(&rate, "rate", 0, "Requests per second")
-	flagSet.IntVar(&burst, "burst", 0, "Burst size")
-	flagSet.Parse(args)
-
-	if rate == 0 && burst == 0 {
-		fmt.Println("Usage: konsulctl ratelimit update --rate <n> --burst <n>")
-		fmt.Println("  At least one of --rate or --burst must be specified")
-		os.Exit(1)
-	}
-
-	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
-
-	var ratePtr *float64
-	var burstPtr *int
-	if rate > 0 {
-		ratePtr = &rate
-	}
-	if burst > 0 {
-		burstPtr = &burst
-	}
-
-	resp, err := client.UpdateRateLimitConfig(ratePtr, burstPtr)
-	if err != nil {
-		fmt.Printf("Error updating rate limit config: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Printf("%s\n", resp.Message)
-	if resp.Config.RequestsPerSec > 0 || resp.Config.Burst > 0 {
-		fmt.Println("Updated configuration:")
-		if resp.Config.RequestsPerSec > 0 {
-			fmt.Printf("  Requests per second: %.1f\n", resp.Config.RequestsPerSec)
-		}
-		if resp.Config.Burst > 0 {
-			fmt.Printf("  Burst: %d\n", resp.Config.Burst)
-		}
-		fmt.Println()
-		fmt.Println("Note: Changes apply to new limiters only.")
-		fmt.Println("To apply to existing clients, run: konsulctl ratelimit reset all")
-	}
 }
