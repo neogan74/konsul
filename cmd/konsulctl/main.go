@@ -1,10 +1,8 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
-	"strings"
 )
 
 const version = "1.0.0"
@@ -28,7 +26,8 @@ func main() {
 		serviceCmd := NewServiceCommands(cli)
 		serviceCmd.Handle(args)
 	case "backup":
-		handleBackupCommand(args)
+		backupCmd := NewBackupCommands(cli)
+		backupCmd.Handle(args)
 	case "dns":
 		dnsCmd := NewDNSCommands(cli)
 		dnsCmd.Handle(args)
@@ -89,130 +88,4 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("Global Options:")
 	fmt.Println("  --server <url>     Konsul server URL (default: http://localhost:8888)")
-}
-
-func handleBackupCommand(args []string) {
-	if len(args) == 0 {
-		fmt.Println("Backup subcommand required")
-		fmt.Println("Usage: konsulctl backup <create|restore|list|export> [options]")
-		os.Exit(1)
-	}
-
-	var serverURL string
-	var tlsSkipVerify bool
-	var tlsCACert string
-	var tlsClientCert string
-	var tlsClientKey string
-	flagSet := flag.NewFlagSet("backup", flag.ExitOnError)
-	flagSet.StringVar(&serverURL, "server", "http://localhost:8888", "Konsul server URL")
-	flagSet.BoolVar(&tlsSkipVerify, "tls-skip-verify", false, "Skip TLS certificate verification")
-	flagSet.StringVar(&tlsCACert, "ca-cert", "", "Path to CA certificate file")
-	flagSet.StringVar(&tlsClientCert, "client-cert", "", "Path to client certificate file")
-	flagSet.StringVar(&tlsClientKey, "client-key", "", "Path to client key file")
-
-	subcommand := args[0]
-	subArgs := args[1:]
-
-	flagSet.Parse(subArgs)
-	remainingArgs := flagSet.Args()
-
-	tlsConfig := &TLSConfig{
-		Enabled:        strings.HasPrefix(serverURL, "https://"),
-		SkipVerify:     tlsSkipVerify,
-		CACertFile:     tlsCACert,
-		ClientCertFile: tlsClientCert,
-		ClientKeyFile:  tlsClientKey,
-	}
-
-	switch subcommand {
-	case "create":
-		handleBackupCreate(serverURL, tlsConfig, remainingArgs)
-	case "restore":
-		handleBackupRestore(serverURL, tlsConfig, remainingArgs)
-	case "list":
-		handleBackupList(serverURL, tlsConfig, remainingArgs)
-	case "export":
-		handleBackupExport(serverURL, tlsConfig, remainingArgs)
-	default:
-		fmt.Printf("Unknown backup subcommand: %s\n", subcommand)
-		fmt.Println("Available: create, restore, list, export")
-		os.Exit(1)
-	}
-}
-
-func handleBackupCreate(serverURL string, tlsConfig *TLSConfig, args []string) {
-	if len(args) != 0 {
-		fmt.Println("Usage: konsulctl backup create")
-		os.Exit(1)
-	}
-
-	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
-
-	filename, err := client.CreateBackup()
-	if err != nil {
-		fmt.Printf("Error creating backup: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Printf("Successfully created backup: %s\n", filename)
-}
-
-func handleBackupRestore(serverURL string, tlsConfig *TLSConfig, args []string) {
-	if len(args) != 1 {
-		fmt.Println("Usage: konsulctl backup restore <backup-file>")
-		os.Exit(1)
-	}
-
-	backupFile := args[0]
-	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
-
-	err := client.RestoreBackup(backupFile)
-	if err != nil {
-		fmt.Printf("Error restoring backup: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Printf("Successfully restored from backup: %s\n", backupFile)
-}
-
-func handleBackupList(serverURL string, tlsConfig *TLSConfig, args []string) {
-	if len(args) != 0 {
-		fmt.Println("Usage: konsulctl backup list")
-		os.Exit(1)
-	}
-
-	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
-
-	backups, err := client.ListBackups()
-	if err != nil {
-		fmt.Printf("Error listing backups: %v\n", err)
-		os.Exit(1)
-	}
-
-	if len(backups) == 0 {
-		fmt.Println("No backups found")
-		return
-	}
-
-	fmt.Println("Available backups:")
-	for _, backup := range backups {
-		fmt.Printf("  %s\n", backup)
-	}
-}
-
-func handleBackupExport(serverURL string, tlsConfig *TLSConfig, args []string) {
-	if len(args) != 0 {
-		fmt.Println("Usage: konsulctl backup export")
-		os.Exit(1)
-	}
-
-	client := NewKonsulClientWithTLS(serverURL, tlsConfig)
-
-	data, err := client.ExportData()
-	if err != nil {
-		fmt.Printf("Error exporting data: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Printf("%s\n", data)
 }
