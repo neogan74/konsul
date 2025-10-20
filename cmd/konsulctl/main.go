@@ -28,7 +28,8 @@ func main() {
 		serviceCmd := NewServiceCommands(cli)
 		serviceCmd.Handle(args)
 	case "backup":
-		handleBackupCommand(args)
+		backupCmd := NewBackupCommands(cli)
+		backupCmd.Handle(args)
 	case "dns":
 		dnsCmd := NewDNSCommands(cli)
 		dnsCmd.Handle(args)
