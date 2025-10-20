@@ -30,7 +30,8 @@ func main() {
 	case "backup":
 		handleBackupCommand(args)
 	case "dns":
-		handleDNSCommand(args)
+		dnsCmd := NewDNSCommands(cli)
+		dnsCmd.Handle(args)
 	case "ratelimit":
 		rateLimitCmd := NewRateLimitCommands(cli)
 		rateLimitCmd.Handle(args)
