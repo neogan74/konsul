@@ -1,0 +1,30 @@
+"""
+KVPair represents a key-value pair in the KV store
+"""
+type KVPair {
+  """The key"""
+  key: String!
+
+  """The value"""
+  value: String!
+
+  """Creation timestamp"""
+  createdAt: Time
+
+  """Last modification timestamp"""
+  updatedAt: Time
+}
+
+"""
+Response type for listing KV pairs
+"""
+type KVListResponse {
+  """List of key-value pairs"""
+  items: [KVPair!]!
+
+  """Total count of items (useful for pagination)"""
+  total: Int!
+
+  """Whether there are more items available"""
+  hasMore: Boolean!
+}
