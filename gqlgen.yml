@@ -19,9 +19,15 @@ resolver:
 # Custom scalar mappings
 models:
   Time:
-    model: time.Time
+    model:
+      - time.Time
+    marshaler: github.com/neogan74/konsul/internal/graphql/scalar.MarshalTime
+    unmarshaler: github.com/neogan74/konsul/internal/graphql/scalar.UnmarshalTime
   Duration:
-    model: time.Duration
+    model:
+      - time.Duration
+    marshaler: github.com/neogan74/konsul/internal/graphql/scalar.MarshalDuration
+    unmarshaler: github.com/neogan74/konsul/internal/graphql/scalar.UnmarshalDuration
 
 # Autobind existing models
 autobind:
