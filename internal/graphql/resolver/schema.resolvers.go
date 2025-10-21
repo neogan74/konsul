@@ -210,10 +210,28 @@ func (r *queryResolver) ServicesCount(ctx context.Context) (int, error) {
 	return len(services), nil
 }
 
+// Checks is the resolver for the checks field on Service.
+func (r *serviceResolver) Checks(ctx context.Context, obj *model.Service) ([]*model.HealthCheck, error) {
+	// Fetch health checks for this service
+	checks := r.serviceStore.GetHealthChecks(obj.Name)
+
+	// Map to GraphQL models
+	result := make([]*model.HealthCheck, 0, len(checks))
+	for _, check := range checks {
+		result = append(result, model.MapHealthCheckFromStore(check))
+	}
+
+	return result, nil
+}
+
 // Query returns generated.QueryResolver implementation.
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
+// Service returns generated.ServiceResolver implementation.
+func (r *Resolver) Service() generated.ServiceResolver { return &serviceResolver{r} }
+
 type queryResolver struct{ *Resolver }
+type serviceResolver struct{ *Resolver }
 
 // Helper functions
 
