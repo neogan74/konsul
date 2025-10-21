@@ -18,6 +18,7 @@ type Config struct {
 	Auth        AuthConfig
 	Tracing     TracingConfig
 	ACL         ACLConfig
+	GraphQL     GraphQLConfig
 }
 
 // ServerConfig contains HTTP server configuration
@@ -103,6 +104,12 @@ type ACLConfig struct {
 	Enabled       bool
 	DefaultPolicy string // "allow" or "deny"
 	PolicyDir     string // Directory containing policy JSON files
+}
+
+// GraphQLConfig contains GraphQL API configuration
+type GraphQLConfig struct {
+	Enabled           bool
+	PlaygroundEnabled bool
 }
 
 // Load loads configuration from environment variables with defaults
