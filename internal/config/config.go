@@ -179,6 +179,10 @@ func Load() (*Config, error) {
 			DefaultPolicy: getEnvString("KONSUL_ACL_DEFAULT_POLICY", "deny"),
 			PolicyDir:     getEnvString("KONSUL_ACL_POLICY_DIR", "./policies"),
 		},
+		GraphQL: GraphQLConfig{
+			Enabled:           getEnvBool("KONSUL_GRAPHQL_ENABLED", false),
+			PlaygroundEnabled: getEnvBool("KONSUL_GRAPHQL_PLAYGROUND_ENABLED", true),
+		},
 	}
 
 	if err := config.Validate(); err != nil {
