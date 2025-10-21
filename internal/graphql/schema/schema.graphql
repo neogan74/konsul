@@ -1,0 +1,18 @@
+# Root types
+schema {
+  query: Query
+}
+
+type Query {
+  # System information
+  health: SystemHealth!
+
+  # KV Store queries
+  kv(key: String!): KVPair
+  kvList(prefix: String, limit: Int, offset: Int): KVListResponse!
+
+  # Service Discovery queries
+  service(name: String!): Service
+  services(limit: Int, offset: Int): [Service!]!
+  servicesCount: Int!
+}
