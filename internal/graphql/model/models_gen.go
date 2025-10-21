@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"time"
+
+	"github.com/neogan74/konsul/internal/graphql/scalar"
 )
 
 // Health check definition
@@ -25,11 +26,11 @@ type HealthCheck struct {
 	// Status output/message
 	Output *string `json:"output,omitempty"`
 	// Check interval
-	Interval *time.Duration `json:"interval,omitempty"`
+	Interval *scalar.Duration `json:"interval,omitempty"`
 	// Check timeout
-	Timeout *time.Duration `json:"timeout,omitempty"`
+	Timeout *scalar.Duration `json:"timeout,omitempty"`
 	// Last check time
-	LastChecked *time.Time `json:"lastChecked,omitempty"`
+	LastChecked *scalar.Time `json:"lastChecked,omitempty"`
 }
 
 // Response type for listing KV pairs
@@ -49,9 +50,9 @@ type KVPair struct {
 	// The value
 	Value string `json:"value"`
 	// Creation timestamp
-	CreatedAt *time.Time `json:"createdAt,omitempty"`
+	CreatedAt *scalar.Time `json:"createdAt,omitempty"`
 	// Last modification timestamp
-	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
+	UpdatedAt *scalar.Time `json:"updatedAt,omitempty"`
 }
 
 // KV store statistics
@@ -74,7 +75,7 @@ type Service struct {
 	// Service status
 	Status ServiceStatus `json:"status"`
 	// Expiration timestamp
-	ExpiresAt time.Time `json:"expiresAt"`
+	ExpiresAt scalar.Time `json:"expiresAt"`
 	// Health checks associated with this service
 	Checks []*HealthCheck `json:"checks"`
 }
@@ -98,7 +99,7 @@ type SystemHealth struct {
 	// System uptime
 	Uptime string `json:"uptime"`
 	// Current timestamp
-	Timestamp time.Time `json:"timestamp"`
+	Timestamp scalar.Time `json:"timestamp"`
 	// Service statistics
 	Services *ServiceStats `json:"services"`
 	// KV store statistics
