@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"io"
 	"time"
-
-	"github.com/99designs/gqlgen/graphql"
 )
 
 // Time is a custom scalar type for timestamps
