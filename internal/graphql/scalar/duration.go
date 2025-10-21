@@ -4,21 +4,39 @@ import (
 	"fmt"
 	"io"
 	"time"
-
-	"github.com/99designs/gqlgen/graphql"
 )
 
-// MarshalDuration marshals time.Duration to string (e.g., "30s")
-func MarshalDuration(d time.Duration) graphql.Marshaler {
-	return graphql.WriterFunc(func(w io.Writer) {
-		io.WriteString(w, fmt.Sprintf(`"%s"`, d.String()))
-	})
+// Duration is a custom scalar type for durations
+type Duration time.Duration
+
+// MarshalGQL implements the graphql.Marshaler interface
+func (d Duration) MarshalGQL(w io.Writer) {
+	duration := time.Duration(d).String()
+	io.WriteString(w, fmt.Sprintf(`"%s"`, duration))
 }
 
-// UnmarshalDuration unmarshals string to time.Duration
-func UnmarshalDuration(v interface{}) (time.Duration, error) {
-	if tmpStr, ok := v.(string); ok {
-		return time.ParseDuration(tmpStr)
+// UnmarshalGQL implements the graphql.Unmarshaler interface
+func (d *Duration) UnmarshalGQL(v interface{}) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("duration must be a string")
 	}
-	return 0, fmt.Errorf("duration must be a string")
+
+	parsed, err := time.ParseDuration(str)
+	if err != nil {
+		return fmt.Errorf("failed to parse duration: %w", err)
+	}
+
+	*d = Duration(parsed)
+	return nil
+}
+
+// ToDuration converts scalar.Duration to time.Duration
+func (d Duration) ToDuration() time.Duration {
+	return time.Duration(d)
+}
+
+// FromDuration converts time.Duration to scalar.Duration
+func FromDuration(d time.Duration) Duration {
+	return Duration(d)
 }
