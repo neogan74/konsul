@@ -7,9 +7,14 @@ package resolver
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/neogan74/konsul/internal/graphql/generated"
 	"github.com/neogan74/konsul/internal/graphql/model"
+	"github.com/neogan74/konsul/internal/graphql/scalar"
+	"github.com/neogan74/konsul/internal/logger"
+	"github.com/neogan74/konsul/internal/store"
 )
 
 // Health is the resolver for the health field.
