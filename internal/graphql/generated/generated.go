@@ -10,11 +10,11 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
 	"github.com/neogan74/konsul/internal/graphql/model"
+	"github.com/neogan74/konsul/internal/graphql/scalar"
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -985,7 +985,7 @@ func (ec *executionContext) _HealthCheck_interval(ctx context.Context, field gra
 			return obj.Interval, nil
 		},
 		nil,
-		ec.marshalODuration2ᚖtimeᚐDuration,
+		ec.marshalODuration2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋscalarᚐDuration,
 		true,
 		false,
 	)
@@ -1014,7 +1014,7 @@ func (ec *executionContext) _HealthCheck_timeout(ctx context.Context, field grap
 			return obj.Timeout, nil
 		},
 		nil,
-		ec.marshalODuration2ᚖtimeᚐDuration,
+		ec.marshalODuration2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋscalarᚐDuration,
 		true,
 		false,
 	)
@@ -1043,7 +1043,7 @@ func (ec *executionContext) _HealthCheck_lastChecked(ctx context.Context, field 
 			return obj.LastChecked, nil
 		},
 		nil,
-		ec.marshalOTime2ᚖtimeᚐTime,
+		ec.marshalOTime2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋscalarᚐTime,
 		true,
 		false,
 	)
@@ -1227,7 +1227,7 @@ func (ec *executionContext) _KVPair_createdAt(ctx context.Context, field graphql
 			return obj.CreatedAt, nil
 		},
 		nil,
-		ec.marshalOTime2ᚖtimeᚐTime,
+		ec.marshalOTime2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋscalarᚐTime,
 		true,
 		false,
 	)
@@ -1256,7 +1256,7 @@ func (ec *executionContext) _KVPair_updatedAt(ctx context.Context, field graphql
 			return obj.UpdatedAt, nil
 		},
 		nil,
-		ec.marshalOTime2ᚖtimeᚐTime,
+		ec.marshalOTime2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋscalarᚐTime,
 		true,
 		false,
 	)
@@ -1820,7 +1820,7 @@ func (ec *executionContext) _Service_expiresAt(ctx context.Context, field graphq
 			return obj.ExpiresAt, nil
 		},
 		nil,
-		ec.marshalNTime2timeᚐTime,
+		ec.marshalNTime2githubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋscalarᚐTime,
 		true,
 		true,
 	)
@@ -2072,7 +2072,7 @@ func (ec *executionContext) _SystemHealth_timestamp(ctx context.Context, field g
 			return obj.Timestamp, nil
 		},
 		nil,
-		ec.marshalNTime2timeᚐTime,
+		ec.marshalNTime2githubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋscalarᚐTime,
 		true,
 		true,
 	)
@@ -4794,13 +4794,14 @@ func (ec *executionContext) marshalNSystemHealth2ᚖgithubᚗcomᚋneogan74ᚋko
 	return ec._SystemHealth(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNTime2timeᚐTime(ctx context.Context, v any) (time.Time, error) {
-	res, err := ec.unmarshalInputTime(ctx, v)
+func (ec *executionContext) unmarshalNTime2githubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋscalarᚐTime(ctx context.Context, v any) (scalar.Time, error) {
+	var res scalar.Time
+	err := res.UnmarshalGQL(v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNTime2timeᚐTime(ctx context.Context, sel ast.SelectionSet, v time.Time) graphql.Marshaler {
-	return ec._Time(ctx, sel, &v)
+func (ec *executionContext) marshalNTime2githubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋscalarᚐTime(ctx context.Context, sel ast.SelectionSet, v scalar.Time) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {
@@ -5086,19 +5087,20 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return res
 }
 
-func (ec *executionContext) unmarshalODuration2ᚖtimeᚐDuration(ctx context.Context, v any) (*time.Duration, error) {
+func (ec *executionContext) unmarshalODuration2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋscalarᚐDuration(ctx context.Context, v any) (*scalar.Duration, error) {
 	if v == nil {
 		return nil, nil
 	}
-	res, err := ec.unmarshalInputDuration(ctx, v)
-	return &res, graphql.ErrorOnPath(ctx, err)
+	var res = new(scalar.Duration)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalODuration2ᚖtimeᚐDuration(ctx context.Context, sel ast.SelectionSet, v *time.Duration) graphql.Marshaler {
+func (ec *executionContext) marshalODuration2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋscalarᚐDuration(ctx context.Context, sel ast.SelectionSet, v *scalar.Duration) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
-	return ec._Duration(ctx, sel, v)
+	return v
 }
 
 func (ec *executionContext) unmarshalOInt2ᚖint(ctx context.Context, v any) (*int, error) {
@@ -5151,19 +5153,20 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 	return res
 }
 
-func (ec *executionContext) unmarshalOTime2ᚖtimeᚐTime(ctx context.Context, v any) (*time.Time, error) {
+func (ec *executionContext) unmarshalOTime2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋscalarᚐTime(ctx context.Context, v any) (*scalar.Time, error) {
 	if v == nil {
 		return nil, nil
 	}
-	res, err := ec.unmarshalInputTime(ctx, v)
-	return &res, graphql.ErrorOnPath(ctx, err)
+	var res = new(scalar.Time)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalOTime2ᚖtimeᚐTime(ctx context.Context, sel ast.SelectionSet, v *time.Time) graphql.Marshaler {
+func (ec *executionContext) marshalOTime2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋscalarᚐTime(ctx context.Context, sel ast.SelectionSet, v *scalar.Time) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
-	return ec._Time(ctx, sel, v)
+	return v
 }
 
 func (ec *executionContext) marshalO__EnumValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐEnumValueᚄ(ctx context.Context, sel ast.SelectionSet, v []introspection.EnumValue) graphql.Marshaler {
