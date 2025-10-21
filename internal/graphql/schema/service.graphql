@@ -1,0 +1,84 @@
+"""
+Service represents a registered service in the service registry
+"""
+type Service {
+  """Service name (unique identifier)"""
+  name: String!
+
+  """Service IP address or hostname"""
+  address: String!
+
+  """Service port number"""
+  port: Int!
+
+  """Service status"""
+  status: ServiceStatus!
+
+  """Expiration timestamp"""
+  expiresAt: Time!
+
+  """Health checks associated with this service"""
+  checks: [HealthCheck!]!
+}
+
+"""
+Service status enum
+"""
+enum ServiceStatus {
+  """Service is active and not expired"""
+  ACTIVE
+
+  """Service has expired"""
+  EXPIRED
+}
+
+"""
+Health check definition
+"""
+type HealthCheck {
+  """Check ID"""
+  id: String!
+
+  """Service ID this check belongs to"""
+  serviceId: String!
+
+  """Check name"""
+  name: String!
+
+  """Check type (http, tcp, grpc, ttl)"""
+  type: HealthCheckType!
+
+  """Current status"""
+  status: HealthCheckStatus!
+
+  """Status output/message"""
+  output: String
+
+  """Check interval"""
+  interval: Duration
+
+  """Check timeout"""
+  timeout: Duration
+
+  """Last check time"""
+  lastChecked: Time
+}
+
+"""
+Health check type
+"""
+enum HealthCheckType {
+  HTTP
+  TCP
+  GRPC
+  TTL
+}
+
+"""
+Health check status
+"""
+enum HealthCheckStatus {
+  PASSING
+  WARNING
+  CRITICAL
+}
