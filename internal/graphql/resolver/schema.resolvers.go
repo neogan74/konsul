@@ -214,3 +214,12 @@ func (r *queryResolver) ServicesCount(ctx context.Context) (int, error) {
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
 type queryResolver struct{ *Resolver }
+
+// Helper functions
+
+func stringOrEmpty(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
