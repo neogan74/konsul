@@ -14,32 +14,195 @@ import (
 
 // Health is the resolver for the health field.
 func (r *queryResolver) Health(ctx context.Context) (*model.SystemHealth, error) {
-	panic(fmt.Errorf("not implemented: Health - health"))
+	// No auth required for health endpoint (public)
+
+	// Get service stats
+	allEntries := r.serviceStore.ListAll()
+	activeServices := r.serviceStore.List()
+	expiredCount := len(allEntries) - len(activeServices)
+
+	// Get KV stats
+	allKeys := r.kvStore.List()
+
+	// Calculate uptime
+	uptime := fmt.Sprintf("%v", time.Since(r.startTime).Round(time.Second))
+
+	timestamp := scalar.FromTime(time.Now())
+
+	return &model.SystemHealth{
+		Status:    "healthy",
+		Version:   r.version,
+		Uptime:    uptime,
+		Timestamp: timestamp,
+		Services: &model.ServiceStats{
+			Total:   len(allEntries),
+			Active:  len(activeServices),
+			Expired: expiredCount,
+		},
+		KvStore: &model.KVStats{
+			TotalKeys: len(allKeys),
+		},
+	}, nil
 }
 
 // Kv is the resolver for the kv field.
 func (r *queryResolver) Kv(ctx context.Context, key string) (*model.KVPair, error) {
-	panic(fmt.Errorf("not implemented: Kv - kv"))
+	// Check authentication if required
+	// TODO: Add authentication check when auth middleware is implemented
+
+	// Check ACL permissions if enabled
+	// TODO: Add ACL check when ACL middleware is implemented
+
+	// Fetch from store
+	value, exists := r.kvStore.Get(key)
+	if !exists {
+		return nil, nil // Return nil for not found (nullable field)
+	}
+
+	r.logger.Debug("GraphQL: fetched KV pair",
+		logger.String("key", key))
+
+	return model.MapKVPairFromStore(key, value), nil
 }
 
 // KvList is the resolver for the kvList field.
 func (r *queryResolver) KvList(ctx context.Context, prefix *string, limit *int, offset *int) (*model.KVListResponse, error) {
-	panic(fmt.Errorf("not implemented: KvList - kvList"))
+	// Check authentication
+	// TODO: Add authentication check when auth middleware is implemented
+
+	// Get all keys
+	allKeys := r.kvStore.List()
+
+	// Filter by prefix if provided
+	var filteredKeys []string
+	if prefix != nil && *prefix != "" {
+		for _, key := range allKeys {
+			if strings.HasPrefix(key, *prefix) {
+				filteredKeys = append(filteredKeys, key)
+			}
+		}
+	} else {
+		filteredKeys = allKeys
+	}
+
+	total := len(filteredKeys)
+
+	// Apply pagination
+	start := 0
+	if offset != nil {
+		start = *offset
+		if start > total {
+			start = total
+		}
+	}
+
+	end := total
+	if limit != nil {
+		end = start + *limit
+		if end > total {
+			end = total
+		}
+	}
+
+	paginatedKeys := filteredKeys[start:end]
+
+	// Build response
+	items := make([]*model.KVPair, 0, len(paginatedKeys))
+	for _, key := range paginatedKeys {
+		if value, exists := r.kvStore.Get(key); exists {
+			// TODO: Check ACL for each key if enabled
+			items = append(items, model.MapKVPairFromStore(key, value))
+		}
+	}
+
+	r.logger.Debug("GraphQL: listed KV pairs",
+		logger.String("prefix", stringOrEmpty(prefix)),
+		logger.Int("total", total),
+		logger.Int("returned", len(items)))
+
+	return &model.KVListResponse{
+		Items:   items,
+		Total:   total,
+		HasMore: end < total,
+	}, nil
 }
 
 // Service is the resolver for the service field.
 func (r *queryResolver) Service(ctx context.Context, name string) (*model.Service, error) {
-	panic(fmt.Errorf("not implemented: Service - service"))
+	// Check authentication
+	// TODO: Add authentication check when auth middleware is implemented
+
+	// Check ACL
+	// TODO: Add ACL check when ACL middleware is implemented
+
+	// Get all entries to find the one with expiration info
+	entries := r.serviceStore.ListAll()
+	var entry *store.ServiceEntry
+	for _, e := range entries {
+		if e.Service.Name == name {
+			entry = &e
+			break
+		}
+	}
+
+	if entry == nil {
+		return nil, nil // Return nil for not found
+	}
+
+	r.logger.Debug("GraphQL: fetched service",
+		logger.String("name", name))
+
+	return model.MapServiceFromStore(entry.Service, *entry), nil
 }
 
 // Services is the resolver for the services field.
 func (r *queryResolver) Services(ctx context.Context, limit *int, offset *int) ([]*model.Service, error) {
-	panic(fmt.Errorf("not implemented: Services - services"))
+	// Check authentication
+	// TODO: Add authentication check when auth middleware is implemented
+
+	// Get all services
+	entries := r.serviceStore.ListAll()
+
+	// Apply pagination
+	start := 0
+	if offset != nil {
+		start = *offset
+		if start > len(entries) {
+			start = len(entries)
+		}
+	}
+
+	end := len(entries)
+	if limit != nil {
+		end = start + *limit
+		if end > len(entries) {
+			end = len(entries)
+		}
+	}
+
+	paginatedEntries := entries[start:end]
+
+	// Map to GraphQL models
+	services := make([]*model.Service, 0, len(paginatedEntries))
+	for _, entry := range paginatedEntries {
+		// TODO: Check ACL for each service
+		services = append(services, model.MapServiceFromStore(entry.Service, entry))
+	}
+
+	r.logger.Debug("GraphQL: listed services",
+		logger.Int("total", len(entries)),
+		logger.Int("returned", len(services)))
+
+	return services, nil
 }
 
 // ServicesCount is the resolver for the servicesCount field.
 func (r *queryResolver) ServicesCount(ctx context.Context) (int, error) {
-	panic(fmt.Errorf("not implemented: ServicesCount - servicesCount"))
+	// Check authentication
+	// TODO: Add authentication check when auth middleware is implemented
+
+	services := r.serviceStore.List()
+	return len(services), nil
 }
 
 // Query returns generated.QueryResolver implementation.
