@@ -90,7 +90,7 @@ func TestAPIKeyAuth_ValidKey_XAPIKeyHeader(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/api/data", nil)
-	req.Header.Set("X-API-Key", key.Key)
+	req.Header.Set("X-API-Key", keyString)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
