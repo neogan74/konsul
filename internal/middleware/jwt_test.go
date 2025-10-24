@@ -97,12 +97,7 @@ func TestJWTAuth_ValidToken(t *testing.T) {
 	jwtService := auth.NewJWTService("test-secret", 15*time.Minute, 24*time.Hour, "konsul")
 
 	// Generate valid token
-	claims := &auth.Claims{
-		UserID:   "user123",
-		Username: "testuser",
-		Roles:    []string{"admin", "user"},
-	}
-	token, err := jwtService.GenerateToken(claims)
+	token, err := jwtService.GenerateToken("user123", "testuser", []string{"admin", "user"})
 	if err != nil {
 		t.Fatalf("failed to generate token: %v", err)
 	}
