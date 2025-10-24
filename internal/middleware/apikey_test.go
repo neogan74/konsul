@@ -59,7 +59,8 @@ func TestAPIKeyAuth_ValidKey_XAPIKeyHeader(t *testing.T) {
 	apiKeyService := auth.NewAPIKeyService("test-prefix")
 
 	// Create a test API key
-	key, err := apiKeyService.CreateAPIKey("test-key", []string{"read", "write"}, nil, 24*time.Hour)
+	expiresAt := time.Now().Add(24 * time.Hour)
+	keyString, key, err := apiKeyService.GenerateAPIKey("test-key", []string{"read", "write"}, nil, &expiresAt)
 	if err != nil {
 		t.Fatalf("failed to create API key: %v", err)
 	}
