@@ -105,7 +105,8 @@ func TestAPIKeyAuth_ValidKey_AuthorizationHeader(t *testing.T) {
 	apiKeyService := auth.NewAPIKeyService("test-prefix")
 
 	// Create a test API key
-	key, err := apiKeyService.CreateAPIKey("test-key", []string{"read"}, nil, 24*time.Hour)
+	expiresAt := time.Now().Add(24 * time.Hour)
+	keyString, _, err := apiKeyService.GenerateAPIKey("test-key", []string{"read"}, nil, &expiresAt)
 	if err != nil {
 		t.Fatalf("failed to create API key: %v", err)
 	}
@@ -117,7 +118,7 @@ func TestAPIKeyAuth_ValidKey_AuthorizationHeader(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/api/data", nil)
-	req.Header.Set("Authorization", "ApiKey "+key.Key)
+	req.Header.Set("Authorization", "ApiKey "+keyString)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -158,7 +159,8 @@ func TestAPIKeyAuth_ExpiredKey(t *testing.T) {
 	apiKeyService := auth.NewAPIKeyService("test-prefix")
 
 	// Create an expired API key
-	key, err := apiKeyService.CreateAPIKey("test-key", []string{"read"}, nil, -1*time.Hour)
+	expiresAt := time.Now().Add(-1 * time.Hour)
+	keyString, _, err := apiKeyService.GenerateAPIKey("test-key", []string{"read"}, nil, &expiresAt)
 	if err != nil {
 		t.Fatalf("failed to create API key: %v", err)
 	}
@@ -170,7 +172,7 @@ func TestAPIKeyAuth_ExpiredKey(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/api/data", nil)
-	req.Header.Set("X-API-Key", key.Key)
+	req.Header.Set("X-API-Key", keyString)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
