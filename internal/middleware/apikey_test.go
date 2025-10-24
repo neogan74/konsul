@@ -192,14 +192,15 @@ func TestAPIKeyAuth_DisabledKey(t *testing.T) {
 	apiKeyService := auth.NewAPIKeyService("test-prefix")
 
 	// Create and disable API key
-	key, err := apiKeyService.CreateAPIKey("test-key", []string{"read"}, nil, 24*time.Hour)
+	expiresAt := time.Now().Add(24 * time.Hour)
+	keyString, key, err := apiKeyService.GenerateAPIKey("test-key", []string{"read"}, nil, &expiresAt)
 	if err != nil {
 		t.Fatalf("failed to create API key: %v", err)
 	}
 
-	err = apiKeyService.DisableAPIKey(key.ID)
+	err = apiKeyService.RevokeAPIKey(key.ID)
 	if err != nil {
-		t.Fatalf("failed to disable API key: %v", err)
+		t.Fatalf("failed to revoke API key: %v", err)
 	}
 
 	app := fiber.New()
@@ -209,7 +210,7 @@ func TestAPIKeyAuth_DisabledKey(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/api/data", nil)
-	req.Header.Set("X-API-Key", key.Key)
+	req.Header.Set("X-API-Key", keyString)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
