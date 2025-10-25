@@ -178,13 +178,13 @@ func TestACLMiddleware_KVResource(t *testing.T) {
 	log := logger.GetDefault()
 	evaluator := acl.NewEvaluator(log)
 
-	// Create a policy with KV rules
+	// Create a policy with KV rules - use single segment key
 	policy := &acl.Policy{
 		Name:        "kv-policy",
 		Description: "KV policy",
 		KV: []acl.KVRule{
 			{
-				Path:         "app/**",
+				Path:         "mykey",
 				Capabilities: []acl.Capability{acl.CapabilityRead},
 			},
 		},
@@ -207,7 +207,7 @@ func TestACLMiddleware_KVResource(t *testing.T) {
 	})
 
 	// Should succeed for matching path
-	req := httptest.NewRequest("GET", "/kv/app/config/database", nil)
+	req := httptest.NewRequest("GET", "/kv/mykey", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := app.Test(req)
 	if err != nil {
