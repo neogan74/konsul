@@ -583,6 +583,7 @@ func TestDynamicACLMiddleware_Allowed(t *testing.T) {
 func TestInferResourceAndCapability_KV(t *testing.T) {
 	tests := []struct {
 		name             string
+		route            string
 		path             string
 		method           string
 		expectedResource acl.ResourceType
@@ -591,6 +592,7 @@ func TestInferResourceAndCapability_KV(t *testing.T) {
 	}{
 		{
 			name:             "GET /kv/mykey - read",
+			route:            "/kv/:key",
 			path:             "/kv/mykey",
 			method:           "GET",
 			expectedResource: acl.ResourceTypeKV,
@@ -599,6 +601,7 @@ func TestInferResourceAndCapability_KV(t *testing.T) {
 		},
 		{
 			name:             "GET /kv/ - list",
+			route:            "/kv/",
 			path:             "/kv/",
 			method:           "GET",
 			expectedResource: acl.ResourceTypeKV,
@@ -607,6 +610,7 @@ func TestInferResourceAndCapability_KV(t *testing.T) {
 		},
 		{
 			name:             "GET /kv - list",
+			route:            "/kv",
 			path:             "/kv",
 			method:           "GET",
 			expectedResource: acl.ResourceTypeKV,
@@ -615,6 +619,7 @@ func TestInferResourceAndCapability_KV(t *testing.T) {
 		},
 		{
 			name:             "PUT /kv/mykey - write",
+			route:            "/kv/:key",
 			path:             "/kv/mykey",
 			method:           "PUT",
 			expectedResource: acl.ResourceTypeKV,
@@ -623,6 +628,7 @@ func TestInferResourceAndCapability_KV(t *testing.T) {
 		},
 		{
 			name:             "POST /kv/mykey - write",
+			route:            "/kv/:key",
 			path:             "/kv/mykey",
 			method:           "POST",
 			expectedResource: acl.ResourceTypeKV,
@@ -631,6 +637,7 @@ func TestInferResourceAndCapability_KV(t *testing.T) {
 		},
 		{
 			name:             "DELETE /kv/mykey - delete",
+			route:            "/kv/:key",
 			path:             "/kv/mykey",
 			method:           "DELETE",
 			expectedResource: acl.ResourceTypeKV,
@@ -642,7 +649,7 @@ func TestInferResourceAndCapability_KV(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			app := fiber.New()
-			app.Add(tt.method, tt.path, func(c *fiber.Ctx) error {
+			app.Add(tt.method, tt.route, func(c *fiber.Ctx) error {
 				resource, capability := inferResourceAndCapability(c)
 				if resource.Type != tt.expectedResource {
 					t.Errorf("expected resource type %s, got %s", tt.expectedResource, resource.Type)
