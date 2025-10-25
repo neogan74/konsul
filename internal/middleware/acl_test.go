@@ -199,21 +199,15 @@ func TestACLMiddleware_KVResource(t *testing.T) {
 	}
 
 	// Create a custom app with route parameter for KV
+	// Note: ACL middleware must be attached to the route, not globally, so params are available
 	app := fiber.New()
 	app.Use(JWTAuth(jwtService, []string{}))
-	app.Use(func(c *fiber.Ctx) error {
-		key := c.Params("key")
-		t.Logf("Debug: Route param 'key' = %q", key)
-		return c.Next()
-	})
-	app.Use(ACLMiddleware(evaluator, acl.ResourceTypeKV, acl.CapabilityRead))
-	app.Get("/kv/:key", func(c *fiber.Ctx) error {
-		resource := GetACLResource(c)
-		if resource != nil {
-			t.Logf("Debug: ACL resource path = %q", resource.Path)
-		}
-		return c.SendString("success")
-	})
+	app.Get("/kv/:key",
+		ACLMiddleware(evaluator, acl.ResourceTypeKV, acl.CapabilityRead),
+		func(c *fiber.Ctx) error {
+			return c.SendString("success")
+		},
+	)
 
 	// Should succeed for matching path
 	req := httptest.NewRequest("GET", "/kv/mykey", nil)
