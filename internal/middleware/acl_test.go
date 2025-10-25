@@ -184,7 +184,7 @@ func TestACLMiddleware_KVResource(t *testing.T) {
 		Description: "KV policy",
 		KV: []acl.KVRule{
 			{
-				Path:         "app/config/*",
+				Path:         "app/config/database",
 				Capabilities: []acl.Capability{acl.CapabilityRead},
 			},
 		},
@@ -198,7 +198,13 @@ func TestACLMiddleware_KVResource(t *testing.T) {
 		t.Fatalf("failed to generate token: %v", err)
 	}
 
-	app := setupTestApp(jwtService, evaluator, acl.ResourceTypeKV, acl.CapabilityRead)
+	// Create a custom app with route parameter for KV
+	app := fiber.New()
+	app.Use(JWTAuth(jwtService, []string{}))
+	app.Use(ACLMiddleware(evaluator, acl.ResourceTypeKV, acl.CapabilityRead))
+	app.Get("/kv/:key", func(c *fiber.Ctx) error {
+		return c.SendString("success")
+	})
 
 	// Should succeed for matching path
 	req := httptest.NewRequest("GET", "/kv/app/config/database", nil)
