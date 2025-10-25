@@ -184,7 +184,7 @@ func TestACLMiddleware_KVResource(t *testing.T) {
 		Description: "KV policy",
 		KV: []acl.KVRule{
 			{
-				Path:         "app/config/database",
+				Path:         "app/**",
 				Capabilities: []acl.Capability{acl.CapabilityRead},
 			},
 		},
