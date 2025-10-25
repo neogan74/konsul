@@ -231,7 +231,7 @@ func TestACLMiddleware_ServiceResource(t *testing.T) {
 		Description: "Service policy",
 		Service: []acl.ServiceRule{
 			{
-				Name:         "web-frontend",
+				Name:         "web-*",
 				Capabilities: []acl.Capability{acl.CapabilityRead},
 			},
 		},
