@@ -132,6 +132,122 @@ PUT /register
 }
 ```
 
+## GraphQL API
+
+Konsul provides a GraphQL API alongside the REST API for flexible querying of resources.
+
+### Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| POST `/graphql` | GraphQL API endpoint |
+| GET `/graphql/playground` | GraphQL Playground (development only) |
+
+### Configuration
+
+Enable GraphQL via environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `KONSUL_GRAPHQL_ENABLED` | `false` | Enable GraphQL API |
+| `KONSUL_GRAPHQL_PLAYGROUND_ENABLED` | `true` | Enable GraphQL Playground |
+
+**Example:**
+```bash
+# Enable GraphQL with playground
+KONSUL_GRAPHQL_ENABLED=true \
+KONSUL_GRAPHQL_PLAYGROUND_ENABLED=true \
+./konsul
+```
+
+### Example Queries
+
+**Get system health:**
+```graphql
+query {
+  health {
+    status
+    version
+    uptime
+    services {
+      total
+      active
+    }
+    kvStore {
+      totalKeys
+    }
+  }
+}
+```
+
+**Query KV store:**
+```graphql
+query {
+  kv(key: "config/app") {
+    key
+    value
+    createdAt
+  }
+}
+```
+
+**List services:**
+```graphql
+query {
+  services {
+    name
+    address
+    port
+    status
+    expiresAt
+  }
+}
+```
+
+**Complex nested query:**
+```graphql
+query Dashboard {
+  health {
+    status
+    services {
+      total
+      active
+    }
+  }
+
+  services {
+    name
+    address
+    port
+    checks {
+      status
+      output
+    }
+  }
+}
+```
+
+### Using cURL
+
+```bash
+# Health query
+curl -X POST http://localhost:8888/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query": "{ health { status version } }"}'
+
+# KV query
+curl -X POST http://localhost:8888/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query": "{ kv(key: \"mykey\") { key value } }"}'
+
+# Services query
+curl -X POST http://localhost:8888/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query": "{ services { name address port } }"}'
+```
+
+**See [GraphQL API Documentation](docs/graphql-api.md) for complete API reference.**
+
 ### Health Check TTL ✅
 
 - Registration sets configurable TTL for service (default: 30s)
@@ -441,6 +557,7 @@ helm upgrade konsul ./helm/konsul --namespace konsul
 
 ## Documentation
 
+- [GraphQL API](docs/graphql-api.md) - GraphQL API reference and examples
 - [Deployment Guide](docs/deployment.md) - Production deployment instructions
 - [Architecture Decision Records (ADRs)](docs/adr/) - Architectural decisions and rationale
 - [TODO](docs/TODO.md) - Development roadmap and planned features

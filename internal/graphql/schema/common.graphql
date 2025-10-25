@@ -1,0 +1,54 @@
+"""
+System health information
+"""
+type SystemHealth {
+  """Overall system status"""
+  status: String!
+
+  """Konsul version"""
+  version: String!
+
+  """System uptime"""
+  uptime: String!
+
+  """Current timestamp"""
+  timestamp: Time!
+
+  """Service statistics"""
+  services: ServiceStats!
+
+  """KV store statistics"""
+  kvStore: KVStats!
+}
+
+"""
+Service statistics
+"""
+type ServiceStats {
+  """Total registered services"""
+  total: Int!
+
+  """Active (non-expired) services"""
+  active: Int!
+
+  """Expired services"""
+  expired: Int!
+}
+
+"""
+KV store statistics
+"""
+type KVStats {
+  """Total number of keys"""
+  totalKeys: Int!
+}
+
+"""
+Custom scalar for timestamps
+"""
+scalar Time
+
+"""
+Custom scalar for durations (e.g., "30s", "5m", "2h")
+"""
+scalar Duration

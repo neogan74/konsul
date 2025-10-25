@@ -20,6 +20,8 @@ import (
 	"github.com/neogan74/konsul/internal/auth"
 	"github.com/neogan74/konsul/internal/config"
 	"github.com/neogan74/konsul/internal/dns"
+	"github.com/neogan74/konsul/internal/graphql"
+	"github.com/neogan74/konsul/internal/graphql/resolver"
 	"github.com/neogan74/konsul/internal/handlers"
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/metrics"
@@ -353,6 +355,31 @@ func main() {
 		})
 
 		appLogger.Info("Admin UI available at /ui")
+	}
+
+	// GraphQL setup (if enabled)
+	if cfg.GraphQL.Enabled {
+		gqlDeps := resolver.ResolverDependencies{
+			KVStore:      kv,
+			ServiceStore: svcStore,
+			ACLEvaluator: aclEvaluator,
+			JWTService:   jwtService,
+			Logger:       appLogger,
+			Version:      version,
+		}
+
+		gqlServer := graphql.NewServer(gqlDeps)
+
+		// GraphQL endpoint
+		app.All("/graphql", adaptor.HTTPHandlerFunc(gqlServer.Handler().ServeHTTP))
+
+		// GraphQL Playground (disable in production)
+		if cfg.GraphQL.PlaygroundEnabled {
+			app.Get("/graphql/playground", adaptor.HTTPHandlerFunc(gqlServer.PlaygroundHandler().ServeHTTP))
+			appLogger.Info("GraphQL Playground available at /graphql/playground")
+		}
+
+		appLogger.Info("GraphQL API enabled at /graphql")
 	}
 
 	// Start background cleanup process
