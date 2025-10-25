@@ -249,12 +249,15 @@ func TestACLMiddleware_ServiceResource(t *testing.T) {
 	}
 
 	// Create a custom app with route parameter for service
+	// Note: ACL middleware must be attached to the route, not globally, so params are available
 	app := fiber.New()
 	app.Use(JWTAuth(jwtService, []string{}))
-	app.Use(ACLMiddleware(evaluator, acl.ResourceTypeService, acl.CapabilityRead))
-	app.Get("/services/:name", func(c *fiber.Ctx) error {
-		return c.SendString("success")
-	})
+	app.Get("/services/:name",
+		ACLMiddleware(evaluator, acl.ResourceTypeService, acl.CapabilityRead),
+		func(c *fiber.Ctx) error {
+			return c.SendString("success")
+		},
+	)
 
 	// Should succeed for matching service
 	req := httptest.NewRequest("GET", "/services/myservice", nil)
