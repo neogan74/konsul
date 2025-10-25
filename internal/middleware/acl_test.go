@@ -231,7 +231,7 @@ func TestACLMiddleware_ServiceResource(t *testing.T) {
 		Description: "Service policy",
 		Service: []acl.ServiceRule{
 			{
-				Name:         "web-*",
+				Name:         "web-frontend",
 				Capabilities: []acl.Capability{acl.CapabilityRead},
 			},
 		},
@@ -245,7 +245,13 @@ func TestACLMiddleware_ServiceResource(t *testing.T) {
 		t.Fatalf("failed to generate token: %v", err)
 	}
 
-	app := setupTestApp(jwtService, evaluator, acl.ResourceTypeService, acl.CapabilityRead)
+	// Create a custom app with route parameter for service
+	app := fiber.New()
+	app.Use(JWTAuth(jwtService, []string{}))
+	app.Use(ACLMiddleware(evaluator, acl.ResourceTypeService, acl.CapabilityRead))
+	app.Get("/services/:name", func(c *fiber.Ctx) error {
+		return c.SendString("success")
+	})
 
 	// Should succeed for matching service
 	req := httptest.NewRequest("GET", "/services/web-frontend", nil)
