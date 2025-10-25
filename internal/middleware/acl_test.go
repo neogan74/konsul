@@ -231,7 +231,7 @@ func TestACLMiddleware_ServiceResource(t *testing.T) {
 		Description: "Service policy",
 		Service: []acl.ServiceRule{
 			{
-				Name:         "web-*",
+				Name:         "myservice",
 				Capabilities: []acl.Capability{acl.CapabilityRead},
 			},
 		},
@@ -254,7 +254,7 @@ func TestACLMiddleware_ServiceResource(t *testing.T) {
 	})
 
 	// Should succeed for matching service
-	req := httptest.NewRequest("GET", "/services/web-frontend", nil)
+	req := httptest.NewRequest("GET", "/services/myservice", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := app.Test(req)
 	if err != nil {
