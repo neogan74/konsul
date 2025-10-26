@@ -498,12 +498,13 @@ func TestDynamicACLMiddleware_Denied(t *testing.T) {
 	log := logger.GetDefault()
 	evaluator := acl.NewEvaluator(log)
 
+	// Policy that only allows reading "allowedkey", not "deniedkey"
 	policy := &acl.Policy{
 		Name:        "test-policy",
 		Description: "Test policy",
 		KV: []acl.KVRule{
 			{
-				Path:         "app/other/*",
+				Path:         "allowedkey",
 				Capabilities: []acl.Capability{acl.CapabilityRead},
 			},
 		},
@@ -519,12 +520,16 @@ func TestDynamicACLMiddleware_Denied(t *testing.T) {
 
 	app := fiber.New()
 	app.Use(JWTAuth(jwtService, []string{}))
-	app.Use(DynamicACLMiddleware(evaluator))
-	app.Get("/kv/:key", func(c *fiber.Ctx) error {
-		return c.SendString("success")
-	})
+	// Attach DynamicACLMiddleware to specific route so params are available
+	app.Get("/kv/:key",
+		DynamicACLMiddleware(evaluator),
+		func(c *fiber.Ctx) error {
+			return c.SendString("success")
+		},
+	)
 
-	req := httptest.NewRequest("GET", "/kv/app/config/test", nil)
+	// Try to access a key that's not allowed
+	req := httptest.NewRequest("GET", "/kv/deniedkey", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := app.Test(req)
 	if err != nil {
