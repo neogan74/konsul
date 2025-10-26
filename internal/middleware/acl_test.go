@@ -675,6 +675,7 @@ func TestInferResourceAndCapability_KV(t *testing.T) {
 func TestInferResourceAndCapability_Service(t *testing.T) {
 	tests := []struct {
 		name             string
+		route            string
 		path             string
 		method           string
 		expectedResource acl.ResourceType
@@ -683,6 +684,7 @@ func TestInferResourceAndCapability_Service(t *testing.T) {
 	}{
 		{
 			name:             "GET /services/web - read",
+			route:            "/services/:name",
 			path:             "/services/web",
 			method:           "GET",
 			expectedResource: acl.ResourceTypeService,
@@ -691,6 +693,7 @@ func TestInferResourceAndCapability_Service(t *testing.T) {
 		},
 		{
 			name:             "GET /services/ - list",
+			route:            "/services/",
 			path:             "/services/",
 			method:           "GET",
 			expectedResource: acl.ResourceTypeService,
@@ -699,6 +702,7 @@ func TestInferResourceAndCapability_Service(t *testing.T) {
 		},
 		{
 			name:             "POST /register - register",
+			route:            "/register",
 			path:             "/register",
 			method:           "POST",
 			expectedResource: acl.ResourceTypeService,
@@ -707,6 +711,7 @@ func TestInferResourceAndCapability_Service(t *testing.T) {
 		},
 		{
 			name:             "DELETE /deregister/web - deregister",
+			route:            "/deregister/:name",
 			path:             "/deregister/web",
 			method:           "DELETE",
 			expectedResource: acl.ResourceTypeService,
@@ -715,6 +720,7 @@ func TestInferResourceAndCapability_Service(t *testing.T) {
 		},
 		{
 			name:             "PUT /heartbeat/web - write",
+			route:            "/heartbeat/:name",
 			path:             "/heartbeat/web",
 			method:           "PUT",
 			expectedResource: acl.ResourceTypeService,
@@ -726,7 +732,7 @@ func TestInferResourceAndCapability_Service(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			app := fiber.New()
-			app.Add(tt.method, tt.path, func(c *fiber.Ctx) error {
+			app.Add(tt.method, tt.route, func(c *fiber.Ctx) error {
 				resource, capability := inferResourceAndCapability(c)
 				if resource.Type != tt.expectedResource {
 					t.Errorf("expected resource type %s, got %s", tt.expectedResource, resource.Type)
