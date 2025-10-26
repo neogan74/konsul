@@ -541,13 +541,14 @@ func TestDynamicACLMiddleware_Allowed(t *testing.T) {
 	log := logger.GetDefault()
 	evaluator := acl.NewEvaluator(log)
 
+	// Policy that allows both read and list on all keys
 	policy := &acl.Policy{
 		Name:        "test-policy",
 		Description: "Test policy",
 		KV: []acl.KVRule{
 			{
-				Path:         "app/**",
-				Capabilities: []acl.Capability{acl.CapabilityRead},
+				Path:         "*",
+				Capabilities: []acl.Capability{acl.CapabilityRead, acl.CapabilityList},
 			},
 		},
 	}
@@ -562,12 +563,15 @@ func TestDynamicACLMiddleware_Allowed(t *testing.T) {
 
 	app := fiber.New()
 	app.Use(JWTAuth(jwtService, []string{}))
-	app.Use(DynamicACLMiddleware(evaluator))
-	app.Get("/kv/:key", func(c *fiber.Ctx) error {
-		return c.SendString("success")
-	})
+	// Attach DynamicACLMiddleware to specific route so params are available
+	app.Get("/kv/:key",
+		DynamicACLMiddleware(evaluator),
+		func(c *fiber.Ctx) error {
+			return c.SendString("success")
+		},
+	)
 
-	req := httptest.NewRequest("GET", "/kv/app/config/test", nil)
+	req := httptest.NewRequest("GET", "/kv/testkey", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := app.Test(req)
 	if err != nil {
