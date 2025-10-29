@@ -15,6 +15,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/neogan74/konsul/internal/acl"
 	"github.com/neogan74/konsul/internal/auth"
@@ -34,7 +35,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-//go:embed all:ui
+//go:embed all:../../web/admin/dist
 var adminUI embed.FS
 
 func main() {
@@ -91,6 +92,16 @@ func main() {
 	}
 
 	app := fiber.New()
+
+	// CORS middleware - allow UI to call API from same or different origin
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     "*", // In production, restrict to specific origins
+		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-API-Key",
+		AllowCredentials: false,
+		ExposeHeaders:    "Content-Length",
+		MaxAge:           3600,
+	}))
 
 	// Add middleware
 	app.Use(middleware.RequestLogging(appLogger))
@@ -338,23 +349,43 @@ func main() {
 	app.Get("/metrics", adaptor.HTTPHandler(promhttp.Handler()))
 
 	// Admin UI (embedded static files)
-	uiFS, err := fs.Sub(adminUI, "ui")
-	if err != nil {
-		appLogger.Warn("Failed to load embedded admin UI", logger.Error(err))
+	if cfg.AdminUI.Enabled {
+		// Strip the "../../web/admin/dist" prefix from embedded paths
+		uiFS, err := fs.Sub(adminUI, "web/admin/dist")
+		if err != nil {
+			appLogger.Warn("Failed to load embedded admin UI", logger.Error(err))
+		} else {
+			// Serve static files (JS, CSS, images) from configured path
+			app.Use(cfg.AdminUI.Path, filesystem.New(filesystem.Config{
+				Root:       http.FS(uiFS),
+				PathPrefix: "",
+				Browse:     false,
+				Index:      "index.html",
+			}))
+
+			// SPA fallback - serve index.html for all admin UI routes
+			// This handles client-side routing (e.g., /admin/services, /admin/kv)
+			app.Use(cfg.AdminUI.Path+"/*", func(c *fiber.Ctx) error {
+				// Don't interfere with asset requests
+				path := c.Path()
+				pathLen := len(cfg.AdminUI.Path)
+				if len(path) > pathLen+8 && path[pathLen+1:pathLen+7] == "assets" {
+					return c.Next()
+				}
+				// Serve index.html for SPA routes
+				c.Type("html")
+				return c.SendFile("./web/admin/dist/index.html")
+			})
+
+			// Redirect root to UI
+			app.Get("/", func(c *fiber.Ctx) error {
+				return c.Redirect(cfg.AdminUI.Path)
+			})
+
+			appLogger.Info("Admin UI enabled", logger.String("path", cfg.AdminUI.Path))
+		}
 	} else {
-		app.Use("/ui", filesystem.New(filesystem.Config{
-			Root:       http.FS(uiFS),
-			PathPrefix: "",
-			Browse:     false,
-			Index:      "index.html",
-		}))
-
-		// Redirect root to UI
-		app.Get("/", func(c *fiber.Ctx) error {
-			return c.Redirect("/ui")
-		})
-
-		appLogger.Info("Admin UI available at /ui")
+		appLogger.Info("Admin UI disabled via configuration")
 	}
 
 	// GraphQL setup (if enabled)
