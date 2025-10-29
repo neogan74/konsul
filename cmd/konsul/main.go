@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"embed"
 	"fmt"
 	"io/fs"
 	"log"
@@ -17,6 +16,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
+	konsul "github.com/neogan74/konsul"
 	"github.com/neogan74/konsul/internal/acl"
 	"github.com/neogan74/konsul/internal/auth"
 	"github.com/neogan74/konsul/internal/config"
@@ -34,9 +34,6 @@ import (
 	konsultls "github.com/neogan74/konsul/internal/tls"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
-
-//go:embed all:../../web/admin/dist
-var adminUI embed.FS
 
 func main() {
 	// Load configuration
@@ -350,8 +347,8 @@ func main() {
 
 	// Admin UI (embedded static files)
 	if cfg.AdminUI.Enabled {
-		// Strip the "../../web/admin/dist" prefix from embedded paths
-		uiFS, err := fs.Sub(adminUI, "web/admin/dist")
+		// Strip the "web/admin/dist" prefix from embedded paths
+		uiFS, err := fs.Sub(konsul.AdminUI, "web/admin/dist")
 		if err != nil {
 			appLogger.Warn("Failed to load embedded admin UI", logger.Error(err))
 		} else {
