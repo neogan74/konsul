@@ -19,6 +19,7 @@ type Config struct {
 	Tracing     TracingConfig
 	ACL         ACLConfig
 	GraphQL     GraphQLConfig
+	AdminUI     AdminUIConfig
 }
 
 // ServerConfig contains HTTP server configuration
@@ -112,6 +113,12 @@ type GraphQLConfig struct {
 	PlaygroundEnabled bool
 }
 
+// AdminUIConfig contains Admin UI configuration
+type AdminUIConfig struct {
+	Enabled bool
+	Path    string
+}
+
 // Load loads configuration from environment variables with defaults
 func Load() (*Config, error) {
 	config := &Config{
@@ -163,7 +170,7 @@ func Load() (*Config, error) {
 			Issuer:        getEnvString("KONSUL_JWT_ISSUER", "konsul"),
 			APIKeyPrefix:  getEnvString("KONSUL_APIKEY_PREFIX", "konsul"),
 			RequireAuth:   getEnvBool("KONSUL_REQUIRE_AUTH", false),
-			PublicPaths:   getEnvStringSlice("KONSUL_PUBLIC_PATHS", []string{"/health", "/health/live", "/health/ready", "/metrics"}),
+			PublicPaths:   getEnvStringSlice("KONSUL_PUBLIC_PATHS", []string{"/health", "/health/live", "/health/ready", "/metrics", "/admin", "/admin/", "/admin/assets/"}),
 		},
 		Tracing: TracingConfig{
 			Enabled:        getEnvBool("KONSUL_TRACING_ENABLED", false),
@@ -182,6 +189,10 @@ func Load() (*Config, error) {
 		GraphQL: GraphQLConfig{
 			Enabled:           getEnvBool("KONSUL_GRAPHQL_ENABLED", false),
 			PlaygroundEnabled: getEnvBool("KONSUL_GRAPHQL_PLAYGROUND_ENABLED", true),
+		},
+		AdminUI: AdminUIConfig{
+			Enabled: getEnvBool("KONSUL_ADMIN_UI_ENABLED", true),
+			Path:    getEnvString("KONSUL_ADMIN_UI_PATH", "/admin"),
 		},
 	}
 
