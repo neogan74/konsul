@@ -35,7 +35,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-//go:embed all:web/admin/dist
+//go:embed all:ui
 var adminUI embed.FS
 
 func main() {
@@ -350,8 +350,8 @@ func main() {
 
 	// Admin UI (embedded static files)
 	if cfg.AdminUI.Enabled {
-		// Strip the "web/admin/dist" prefix from embedded paths to get the root FS
-		uiFS, err := fs.Sub(adminUI, "web/admin/dist")
+		// Strip the "ui" prefix from embedded paths to get the root FS
+		uiFS, err := fs.Sub(adminUI, "ui")
 		if err != nil {
 			appLogger.Warn("Failed to load embedded admin UI", logger.Error(err))
 		} else {
