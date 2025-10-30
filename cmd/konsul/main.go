@@ -35,7 +35,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-//go:embed ../../web/admin/dist
+//go:embed all:web/admin/dist
 var adminUI embed.FS
 
 func main() {
