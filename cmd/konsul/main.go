@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"io/fs"
 	"log"
@@ -14,11 +15,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
-	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
-	"github.com/gofiber/helmet/v2"
-	konsul "github.com/neogan74/konsul"
 	"github.com/neogan74/konsul/internal/acl"
 	"github.com/neogan74/konsul/internal/auth"
 	"github.com/neogan74/konsul/internal/config"
@@ -36,6 +34,9 @@ import (
 	konsultls "github.com/neogan74/konsul/internal/tls"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+//go:embed all:ui
+var adminUI embed.FS
 
 func main() {
 	// Load configuration
@@ -349,31 +350,16 @@ func main() {
 
 	// Admin UI (embedded static files)
 	if cfg.AdminUI.Enabled {
-		// Strip the "web/admin/dist" prefix from embedded paths
-		uiFS, err := fs.Sub(konsul.AdminUI, "web/admin/dist")
+		// Strip the "ui" prefix from embedded paths to get the root FS
+		uiFS, err := fs.Sub(adminUI, "ui")
 		if err != nil {
 			appLogger.Warn("Failed to load embedded admin UI", logger.Error(err))
 		} else {
-			// Security headers for Admin UI
-			app.Use(cfg.AdminUI.Path, helmet.New(helmet.Config{
-				ContentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:",
-				XSSProtection:         "1; mode=block",
-				ContentTypeNosniff:    "nosniff",
-				XFrameOptions:         "DENY",
-				ReferrerPolicy:        "no-referrer",
-			}))
-
-			// Compression for Admin UI assets
-			app.Use(cfg.AdminUI.Path, compress.New(compress.Config{
-				Level: compress.LevelBestSpeed,
-			}))
-
-			// Serve hashed assets with long-term caching (1 year)
-			// Vite generates hashed filenames (e.g., index-abc123.js) for cache busting
-			app.Use(cfg.AdminUI.Path+"/assets", func(c *fiber.Ctx) error {
-				c.Set("Cache-Control", "public, max-age=31536000, immutable")
-				return c.Next()
-			})
+			// Read index.html from embedded FS for SPA fallback
+			indexHTML, err := fs.ReadFile(uiFS, "index.html")
+			if err != nil {
+				appLogger.Warn("Failed to read index.html from embedded FS", logger.Error(err))
+			}
 
 			// Serve static files (JS, CSS, images) from configured path
 			app.Use(cfg.AdminUI.Path, filesystem.New(filesystem.Config{
@@ -381,23 +367,23 @@ func main() {
 				PathPrefix: "",
 				Browse:     false,
 				Index:      "index.html",
-				MaxAge:     0, // No cache for index.html (SPA entry point)
 			}))
 
 			// SPA fallback - serve index.html for all admin UI routes
 			// This handles client-side routing (e.g., /admin/services, /admin/kv)
-			app.Use(cfg.AdminUI.Path+"/*", func(c *fiber.Ctx) error {
-				// Don't interfere with asset requests
-				path := c.Path()
-				pathLen := len(cfg.AdminUI.Path)
-				if len(path) > pathLen+8 && path[pathLen+1:pathLen+7] == "assets" {
-					return c.Next()
-				}
-				// Serve index.html for SPA routes (no cache)
-				c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
-				c.Type("html")
-				return c.SendFile("./web/admin/dist/index.html")
-			})
+			if len(indexHTML) > 0 {
+				app.Use(cfg.AdminUI.Path+"/*", func(c *fiber.Ctx) error {
+					// Don't interfere with asset requests
+					path := c.Path()
+					pathLen := len(cfg.AdminUI.Path)
+					if len(path) > pathLen+8 && path[pathLen+1:pathLen+8] == "/assets" {
+						return c.Next()
+					}
+					// Serve index.html from embedded FS for SPA routes
+					c.Type("html")
+					return c.Send(indexHTML)
+				})
+			}
 
 			// Redirect root to UI
 			app.Get("/", func(c *fiber.Ctx) error {

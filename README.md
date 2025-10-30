@@ -311,6 +311,60 @@ curl -X POST http://localhost:8888/graphql \
 - Background process runs at configurable interval removing expired services (default: 60s)
 - Services automatically expire if no heartbeat received within TTL
 
+## Web Admin UI
+
+Konsul includes a modern web-based Admin UI built with React 19, Vite, and Tailwind CSS v4. The UI is embedded in the binary and served directly by the Go server.
+
+### Features
+
+- **Dashboard**: System overview with health metrics and statistics
+- **Service Management**: Browse, register, and manage services
+- **KV Store Browser**: View and edit key-value pairs
+- **Real-time Updates**: Live service status and health checks
+- **Modern Design**: Responsive interface with Tailwind CSS v4
+
+### Access the Admin UI
+
+Once Konsul is running, access the Admin UI at:
+```
+http://localhost:8888/admin
+```
+
+The root URL (`http://localhost:8888/`) automatically redirects to the Admin UI.
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `KONSUL_ADMIN_UI_ENABLED` | `true` | Enable/disable Admin UI |
+| `KONSUL_ADMIN_UI_PATH` | `/admin` | Base path for Admin UI |
+
+**Examples:**
+```bash
+# Disable Admin UI
+KONSUL_ADMIN_UI_ENABLED=false ./konsul
+
+# Custom UI path
+KONSUL_ADMIN_UI_PATH=/ui ./konsul
+```
+
+### Development
+
+The Admin UI source is located in `web/admin/`. To rebuild the UI:
+
+```bash
+# Build the UI
+cd web/admin
+npm run build
+
+# Copy to embed location
+cd ../..
+cp -r web/admin/dist cmd/konsul/ui
+
+# Rebuild Konsul
+go build -o konsul ./cmd/konsul
+```
+
 ## CLI Tool (konsulctl)
 
 The `konsulctl` command-line tool supports all TLS options for secure communication with the server:
@@ -393,6 +447,13 @@ Configure via environment variables:
 | `KONSUL_DNS_HOST` | `` | DNS server host |
 | `KONSUL_DNS_PORT` | `8600` | DNS server port |
 | `KONSUL_DNS_DOMAIN` | `consul` | DNS domain suffix |
+
+### Admin UI Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `KONSUL_ADMIN_UI_ENABLED` | `true` | Enable Admin UI |
+| `KONSUL_ADMIN_UI_PATH` | `/admin` | Base path for Admin UI |
 
 **Examples:**
 ```bash
