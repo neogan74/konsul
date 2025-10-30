@@ -20,6 +20,62 @@ In development now :> [!WARNING]
 | DELETE | /deregister/<name> | Deregister service                |
 | PUT    | /heartbeat/<name> | Update service TTL                |
 
+## Web Admin UI
+
+Konsul includes a built-in **React-based web interface** for managing services and the KV store through an intuitive dashboard.
+
+### Features
+
+- **Service Discovery Dashboard** - View all registered services with real-time health status
+- **KV Store Browser** - Browse, create, update, and delete key-value pairs
+- **Health Monitoring** - Visual health check status and history
+- **Metrics Visualization** - System and service metrics (when Prometheus is enabled)
+- **Backup Management** - Create and restore backups through the UI
+- **Modern UX** - Built with React 19, Vite, and Tailwind CSS v4
+
+### Accessing the UI
+
+The Admin UI is **enabled by default** and accessible at:
+
+```
+http://localhost:8888/admin
+```
+
+### Configuration
+
+```bash
+# Enable/disable the Admin UI (default: true)
+export KONSUL_ADMIN_UI_ENABLED=true
+
+# Change the base path (default: /admin)
+export KONSUL_ADMIN_UI_PATH=/admin
+```
+
+### Security Features
+
+The Admin UI includes production-ready security features:
+
+- **Security Headers** - XSS protection, content security policy, frame options
+- **Compression** - Gzip compression for all assets
+- **Caching** - Optimized cache headers (1-year cache for hashed assets)
+- **CORS Support** - Configurable cross-origin resource sharing
+- **Authentication** - API calls from UI support JWT and API key auth
+
+### Screenshots
+
+The UI provides:
+- Dashboard with service overview
+- Service list with health indicators
+- KV store editor with JSON support
+- Real-time updates and notifications
+
+### Documentation
+
+For complete documentation, see:
+- [Admin UI User Guide](docs/admin-ui.md)
+- [Architecture Decision (ADR-0009)](docs/adr/0009-react-admin-ui.md)
+- [Implementation Plan](docs/admin-ui-integration-plan.md)
+
 ## Authentication & Authorization
 
 Konsul supports JWT-based authentication and API key authentication. When enabled, protected endpoints require a valid JWT token or API key.
