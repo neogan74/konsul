@@ -50,6 +50,8 @@ func NewServiceStore() *ServiceStore {
 func NewServiceStoreWithTTL(ttl time.Duration) *ServiceStore {
 	return &ServiceStore{
 		Data:          make(map[string]ServiceEntry),
+		TagIndex:      make(map[string]map[string]bool),
+		MetaIndex:     make(map[string]map[string][]string),
 		TTL:           ttl,
 		log:           logger.GetDefault(),
 		healthManager: healthcheck.NewManager(logger.GetDefault()),
