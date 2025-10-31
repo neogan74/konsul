@@ -62,6 +62,8 @@ func NewServiceStoreWithTTL(ttl time.Duration) *ServiceStore {
 func NewServiceStoreWithPersistence(ttl time.Duration, engine persistence.Engine, log logger.Logger) (*ServiceStore, error) {
 	store := &ServiceStore{
 		Data:          make(map[string]ServiceEntry),
+		TagIndex:      make(map[string]map[string]bool),
+		MetaIndex:     make(map[string]map[string][]string),
 		TTL:           ttl,
 		engine:        engine,
 		log:           log,
