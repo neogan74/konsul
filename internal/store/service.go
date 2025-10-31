@@ -39,6 +39,8 @@ type ServiceStore struct {
 func NewServiceStore() *ServiceStore {
 	return &ServiceStore{
 		Data:          make(map[string]ServiceEntry),
+		TagIndex:      make(map[string]map[string]bool),
+		MetaIndex:     make(map[string]map[string][]string),
 		TTL:           30 * time.Second, // default TTL
 		log:           logger.GetDefault(),
 		healthManager: healthcheck.NewManager(logger.GetDefault()),
