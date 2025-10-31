@@ -27,6 +27,8 @@ type ServiceEntry struct {
 
 type ServiceStore struct {
 	Data          map[string]ServiceEntry
+	TagIndex      map[string]map[string]bool     // Tag → {ServiceName: true} - for fast tag queries
+	MetaIndex     map[string]map[string][]string // MetaKey → {MetaValue: [ServiceNames]} - for fast metadata queries
 	Mutex         sync.RWMutex
 	TTL           time.Duration
 	engine        persistence.Engine
