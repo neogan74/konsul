@@ -12,9 +12,11 @@ import (
 )
 
 type Service struct {
-	Name    string                        `json:"name"`
-	Address string                        `json:"address"`
-	Port    int                           `json:"port"`
+	Name    string                         `json:"name"`
+	Address string                         `json:"address"`
+	Port    int                            `json:"port"`
+	Tags    []string                       `json:"tags,omitempty"` // Service tags for filtering and categorization
+	Meta    map[string]string              `json:"meta,omitempty"` // Service metadata (key-value pairs)
 	Checks  []*healthcheck.CheckDefinition `json:"checks,omitempty"`
 }
 
@@ -24,12 +26,12 @@ type ServiceEntry struct {
 }
 
 type ServiceStore struct {
-	Data           map[string]ServiceEntry
-	Mutex          sync.RWMutex
-	TTL            time.Duration
-	engine         persistence.Engine
-	log            logger.Logger
-	healthManager  *healthcheck.Manager
+	Data          map[string]ServiceEntry
+	Mutex         sync.RWMutex
+	TTL           time.Duration
+	engine        persistence.Engine
+	log           logger.Logger
+	healthManager *healthcheck.Manager
 }
 
 func NewServiceStore() *ServiceStore {
