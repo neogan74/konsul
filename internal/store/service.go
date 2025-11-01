@@ -12,9 +12,11 @@ import (
 )
 
 type Service struct {
-	Name    string                        `json:"name"`
-	Address string                        `json:"address"`
-	Port    int                           `json:"port"`
+	Name    string                         `json:"name"`
+	Address string                         `json:"address"`
+	Port    int                            `json:"port"`
+	Tags    []string                       `json:"tags,omitempty"` // Service tags for filtering and categorization
+	Meta    map[string]string              `json:"meta,omitempty"` // Service metadata (key-value pairs)
 	Checks  []*healthcheck.CheckDefinition `json:"checks,omitempty"`
 }
 
@@ -24,17 +26,21 @@ type ServiceEntry struct {
 }
 
 type ServiceStore struct {
-	Data           map[string]ServiceEntry
-	Mutex          sync.RWMutex
-	TTL            time.Duration
-	engine         persistence.Engine
-	log            logger.Logger
-	healthManager  *healthcheck.Manager
+	Data          map[string]ServiceEntry
+	TagIndex      map[string]map[string]bool     // Tag → {ServiceName: true} - for fast tag queries
+	MetaIndex     map[string]map[string][]string // MetaKey → {MetaValue: [ServiceNames]} - for fast metadata queries
+	Mutex         sync.RWMutex
+	TTL           time.Duration
+	engine        persistence.Engine
+	log           logger.Logger
+	healthManager *healthcheck.Manager
 }
 
 func NewServiceStore() *ServiceStore {
 	return &ServiceStore{
 		Data:          make(map[string]ServiceEntry),
+		TagIndex:      make(map[string]map[string]bool),
+		MetaIndex:     make(map[string]map[string][]string),
 		TTL:           30 * time.Second, // default TTL
 		log:           logger.GetDefault(),
 		healthManager: healthcheck.NewManager(logger.GetDefault()),
@@ -44,6 +50,8 @@ func NewServiceStore() *ServiceStore {
 func NewServiceStoreWithTTL(ttl time.Duration) *ServiceStore {
 	return &ServiceStore{
 		Data:          make(map[string]ServiceEntry),
+		TagIndex:      make(map[string]map[string]bool),
+		MetaIndex:     make(map[string]map[string][]string),
 		TTL:           ttl,
 		log:           logger.GetDefault(),
 		healthManager: healthcheck.NewManager(logger.GetDefault()),
@@ -54,6 +62,8 @@ func NewServiceStoreWithTTL(ttl time.Duration) *ServiceStore {
 func NewServiceStoreWithPersistence(ttl time.Duration, engine persistence.Engine, log logger.Logger) (*ServiceStore, error) {
 	store := &ServiceStore{
 		Data:          make(map[string]ServiceEntry),
+		TagIndex:      make(map[string]map[string]bool),
+		MetaIndex:     make(map[string]map[string][]string),
 		TTL:           ttl,
 		engine:        engine,
 		log:           log,
@@ -101,6 +111,9 @@ func (s *ServiceStore) loadFromPersistence() error {
 		// Only load non-expired services
 		if entry.ExpiresAt.After(time.Now()) {
 			s.Data[name] = entry
+			// Rebuild indexes for loaded services
+			s.addToTagIndex(name, entry.Service.Tags)
+			s.addToMetaIndex(name, entry.Service.Meta)
 			loaded++
 		}
 	}
@@ -110,15 +123,33 @@ func (s *ServiceStore) loadFromPersistence() error {
 	return nil
 }
 
-func (s *ServiceStore) Register(service Service) {
+func (s *ServiceStore) Register(service Service) error {
+	// Validate service including tags and metadata
+	if err := ValidateService(&service); err != nil {
+		s.log.Error("Service validation failed",
+			logger.String("service", service.Name),
+			logger.Error(err))
+		return err
+	}
+
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
+
+	// Remove old indexes if service exists (for re-registration)
+	if oldEntry, exists := s.Data[service.Name]; exists {
+		s.removeFromTagIndex(service.Name, oldEntry.Service.Tags)
+		s.removeFromMetaIndex(service.Name, oldEntry.Service.Meta)
+	}
 
 	entry := ServiceEntry{
 		Service:   service,
 		ExpiresAt: time.Now().Add(s.TTL),
 	}
 	s.Data[service.Name] = entry
+
+	// Add to tag and metadata indexes
+	s.addToTagIndex(service.Name, service.Tags)
+	s.addToMetaIndex(service.Name, service.Meta)
 
 	// Register health checks
 	for _, checkDef := range service.Checks {
@@ -148,15 +179,23 @@ func (s *ServiceStore) Register(service Service) {
 			s.log.Error("Failed to marshal service entry",
 				logger.String("service", service.Name),
 				logger.Error(err))
-			return
+			return err
 		}
 
 		if err := s.engine.SetService(service.Name, data, s.TTL); err != nil {
 			s.log.Error("Failed to persist service",
 				logger.String("service", service.Name),
 				logger.Error(err))
+			return err
 		}
 	}
+
+	s.log.Info("Service registered with tags/metadata",
+		logger.String("service", service.Name),
+		logger.Int("tags", len(service.Tags)),
+		logger.Int("metadata_keys", len(service.Meta)))
+
+	return nil
 }
 
 func (s *ServiceStore) List() []Service {
@@ -231,6 +270,12 @@ func (s *ServiceStore) Deregister(name string) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 
+	// Remove from indexes before deleting
+	if entry, exists := s.Data[name]; exists {
+		s.removeFromTagIndex(name, entry.Service.Tags)
+		s.removeFromMetaIndex(name, entry.Service.Meta)
+	}
+
 	delete(s.Data, name)
 
 	// Delete from persistence if engine is available
@@ -253,6 +298,10 @@ func (s *ServiceStore) CleanupExpired() int {
 
 	for name, entry := range s.Data {
 		if entry.ExpiresAt.Before(now) {
+			// Remove from indexes before deleting
+			s.removeFromTagIndex(name, entry.Service.Tags)
+			s.removeFromMetaIndex(name, entry.Service.Meta)
+
 			delete(s.Data, name)
 			expiredServices = append(expiredServices, name)
 			count++

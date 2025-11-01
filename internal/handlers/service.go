@@ -25,20 +25,21 @@ func (h *ServiceHandler) Register(c *fiber.Ctx) error {
 		return middleware.BadRequest(c, "Invalid JSON body")
 	}
 
-	if svc.Name == "" || svc.Address == "" || svc.Port == 0 {
-		log.Warn("Service registration missing required fields",
-			logger.String("name", svc.Name),
-			logger.String("address", svc.Address),
-			logger.Int("port", svc.Port))
-		return middleware.BadRequest(c, "Missing required fields: name, address, and port")
-	}
-
 	log.Info("Registering service",
 		logger.String("service_name", svc.Name),
 		logger.String("address", svc.Address),
-		logger.Int("port", svc.Port))
+		logger.Int("port", svc.Port),
+		logger.Int("tags", len(svc.Tags)),
+		logger.Int("metadata_keys", len(svc.Meta)))
 
-	h.store.Register(svc)
+	// Register service (validation happens inside)
+	if err := h.store.Register(svc); err != nil {
+		log.Error("Failed to register service",
+			logger.String("service", svc.Name),
+			logger.Error(err))
+		metrics.ServiceOperationsTotal.WithLabelValues("register", "error").Inc()
+		return middleware.BadRequest(c, err.Error())
+	}
 
 	log.Info("Service registered successfully",
 		logger.String("service_name", svc.Name))
