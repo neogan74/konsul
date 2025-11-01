@@ -111,6 +111,9 @@ func (s *ServiceStore) loadFromPersistence() error {
 		// Only load non-expired services
 		if entry.ExpiresAt.After(time.Now()) {
 			s.Data[name] = entry
+			// Rebuild indexes for loaded services
+			s.addToTagIndex(name, entry.Service.Tags)
+			s.addToMetaIndex(name, entry.Service.Meta)
 			loaded++
 		}
 	}
