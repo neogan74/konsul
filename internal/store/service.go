@@ -267,6 +267,12 @@ func (s *ServiceStore) Deregister(name string) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 
+	// Remove from indexes before deleting
+	if entry, exists := s.Data[name]; exists {
+		s.removeFromTagIndex(name, entry.Service.Tags)
+		s.removeFromMetaIndex(name, entry.Service.Meta)
+	}
+
 	delete(s.Data, name)
 
 	// Delete from persistence if engine is available
