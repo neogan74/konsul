@@ -5,3 +5,7 @@ bin/
 # Compiled binaries
 konsul
 konsulctl
+monitoring/otel/hosts
+.gitignore
+monitoring/otel/hostname
+monitoring/otel/resolv.conf
