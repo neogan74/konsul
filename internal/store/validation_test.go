@@ -1,6 +1,7 @@
 package store
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -83,9 +84,9 @@ func TestValidateTags(t *testing.T) {
 	// Fill in the "too many tags" and "exactly max tags" test cases
 	for i := 0; i < 65; i++ {
 		if i < 64 {
-			tests[len(tests)-1].tags[i] = "tag" + string(rune('0'+i%10))
+			tests[len(tests)-1].tags[i] = fmt.Sprintf("tag%d", i)
 		}
-		tests[len(tests)-2].tags[i] = "tag" + string(rune('0'+i%10))
+		tests[len(tests)-2].tags[i] = fmt.Sprintf("tag%d", i)
 	}
 
 	for _, tt := range tests {
