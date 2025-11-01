@@ -2,6 +2,7 @@ package store
 
 import (
 	"testing"
+	"time"
 )
 
 func TestAddToTagIndex(t *testing.T) {
