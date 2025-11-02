@@ -328,6 +328,11 @@ func main() {
 	app.Delete("/deregister/:name", serviceHandler.Deregister)
 	app.Put("/heartbeat/:name", serviceHandler.Heartbeat)
 
+	// Service query endpoints (tags and metadata)
+	app.Get("/services/query/tags", serviceHandler.QueryByTags)
+	app.Get("/services/query/metadata", serviceHandler.QueryByMetadata)
+	app.Get("/services/query", serviceHandler.QueryByTagsAndMetadata)
+
 	// Health check endpoints
 	app.Get("/health", healthHandler.Check)
 	app.Get("/health/live", healthHandler.Liveness)
