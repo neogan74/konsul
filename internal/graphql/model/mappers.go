@@ -28,12 +28,29 @@ func MapServiceFromStore(svc store.Service, entry store.ServiceEntry) *Service {
 
 	expiresAt := scalar.FromTime(entry.ExpiresAt)
 
+	// Convert tags (handle nil)
+	tags := svc.Tags
+	if tags == nil {
+		tags = []string{}
+	}
+
+	// Convert metadata map to array of MetadataEntry
+	metadata := make([]*MetadataEntry, 0, len(svc.Meta))
+	for key, value := range svc.Meta {
+		metadata = append(metadata, &MetadataEntry{
+			Key:   key,
+			Value: value,
+		})
+	}
+
 	return &Service{
 		Name:      svc.Name,
 		Address:   svc.Address,
 		Port:      svc.Port,
 		Status:    status,
 		ExpiresAt: expiresAt,
+		Tags:      tags,
+		Metadata:  metadata,
 		Checks:    []*HealthCheck{}, // Will be populated by resolver
 	}
 }

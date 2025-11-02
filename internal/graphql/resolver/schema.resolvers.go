@@ -210,13 +210,134 @@ func (r *queryResolver) ServicesCount(ctx context.Context) (int, error) {
 	return len(services), nil
 }
 
+// ServicesByTags is the resolver for the servicesByTags field.
+func (r *queryResolver) ServicesByTags(ctx context.Context, tags []string) ([]*model.Service, error) {
+	// Check authentication
+	// TODO: Add authentication check when auth middleware is implemented
+
+	r.logger.Info("GraphQL: querying services by tags",
+		logger.Int("tag_count", len(tags)))
+
+	// Query the store
+	storeServices := r.serviceStore.QueryByTags(tags)
+
+	// Create a map for quick lookup
+	serviceMap := make(map[string]bool)
+	for _, svc := range storeServices {
+		serviceMap[svc.Name] = true
+	}
+
+	// Get all entries to include expiration info
+	allEntries := r.serviceStore.ListAll()
+
+	// Map to GraphQL models
+	services := make([]*model.Service, 0, len(storeServices))
+	for _, entry := range allEntries {
+		if serviceMap[entry.Service.Name] {
+			services = append(services, model.MapServiceFromStore(entry.Service, entry))
+		}
+	}
+
+	r.logger.Debug("GraphQL: services by tags query completed",
+		logger.Int("result_count", len(services)))
+
+	return services, nil
+}
+
+// ServicesByMetadata is the resolver for the servicesByMetadata field.
+func (r *queryResolver) ServicesByMetadata(ctx context.Context, filters []*model.MetadataFilter) ([]*model.Service, error) {
+	// Check authentication
+	// TODO: Add authentication check when auth middleware is implemented
+
+	// Convert GraphQL filters to map
+	metaMap := make(map[string]string, len(filters))
+	for _, filter := range filters {
+		metaMap[filter.Key] = filter.Value
+	}
+
+	r.logger.Info("GraphQL: querying services by metadata",
+		logger.Int("filter_count", len(filters)))
+
+	// Query the store
+	storeServices := r.serviceStore.QueryByMetadata(metaMap)
+
+	// Create a map for quick lookup
+	serviceMap := make(map[string]bool)
+	for _, svc := range storeServices {
+		serviceMap[svc.Name] = true
+	}
+
+	// Get all entries to include expiration info
+	allEntries := r.serviceStore.ListAll()
+
+	// Map to GraphQL models
+	services := make([]*model.Service, 0, len(storeServices))
+	for _, entry := range allEntries {
+		if serviceMap[entry.Service.Name] {
+			services = append(services, model.MapServiceFromStore(entry.Service, entry))
+		}
+	}
+
+	r.logger.Debug("GraphQL: services by metadata query completed",
+		logger.Int("result_count", len(services)))
+
+	return services, nil
+}
+
+// ServicesByQuery is the resolver for the servicesByQuery field.
+func (r *queryResolver) ServicesByQuery(ctx context.Context, tags []string, metadata []*model.MetadataFilter) ([]*model.Service, error) {
+	// Check authentication
+	// TODO: Add authentication check when auth middleware is implemented
+
+	// Handle nil tags parameter
+	if tags == nil {
+		tags = []string{}
+	}
+
+	// Convert GraphQL filters to map
+	metaMap := make(map[string]string)
+	if metadata != nil {
+		for _, filter := range metadata {
+			metaMap[filter.Key] = filter.Value
+		}
+	}
+
+	r.logger.Info("GraphQL: querying services by tags and metadata",
+		logger.Int("tag_count", len(tags)),
+		logger.Int("filter_count", len(metaMap)))
+
+	// Query the store
+	storeServices := r.serviceStore.QueryByTagsAndMetadata(tags, metaMap)
+
+	// Create a map for quick lookup
+	serviceMap := make(map[string]bool)
+	for _, svc := range storeServices {
+		serviceMap[svc.Name] = true
+	}
+
+	// Get all entries to include expiration info
+	allEntries := r.serviceStore.ListAll()
+
+	// Map to GraphQL models
+	services := make([]*model.Service, 0, len(storeServices))
+	for _, entry := range allEntries {
+		if serviceMap[entry.Service.Name] {
+			services = append(services, model.MapServiceFromStore(entry.Service, entry))
+		}
+	}
+
+	r.logger.Debug("GraphQL: combined query completed",
+		logger.Int("result_count", len(services)))
+
+	return services, nil
+}
+
 // Query returns generated.QueryResolver implementation.
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
 type queryResolver struct{ *Resolver }
 
-// Helper functions
-
+// Helper function to convert optional string pointer to string
 func stringOrEmpty(s *string) string {
 	if s == nil {
 		return ""

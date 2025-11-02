@@ -17,8 +17,25 @@ type Service {
   """Expiration timestamp"""
   expiresAt: Time!
 
+  """Service tags for filtering and categorization"""
+  tags: [String!]!
+
+  """Service metadata (key-value pairs)"""
+  metadata: [MetadataEntry!]!
+
   """Health checks associated with this service"""
   checks: [HealthCheck!]!
+}
+
+"""
+Metadata key-value pair
+"""
+type MetadataEntry {
+  """Metadata key"""
+  key: String!
+
+  """Metadata value"""
+  value: String!
 }
 
 """
