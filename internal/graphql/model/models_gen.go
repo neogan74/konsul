@@ -61,6 +61,22 @@ type KVStats struct {
 	TotalKeys int `json:"totalKeys"`
 }
 
+// Metadata key-value pair
+type MetadataEntry struct {
+	// Metadata key
+	Key string `json:"key"`
+	// Metadata value
+	Value string `json:"value"`
+}
+
+// Metadata filter for querying services by metadata
+type MetadataFilter struct {
+	// Metadata key
+	Key string `json:"key"`
+	// Metadata value
+	Value string `json:"value"`
+}
+
 type Query struct {
 }
 
@@ -76,6 +92,10 @@ type Service struct {
 	Status ServiceStatus `json:"status"`
 	// Expiration timestamp
 	ExpiresAt scalar.Time `json:"expiresAt"`
+	// Service tags for filtering and categorization
+	Tags []string `json:"tags"`
+	// Service metadata (key-value pairs)
+	Metadata []*MetadataEntry `json:"metadata"`
 	// Health checks associated with this service
 	Checks []*HealthCheck `json:"checks"`
 }
