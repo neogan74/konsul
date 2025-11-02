@@ -221,12 +221,20 @@ func (r *queryResolver) ServicesByTags(ctx context.Context, tags []string) ([]*m
 	// Query the store
 	storeServices := r.serviceStore.QueryByTags(tags)
 
+	// Create a map for quick lookup
+	serviceMap := make(map[string]bool)
+	for _, svc := range storeServices {
+		serviceMap[svc.Name] = true
+	}
+
+	// Get all entries to include expiration info
+	allEntries := r.serviceStore.ListAll()
+
 	// Map to GraphQL models
 	services := make([]*model.Service, 0, len(storeServices))
-	for _, svc := range storeServices {
-		// Get full entry for expiration info
-		if entry, exists := r.serviceStore.Get(svc.Name); exists {
-			services = append(services, model.MapServiceFromStore(svc, entry))
+	for _, entry := range allEntries {
+		if serviceMap[entry.Service.Name] {
+			services = append(services, model.MapServiceFromStore(entry.Service, entry))
 		}
 	}
 
