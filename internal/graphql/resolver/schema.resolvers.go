@@ -210,16 +210,120 @@ func (r *queryResolver) ServicesCount(ctx context.Context) (int, error) {
 	return len(services), nil
 }
 
+// ServicesByTags is the resolver for the servicesByTags field.
+func (r *queryResolver) ServicesByTags(ctx context.Context, tags []string) ([]*model.Service, error) {
+	// Check authentication
+	// TODO: Add authentication check when auth middleware is implemented
+
+	r.logger.Info("GraphQL: querying services by tags",
+		logger.Int("tag_count", len(tags)))
+
+	// Query the store
+	storeServices := r.serviceStore.QueryByTags(tags)
+
+	// Map to GraphQL models
+	services := make([]*model.Service, 0, len(storeServices))
+	for _, svc := range storeServices {
+		// Get full entry for expiration info
+		if entry, exists := r.serviceStore.Get(svc.Name); exists {
+			services = append(services, model.MapServiceFromStore(svc, entry))
+		}
+	}
+
+	r.logger.Debug("GraphQL: services by tags query completed",
+		logger.Int("result_count", len(services)))
+
+	return services, nil
+}
+
+// ServicesByMetadata is the resolver for the servicesByMetadata field.
+func (r *queryResolver) ServicesByMetadata(ctx context.Context, filters []*model.MetadataFilter) ([]*model.Service, error) {
+	// Check authentication
+	// TODO: Add authentication check when auth middleware is implemented
+
+	// Convert GraphQL filters to map
+	metaMap := make(map[string]string, len(filters))
+	for _, filter := range filters {
+		metaMap[filter.Key] = filter.Value
+	}
+
+	r.logger.Info("GraphQL: querying services by metadata",
+		logger.Int("filter_count", len(filters)))
+
+	// Query the store
+	storeServices := r.serviceStore.QueryByMetadata(metaMap)
+
+	// Map to GraphQL models
+	services := make([]*model.Service, 0, len(storeServices))
+	for _, svc := range storeServices {
+		// Get full entry for expiration info
+		if entry, exists := r.serviceStore.Get(svc.Name); exists {
+			services = append(services, model.MapServiceFromStore(svc, entry))
+		}
+	}
+
+	r.logger.Debug("GraphQL: services by metadata query completed",
+		logger.Int("result_count", len(services)))
+
+	return services, nil
+}
+
+// ServicesByQuery is the resolver for the servicesByQuery field.
+func (r *queryResolver) ServicesByQuery(ctx context.Context, tags []string, metadata []*model.MetadataFilter) ([]*model.Service, error) {
+	// Check authentication
+	// TODO: Add authentication check when auth middleware is implemented
+
+	// Handle nil tags parameter
+	if tags == nil {
+		tags = []string{}
+	}
+
+	// Convert GraphQL filters to map
+	metaMap := make(map[string]string)
+	if metadata != nil {
+		for _, filter := range metadata {
+			metaMap[filter.Key] = filter.Value
+		}
+	}
+
+	r.logger.Info("GraphQL: querying services by tags and metadata",
+		logger.Int("tag_count", len(tags)),
+		logger.Int("filter_count", len(metaMap)))
+
+	// Query the store
+	storeServices := r.serviceStore.QueryByTagsAndMetadata(tags, metaMap)
+
+	// Map to GraphQL models
+	services := make([]*model.Service, 0, len(storeServices))
+	for _, svc := range storeServices {
+		// Get full entry for expiration info
+		if entry, exists := r.serviceStore.Get(svc.Name); exists {
+			services = append(services, model.MapServiceFromStore(svc, entry))
+		}
+	}
+
+	r.logger.Debug("GraphQL: combined query completed",
+		logger.Int("result_count", len(services)))
+
+	return services, nil
+}
+
 // Query returns generated.QueryResolver implementation.
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
 type queryResolver struct{ *Resolver }
 
-// Helper functions
-
-func stringOrEmpty(s *string) string {
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+/*
+	func stringOrEmpty(s *string) string {
 	if s == nil {
 		return ""
 	}
 	return *s
 }
+*/
