@@ -75,22 +75,32 @@ type ComplexityRoot struct {
 		TotalKeys func(childComplexity int) int
 	}
 
+	MetadataEntry struct {
+		Key   func(childComplexity int) int
+		Value func(childComplexity int) int
+	}
+
 	Query struct {
-		Health        func(childComplexity int) int
-		Kv            func(childComplexity int, key string) int
-		KvList        func(childComplexity int, prefix *string, limit *int, offset *int) int
-		Service       func(childComplexity int, name string) int
-		Services      func(childComplexity int, limit *int, offset *int) int
-		ServicesCount func(childComplexity int) int
+		Health             func(childComplexity int) int
+		Kv                 func(childComplexity int, key string) int
+		KvList             func(childComplexity int, prefix *string, limit *int, offset *int) int
+		Service            func(childComplexity int, name string) int
+		Services           func(childComplexity int, limit *int, offset *int) int
+		ServicesByMetadata func(childComplexity int, filters []*model.MetadataFilter) int
+		ServicesByQuery    func(childComplexity int, tags []string, metadata []*model.MetadataFilter) int
+		ServicesByTags     func(childComplexity int, tags []string) int
+		ServicesCount      func(childComplexity int) int
 	}
 
 	Service struct {
 		Address   func(childComplexity int) int
 		Checks    func(childComplexity int) int
 		ExpiresAt func(childComplexity int) int
+		Metadata  func(childComplexity int) int
 		Name      func(childComplexity int) int
 		Port      func(childComplexity int) int
 		Status    func(childComplexity int) int
+		Tags      func(childComplexity int) int
 	}
 
 	ServiceStats struct {
@@ -116,6 +126,9 @@ type QueryResolver interface {
 	Service(ctx context.Context, name string) (*model.Service, error)
 	Services(ctx context.Context, limit *int, offset *int) ([]*model.Service, error)
 	ServicesCount(ctx context.Context) (int, error)
+	ServicesByTags(ctx context.Context, tags []string) ([]*model.Service, error)
+	ServicesByMetadata(ctx context.Context, filters []*model.MetadataFilter) ([]*model.Service, error)
+	ServicesByQuery(ctx context.Context, tags []string, metadata []*model.MetadataFilter) ([]*model.Service, error)
 }
 
 type executableSchema struct {
@@ -243,6 +256,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.KVStats.TotalKeys(childComplexity), true
 
+	case "MetadataEntry.key":
+		if e.complexity.MetadataEntry.Key == nil {
+			break
+		}
+
+		return e.complexity.MetadataEntry.Key(childComplexity), true
+	case "MetadataEntry.value":
+		if e.complexity.MetadataEntry.Value == nil {
+			break
+		}
+
+		return e.complexity.MetadataEntry.Value(childComplexity), true
+
 	case "Query.health":
 		if e.complexity.Query.Health == nil {
 			break
@@ -293,6 +319,39 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.Services(childComplexity, args["limit"].(*int), args["offset"].(*int)), true
+	case "Query.servicesByMetadata":
+		if e.complexity.Query.ServicesByMetadata == nil {
+			break
+		}
+
+		args, err := ec.field_Query_servicesByMetadata_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.ServicesByMetadata(childComplexity, args["filters"].([]*model.MetadataFilter)), true
+	case "Query.servicesByQuery":
+		if e.complexity.Query.ServicesByQuery == nil {
+			break
+		}
+
+		args, err := ec.field_Query_servicesByQuery_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.ServicesByQuery(childComplexity, args["tags"].([]string), args["metadata"].([]*model.MetadataFilter)), true
+	case "Query.servicesByTags":
+		if e.complexity.Query.ServicesByTags == nil {
+			break
+		}
+
+		args, err := ec.field_Query_servicesByTags_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.ServicesByTags(childComplexity, args["tags"].([]string)), true
 	case "Query.servicesCount":
 		if e.complexity.Query.ServicesCount == nil {
 			break
@@ -318,6 +377,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Service.ExpiresAt(childComplexity), true
+	case "Service.metadata":
+		if e.complexity.Service.Metadata == nil {
+			break
+		}
+
+		return e.complexity.Service.Metadata(childComplexity), true
 	case "Service.name":
 		if e.complexity.Service.Name == nil {
 			break
@@ -336,6 +401,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Service.Status(childComplexity), true
+	case "Service.tags":
+		if e.complexity.Service.Tags == nil {
+			break
+		}
+
+		return e.complexity.Service.Tags(childComplexity), true
 
 	case "ServiceStats.active":
 		if e.complexity.ServiceStats.Active == nil {
@@ -400,7 +471,9 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := executionContext{opCtx, e, 0, 0, make(chan graphql.DeferredResult)}
-	inputUnmarshalMap := graphql.BuildUnmarshalerMap()
+	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
+		ec.unmarshalInputMetadataFilter,
+	)
 	first := true
 
 	switch opCtx.Operation.Operation {
@@ -585,6 +658,22 @@ type Query {
   service(name: String!): Service
   services(limit: Int, offset: Int): [Service!]!
   servicesCount: Int!
+
+  # Service queries by tags and metadata
+  servicesByTags(tags: [String!]!): [Service!]!
+  servicesByMetadata(filters: [MetadataFilter!]!): [Service!]!
+  servicesByQuery(tags: [String!], metadata: [MetadataFilter!]): [Service!]!
+}
+
+"""
+Metadata filter for querying services by metadata
+"""
+input MetadataFilter {
+  """Metadata key"""
+  key: String!
+
+  """Metadata value"""
+  value: String!
 }
 `, BuiltIn: false},
 	{Name: "../schema/service.graphql", Input: `"""
@@ -606,8 +695,25 @@ type Service {
   """Expiration timestamp"""
   expiresAt: Time!
 
+  """Service tags for filtering and categorization"""
+  tags: [String!]!
+
+  """Service metadata (key-value pairs)"""
+  metadata: [MetadataEntry!]!
+
   """Health checks associated with this service"""
   checks: [HealthCheck!]!
+}
+
+"""
+Metadata key-value pair
+"""
+type MetadataEntry {
+  """Metadata key"""
+  key: String!
+
+  """Metadata value"""
+  value: String!
 }
 
 """
@@ -730,6 +836,44 @@ func (ec *executionContext) field_Query_service_args(ctx context.Context, rawArg
 		return nil, err
 	}
 	args["name"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_servicesByMetadata_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "filters", ec.unmarshalNMetadataFilter2ᚕᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐMetadataFilterᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["filters"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_servicesByQuery_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "tags", ec.unmarshalOString2ᚕstringᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["tags"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "metadata", ec.unmarshalOMetadataFilter2ᚕᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐMetadataFilterᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["metadata"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_servicesByTags_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "tags", ec.unmarshalNString2ᚕstringᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["tags"] = arg0
 	return args, nil
 }
 
@@ -1304,6 +1448,64 @@ func (ec *executionContext) fieldContext_KVStats_totalKeys(_ context.Context, fi
 	return fc, nil
 }
 
+func (ec *executionContext) _MetadataEntry_key(ctx context.Context, field graphql.CollectedField, obj *model.MetadataEntry) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_MetadataEntry_key,
+		func(ctx context.Context) (any, error) {
+			return obj.Key, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_MetadataEntry_key(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MetadataEntry",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MetadataEntry_value(ctx context.Context, field graphql.CollectedField, obj *model.MetadataEntry) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_MetadataEntry_value,
+		func(ctx context.Context) (any, error) {
+			return obj.Value, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_MetadataEntry_value(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MetadataEntry",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_health(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1482,6 +1684,10 @@ func (ec *executionContext) fieldContext_Query_service(ctx context.Context, fiel
 				return ec.fieldContext_Service_status(ctx, field)
 			case "expiresAt":
 				return ec.fieldContext_Service_expiresAt(ctx, field)
+			case "tags":
+				return ec.fieldContext_Service_tags(ctx, field)
+			case "metadata":
+				return ec.fieldContext_Service_metadata(ctx, field)
 			case "checks":
 				return ec.fieldContext_Service_checks(ctx, field)
 			}
@@ -1537,6 +1743,10 @@ func (ec *executionContext) fieldContext_Query_services(ctx context.Context, fie
 				return ec.fieldContext_Service_status(ctx, field)
 			case "expiresAt":
 				return ec.fieldContext_Service_expiresAt(ctx, field)
+			case "tags":
+				return ec.fieldContext_Service_tags(ctx, field)
+			case "metadata":
+				return ec.fieldContext_Service_metadata(ctx, field)
 			case "checks":
 				return ec.fieldContext_Service_checks(ctx, field)
 			}
@@ -1582,6 +1792,183 @@ func (ec *executionContext) fieldContext_Query_servicesCount(_ context.Context, 
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Int does not have child fields")
 		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_servicesByTags(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_servicesByTags,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().ServicesByTags(ctx, fc.Args["tags"].([]string))
+		},
+		nil,
+		ec.marshalNService2ᚕᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐServiceᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_servicesByTags(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "name":
+				return ec.fieldContext_Service_name(ctx, field)
+			case "address":
+				return ec.fieldContext_Service_address(ctx, field)
+			case "port":
+				return ec.fieldContext_Service_port(ctx, field)
+			case "status":
+				return ec.fieldContext_Service_status(ctx, field)
+			case "expiresAt":
+				return ec.fieldContext_Service_expiresAt(ctx, field)
+			case "tags":
+				return ec.fieldContext_Service_tags(ctx, field)
+			case "metadata":
+				return ec.fieldContext_Service_metadata(ctx, field)
+			case "checks":
+				return ec.fieldContext_Service_checks(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Service", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_servicesByTags_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_servicesByMetadata(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_servicesByMetadata,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().ServicesByMetadata(ctx, fc.Args["filters"].([]*model.MetadataFilter))
+		},
+		nil,
+		ec.marshalNService2ᚕᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐServiceᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_servicesByMetadata(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "name":
+				return ec.fieldContext_Service_name(ctx, field)
+			case "address":
+				return ec.fieldContext_Service_address(ctx, field)
+			case "port":
+				return ec.fieldContext_Service_port(ctx, field)
+			case "status":
+				return ec.fieldContext_Service_status(ctx, field)
+			case "expiresAt":
+				return ec.fieldContext_Service_expiresAt(ctx, field)
+			case "tags":
+				return ec.fieldContext_Service_tags(ctx, field)
+			case "metadata":
+				return ec.fieldContext_Service_metadata(ctx, field)
+			case "checks":
+				return ec.fieldContext_Service_checks(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Service", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_servicesByMetadata_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_servicesByQuery(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_servicesByQuery,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().ServicesByQuery(ctx, fc.Args["tags"].([]string), fc.Args["metadata"].([]*model.MetadataFilter))
+		},
+		nil,
+		ec.marshalNService2ᚕᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐServiceᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_servicesByQuery(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "name":
+				return ec.fieldContext_Service_name(ctx, field)
+			case "address":
+				return ec.fieldContext_Service_address(ctx, field)
+			case "port":
+				return ec.fieldContext_Service_port(ctx, field)
+			case "status":
+				return ec.fieldContext_Service_status(ctx, field)
+			case "expiresAt":
+				return ec.fieldContext_Service_expiresAt(ctx, field)
+			case "tags":
+				return ec.fieldContext_Service_tags(ctx, field)
+			case "metadata":
+				return ec.fieldContext_Service_metadata(ctx, field)
+			case "checks":
+				return ec.fieldContext_Service_checks(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Service", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_servicesByQuery_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -1834,6 +2221,70 @@ func (ec *executionContext) fieldContext_Service_expiresAt(_ context.Context, fi
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Service_tags(ctx context.Context, field graphql.CollectedField, obj *model.Service) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Service_tags,
+		func(ctx context.Context) (any, error) {
+			return obj.Tags, nil
+		},
+		nil,
+		ec.marshalNString2ᚕstringᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Service_tags(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Service",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Service_metadata(ctx context.Context, field graphql.CollectedField, obj *model.Service) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Service_metadata,
+		func(ctx context.Context) (any, error) {
+			return obj.Metadata, nil
+		},
+		nil,
+		ec.marshalNMetadataEntry2ᚕᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐMetadataEntryᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Service_metadata(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Service",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "key":
+				return ec.fieldContext_MetadataEntry_key(ctx, field)
+			case "value":
+				return ec.fieldContext_MetadataEntry_value(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type MetadataEntry", field.Name)
 		},
 	}
 	return fc, nil
@@ -3607,6 +4058,40 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    **************************** input.gotpl *****************************
 
+func (ec *executionContext) unmarshalInputMetadataFilter(ctx context.Context, obj any) (model.MetadataFilter, error) {
+	var it model.MetadataFilter
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"key", "value"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "key":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("key"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Key = data
+		case "value":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("value"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Value = data
+		}
+	}
+
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -3818,6 +4303,50 @@ func (ec *executionContext) _KVStats(ctx context.Context, sel ast.SelectionSet, 
 	return out
 }
 
+var metadataEntryImplementors = []string{"MetadataEntry"}
+
+func (ec *executionContext) _MetadataEntry(ctx context.Context, sel ast.SelectionSet, obj *model.MetadataEntry) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, metadataEntryImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MetadataEntry")
+		case "key":
+			out.Values[i] = ec._MetadataEntry_key(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "value":
+			out.Values[i] = ec._MetadataEntry_value(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var queryImplementors = []string{"Query"}
 
 func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) graphql.Marshaler {
@@ -3963,6 +4492,72 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "servicesByTags":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_servicesByTags(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "servicesByMetadata":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_servicesByMetadata(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "servicesByQuery":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_servicesByQuery(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "__type":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___type(ctx, field)
@@ -4027,6 +4622,16 @@ func (ec *executionContext) _Service(ctx context.Context, sel ast.SelectionSet, 
 			}
 		case "expiresAt":
 			out.Values[i] = ec._Service_expiresAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "tags":
+			out.Values[i] = ec._Service_tags(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "metadata":
+			out.Values[i] = ec._Service_metadata(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -4690,6 +5295,80 @@ func (ec *executionContext) marshalNKVStats2ᚖgithubᚗcomᚋneogan74ᚋkonsul�
 	return ec._KVStats(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNMetadataEntry2ᚕᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐMetadataEntryᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MetadataEntry) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNMetadataEntry2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐMetadataEntry(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNMetadataEntry2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐMetadataEntry(ctx context.Context, sel ast.SelectionSet, v *model.MetadataEntry) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._MetadataEntry(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNMetadataFilter2ᚕᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐMetadataFilterᚄ(ctx context.Context, v any) ([]*model.MetadataFilter, error) {
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.MetadataFilter, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNMetadataFilter2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐMetadataFilter(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalNMetadataFilter2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐMetadataFilter(ctx context.Context, v any) (*model.MetadataFilter, error) {
+	res, err := ec.unmarshalInputMetadataFilter(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) marshalNService2ᚕᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐServiceᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Service) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
@@ -4778,6 +5457,36 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalNString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) marshalNSystemHealth2githubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐSystemHealth(ctx context.Context, sel ast.SelectionSet, v model.SystemHealth) graphql.Marshaler {
@@ -5128,11 +5837,65 @@ func (ec *executionContext) marshalOKVPair2ᚖgithubᚗcomᚋneogan74ᚋkonsul�
 	return ec._KVPair(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalOMetadataFilter2ᚕᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐMetadataFilterᚄ(ctx context.Context, v any) ([]*model.MetadataFilter, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.MetadataFilter, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNMetadataFilter2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐMetadataFilter(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
 func (ec *executionContext) marshalOService2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐService(ctx context.Context, sel ast.SelectionSet, v *model.Service) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._Service(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v any) (*string, error) {
