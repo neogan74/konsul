@@ -106,3 +106,134 @@ func (h *ServiceHandler) Heartbeat(c *fiber.Ctx) error {
 	metrics.ServiceHeartbeatsTotal.WithLabelValues(name, "not_found").Inc()
 	return middleware.NotFound(c, "Service not found")
 }
+
+// QueryByTags handles GET /services/query/tags?tags=tag1&tags=tag2
+// Returns services that have ALL specified tags (AND logic)
+func (h *ServiceHandler) QueryByTags(c *fiber.Ctx) error {
+	log := middleware.GetLogger(c)
+
+	// Parse tags from query parameters (can appear multiple times)
+	tags := c.Query("tags", "")
+	if tags == "" {
+		tags = c.Query("tag", "")
+	}
+
+	var tagList []string
+	if tags != "" {
+		tagList = append(tagList, tags)
+	}
+
+	// Support multiple tag parameters: ?tags=tag1&tags=tag2
+	parser := c.Context().QueryArgs()
+	parser.VisitAll(func(key, value []byte) {
+		keyStr := string(key)
+		if (keyStr == "tags" || keyStr == "tag") && string(value) != tags {
+			tagList = append(tagList, string(value))
+		}
+	})
+
+	if len(tagList) == 0 {
+		log.Warn("Query by tags called with no tags")
+		return middleware.BadRequest(c, "At least one tag must be specified")
+	}
+
+	log.Info("Querying services by tags",
+		logger.Int("tag_count", len(tagList)),
+		logger.String("tags", tags))
+
+	services := h.store.QueryByTags(tagList)
+
+	log.Info("Query by tags completed",
+		logger.Int("result_count", len(services)))
+
+	metrics.ServiceOperationsTotal.WithLabelValues("query_tags", "success").Inc()
+	return c.JSON(fiber.Map{
+		"count":    len(services),
+		"services": services,
+		"query":    fiber.Map{"tags": tagList},
+	})
+}
+
+// QueryByMetadata handles GET /services/query/metadata?key1=value1&key2=value2
+// Returns services that have ALL specified metadata key-value pairs (AND logic)
+func (h *ServiceHandler) QueryByMetadata(c *fiber.Ctx) error {
+	log := middleware.GetLogger(c)
+
+	// Parse all query parameters as metadata filters
+	filters := make(map[string]string)
+	parser := c.Context().QueryArgs()
+	parser.VisitAll(func(key, value []byte) {
+		filters[string(key)] = string(value)
+	})
+
+	if len(filters) == 0 {
+		log.Warn("Query by metadata called with no filters")
+		return middleware.BadRequest(c, "At least one metadata filter must be specified")
+	}
+
+	log.Info("Querying services by metadata",
+		logger.Int("filter_count", len(filters)))
+
+	services := h.store.QueryByMetadata(filters)
+
+	log.Info("Query by metadata completed",
+		logger.Int("result_count", len(services)))
+
+	metrics.ServiceOperationsTotal.WithLabelValues("query_metadata", "success").Inc()
+	return c.JSON(fiber.Map{
+		"count":    len(services),
+		"services": services,
+		"query":    fiber.Map{"metadata": filters},
+	})
+}
+
+// QueryByTagsAndMetadata handles combined queries with both tags and metadata
+// GET /services/query?tags=tag1&tags=tag2&meta.key1=value1&meta.key2=value2
+// Returns services matching ALL specified criteria (AND logic)
+func (h *ServiceHandler) QueryByTagsAndMetadata(c *fiber.Ctx) error {
+	log := middleware.GetLogger(c)
+
+	// Parse tags
+	var tagList []string
+	parser := c.Context().QueryArgs()
+	parser.VisitAll(func(key, value []byte) {
+		keyStr := string(key)
+		if keyStr == "tags" || keyStr == "tag" {
+			tagList = append(tagList, string(value))
+		}
+	})
+
+	// Parse metadata filters (prefixed with "meta.")
+	filters := make(map[string]string)
+	parser.VisitAll(func(key, value []byte) {
+		keyStr := string(key)
+		if len(keyStr) > 5 && keyStr[:5] == "meta." {
+			metaKey := keyStr[5:]
+			filters[metaKey] = string(value)
+		}
+	})
+
+	if len(tagList) == 0 && len(filters) == 0 {
+		log.Warn("Combined query called with no tags or metadata")
+		return middleware.BadRequest(c, "At least one tag or metadata filter must be specified")
+	}
+
+	log.Info("Querying services by tags and metadata",
+		logger.Int("tag_count", len(tagList)),
+		logger.Int("filter_count", len(filters)))
+
+	services := h.store.QueryByTagsAndMetadata(tagList, filters)
+
+	log.Info("Combined query completed",
+		logger.Int("result_count", len(services)))
+
+	metrics.ServiceOperationsTotal.WithLabelValues("query_combined", "success").Inc()
+	return c.JSON(fiber.Map{
+		"count":    len(services),
+		"services": services,
+		"query": fiber.Map{
+			"tags":     tagList,
+			"metadata": filters,
+		},
+	})
+}
