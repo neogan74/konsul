@@ -15,4 +15,20 @@ type Query {
   service(name: String!): Service
   services(limit: Int, offset: Int): [Service!]!
   servicesCount: Int!
+
+  # Service queries by tags and metadata
+  servicesByTags(tags: [String!]!): [Service!]!
+  servicesByMetadata(filters: [MetadataFilter!]!): [Service!]!
+  servicesByQuery(tags: [String!], metadata: [MetadataFilter!]): [Service!]!
+}
+
+"""
+Metadata filter for querying services by metadata
+"""
+input MetadataFilter {
+  """Metadata key"""
+  key: String!
+
+  """Metadata value"""
+  value: String!
 }
