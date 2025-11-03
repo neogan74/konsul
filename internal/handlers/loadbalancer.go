@@ -256,16 +256,30 @@ func (h *LoadBalancerHandler) UpdateStrategy(c *fiber.Ctx) error {
 		return middleware.BadRequest(c, "Invalid JSON body")
 	}
 
-	strategy := loadbalancer.Strategy(req.Strategy)
+	oldStrategy := string(h.balancer.GetStrategy())
+	newStrategy := loadbalancer.Strategy(req.Strategy)
 
 	// Validate strategy
-	switch strategy {
+	switch newStrategy {
 	case loadbalancer.StrategyRoundRobin, loadbalancer.StrategyRandom, loadbalancer.StrategyLeastConnections:
-		h.balancer.SetStrategy(strategy)
-		log.Info("Load balancing strategy updated", logger.String("strategy", string(strategy)))
+		h.balancer.SetStrategy(newStrategy)
+
+		// Record metrics
+		metrics.LoadBalancerStrategyChanges.WithLabelValues(oldStrategy, string(newStrategy)).Inc()
+
+		// Update current strategy gauge
+		metrics.LoadBalancerCurrentStrategy.WithLabelValues("round-robin").Set(0)
+		metrics.LoadBalancerCurrentStrategy.WithLabelValues("random").Set(0)
+		metrics.LoadBalancerCurrentStrategy.WithLabelValues("least-connections").Set(0)
+		metrics.LoadBalancerCurrentStrategy.WithLabelValues(string(newStrategy)).Set(1)
+
+		log.Info("Load balancing strategy updated",
+			logger.String("old_strategy", oldStrategy),
+			logger.String("new_strategy", string(newStrategy)))
+
 		return c.JSON(fiber.Map{
 			"message":  "strategy updated",
-			"strategy": strategy,
+			"strategy": newStrategy,
 		})
 	default:
 		log.Warn("Invalid load balancing strategy requested", logger.String("strategy", req.Strategy))
