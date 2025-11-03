@@ -143,4 +143,151 @@ var (
 			Help: "Total number of ACL policy load errors",
 		},
 	)
+
+	// Service Query metrics (tags/metadata)
+	ServiceQueryTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "konsul_service_query_total",
+			Help: "Total number of service queries by type",
+		},
+		[]string{"query_type", "status"},
+	)
+
+	ServiceQueryDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "konsul_service_query_duration_seconds",
+			Help:    "Service query latencies in seconds",
+			Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0},
+		},
+		[]string{"query_type"},
+	)
+
+	ServiceQueryResultsCount = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "konsul_service_query_results_count",
+			Help:    "Number of services returned by queries",
+			Buckets: []float64{0, 1, 5, 10, 25, 50, 100, 250, 500},
+		},
+		[]string{"query_type"},
+	)
+
+	ServiceTagsPerService = promauto.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "konsul_service_tags_per_service",
+			Help:    "Number of tags per registered service",
+			Buckets: []float64{0, 1, 2, 5, 10, 20, 30, 50, 64},
+		},
+	)
+
+	ServiceMetadataKeysPerService = promauto.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "konsul_service_metadata_keys_per_service",
+			Help:    "Number of metadata keys per registered service",
+			Buckets: []float64{0, 1, 2, 5, 10, 20, 30, 50, 64},
+		},
+	)
+
+	// Load Balancer metrics
+	LoadBalancerSelectionsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "konsul_load_balancer_selections_total",
+			Help: "Total number of load balancer service selections",
+		},
+		[]string{"strategy", "selection_type", "status"},
+	)
+
+	LoadBalancerSelectionDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "konsul_load_balancer_selection_duration_seconds",
+			Help:    "Load balancer selection latencies in seconds",
+			Buckets: []float64{0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05},
+		},
+		[]string{"strategy", "selection_type"},
+	)
+
+	LoadBalancerActiveConnections = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "konsul_load_balancer_active_connections",
+			Help: "Number of active connections per service instance (for least-connections strategy)",
+		},
+		[]string{"service_name", "instance"},
+	)
+
+	LoadBalancerStrategyChanges = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "konsul_load_balancer_strategy_changes_total",
+			Help: "Total number of load balancing strategy changes",
+		},
+		[]string{"from_strategy", "to_strategy"},
+	)
+
+	LoadBalancerCurrentStrategy = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "konsul_load_balancer_current_strategy",
+			Help: "Current load balancing strategy (1 for active strategy, 0 for others)",
+		},
+		[]string{"strategy"},
+	)
+
+	LoadBalancerInstancePoolSize = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "konsul_load_balancer_instance_pool_size",
+			Help:    "Number of available instances in the load balancer pool",
+			Buckets: []float64{0, 1, 2, 5, 10, 20, 50, 100},
+		},
+		[]string{"selection_type"},
+	)
+
+	// GraphQL metrics
+	GraphQLQueriesTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "konsul_graphql_queries_total",
+			Help: "Total number of GraphQL queries",
+		},
+		[]string{"query_name", "status"},
+	)
+
+	GraphQLQueryDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "konsul_graphql_query_duration_seconds",
+			Help:    "GraphQL query execution latencies in seconds",
+			Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0},
+		},
+		[]string{"query_name"},
+	)
+
+	GraphQLQueryResultsCount = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "konsul_graphql_query_results_count",
+			Help:    "Number of results returned by GraphQL queries",
+			Buckets: []float64{0, 1, 5, 10, 25, 50, 100, 250, 500, 1000},
+		},
+		[]string{"query_name"},
+	)
+
+	GraphQLResolverDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "konsul_graphql_resolver_duration_seconds",
+			Help:    "GraphQL resolver execution latencies in seconds",
+			Buckets: []float64{0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1},
+		},
+		[]string{"resolver"},
+	)
+
+	GraphQLErrors = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "konsul_graphql_errors_total",
+			Help: "Total number of GraphQL errors",
+		},
+		[]string{"query_name", "error_type"},
+	)
+
+	GraphQLComplexity = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "konsul_graphql_query_complexity",
+			Help:    "Complexity score of GraphQL queries",
+			Buckets: []float64{1, 5, 10, 25, 50, 100, 250, 500},
+		},
+		[]string{"query_name"},
+	)
 )
