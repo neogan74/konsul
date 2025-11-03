@@ -206,6 +206,11 @@ func main() {
 	balancer := loadbalancer.New(svcStore, loadbalancer.StrategyRoundRobin)
 	appLogger.Info("Load balancer initialized", logger.String("strategy", string(loadbalancer.StrategyRoundRobin)))
 
+	// Initialize load balancer strategy gauge
+	metrics.LoadBalancerCurrentStrategy.WithLabelValues("round-robin").Set(1)
+	metrics.LoadBalancerCurrentStrategy.WithLabelValues("random").Set(0)
+	metrics.LoadBalancerCurrentStrategy.WithLabelValues("least-connections").Set(0)
+
 	// Initialize handlers
 	kvHandler := handlers.NewKVHandler(kv)
 	serviceHandler := handlers.NewServiceHandler(svcStore)
