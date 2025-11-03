@@ -44,8 +44,13 @@ func (h *ServiceHandler) Register(c *fiber.Ctx) error {
 	log.Info("Service registered successfully",
 		logger.String("service_name", svc.Name))
 
+	// Record service registration metrics
 	metrics.ServiceOperationsTotal.WithLabelValues("register", "success").Inc()
 	metrics.RegisteredServicesTotal.Set(float64(len(h.store.List())))
+
+	// Record tags and metadata metrics
+	metrics.ServiceTagsPerService.Observe(float64(len(svc.Tags)))
+	metrics.ServiceMetadataKeysPerService.Observe(float64(len(svc.Meta)))
 
 	return c.JSON(fiber.Map{"message": "service registered", "service": svc})
 }
