@@ -246,8 +246,8 @@ func TestConnectionTracking(t *testing.T) {
 	svcStore := setupTestStore()
 	balancer := New(svcStore, StrategyLeastConnections)
 
-	// Register service
-	svc := store.Service{Name: "api", Address: "10.0.0.1", Port: 8080}
+	// Register service with service tag
+	svc := store.Service{Name: "api-1", Address: "10.0.0.1", Port: 8080, Tags: []string{"service:api"}}
 	if err := svcStore.Register(svc); err != nil {
 		t.Fatalf("Failed to register service: %v", err)
 	}
