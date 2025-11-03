@@ -111,6 +111,7 @@ func (h *ServiceHandler) Heartbeat(c *fiber.Ctx) error {
 // Returns services that have ALL specified tags (AND logic)
 func (h *ServiceHandler) QueryByTags(c *fiber.Ctx) error {
 	log := middleware.GetLogger(c)
+	startTime := c.Context().Time()
 
 	// Parse tags from query parameters (can appear multiple times)
 	tags := c.Query("tags", "")
@@ -134,6 +135,7 @@ func (h *ServiceHandler) QueryByTags(c *fiber.Ctx) error {
 
 	if len(tagList) == 0 {
 		log.Warn("Query by tags called with no tags")
+		metrics.ServiceQueryTotal.WithLabelValues("tags", "error").Inc()
 		return middleware.BadRequest(c, "At least one tag must be specified")
 	}
 
@@ -143,10 +145,15 @@ func (h *ServiceHandler) QueryByTags(c *fiber.Ctx) error {
 
 	services := h.store.QueryByTags(tagList)
 
+	// Record metrics
+	duration := c.Context().Time().Sub(startTime).Seconds()
+	metrics.ServiceQueryDuration.WithLabelValues("tags").Observe(duration)
+	metrics.ServiceQueryResultsCount.WithLabelValues("tags").Observe(float64(len(services)))
+	metrics.ServiceQueryTotal.WithLabelValues("tags", "success").Inc()
+
 	log.Info("Query by tags completed",
 		logger.Int("result_count", len(services)))
 
-	metrics.ServiceOperationsTotal.WithLabelValues("query_tags", "success").Inc()
 	return c.JSON(fiber.Map{
 		"count":    len(services),
 		"services": services,
