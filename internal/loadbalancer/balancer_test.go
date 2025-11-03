@@ -14,11 +14,12 @@ func setupTestStore() *store.ServiceStore {
 	svcStore := setupTestStore()
 	balancer := New(svcStore, StrategyRoundRobin)
 
-	// Register multiple instances of the same service
+	// Register multiple instances of the same logical service
+	// Each instance has a unique name but shares the same service tag
 	services := []store.Service{
-		{Name: "api", Address: "10.0.0.1", Port: 8080, Tags: []string{"v1"}},
-		{Name: "api", Address: "10.0.0.2", Port: 8080, Tags: []string{"v1"}},
-		{Name: "api", Address: "10.0.0.3", Port: 8080, Tags: []string{"v1"}},
+		{Name: "api-1", Address: "10.0.0.1", Port: 8080, Tags: []string{"service:api", "v1"}},
+		{Name: "api-2", Address: "10.0.0.2", Port: 8080, Tags: []string{"service:api", "v1"}},
+		{Name: "api-3", Address: "10.0.0.3", Port: 8080, Tags: []string{"service:api", "v1"}},
 	}
 
 	for _, svc := range services {
@@ -30,7 +31,7 @@ func setupTestStore() *store.ServiceStore {
 	// Select services multiple times and verify round-robin behavior
 	selections := make([]string, 6)
 	for i := 0; i < 6; i++ {
-		svc, ok := balancer.SelectService("api")
+		svc, ok := balancer.SelectService("service:api")
 		if !ok {
 			t.Fatalf("Expected to select service, got none")
 		}
@@ -50,11 +51,11 @@ func TestSelectService_Random(t *testing.T) {
 	svcStore := setupTestStore()
 	balancer := New(svcStore, StrategyRandom)
 
-	// Register multiple instances
+	// Register multiple instances with service tag
 	services := []store.Service{
-		{Name: "api", Address: "10.0.0.1", Port: 8080},
-		{Name: "api", Address: "10.0.0.2", Port: 8080},
-		{Name: "api", Address: "10.0.0.3", Port: 8080},
+		{Name: "api-1", Address: "10.0.0.1", Port: 8080, Tags: []string{"service:api"}},
+		{Name: "api-2", Address: "10.0.0.2", Port: 8080, Tags: []string{"service:api"}},
+		{Name: "api-3", Address: "10.0.0.3", Port: 8080, Tags: []string{"service:api"}},
 	}
 
 	for _, svc := range services {
@@ -66,7 +67,7 @@ func TestSelectService_Random(t *testing.T) {
 	// Select many times and verify all instances are eventually selected
 	addresses := make(map[string]int)
 	for i := 0; i < 100; i++ {
-		svc, ok := balancer.SelectService("api")
+		svc, ok := balancer.SelectService("service:api")
 		if !ok {
 			t.Fatalf("Expected to select service, got none")
 		}
@@ -89,11 +90,11 @@ func TestSelectService_LeastConnections(t *testing.T) {
 	svcStore := setupTestStore()
 	balancer := New(svcStore, StrategyLeastConnections)
 
-	// Register multiple instances
+	// Register multiple instances with service tag
 	services := []store.Service{
-		{Name: "api", Address: "10.0.0.1", Port: 8080},
-		{Name: "api", Address: "10.0.0.2", Port: 8080},
-		{Name: "api", Address: "10.0.0.3", Port: 8080},
+		{Name: "api-1", Address: "10.0.0.1", Port: 8080, Tags: []string{"service:api"}},
+		{Name: "api-2", Address: "10.0.0.2", Port: 8080, Tags: []string{"service:api"}},
+		{Name: "api-3", Address: "10.0.0.3", Port: 8080, Tags: []string{"service:api"}},
 	}
 
 	for _, svc := range services {
@@ -103,7 +104,7 @@ func TestSelectService_LeastConnections(t *testing.T) {
 	}
 
 	// First selection - should select any instance (all have 0 connections)
-	svc1, ok := balancer.SelectService("api")
+	svc1, ok := balancer.SelectService("service:api")
 	if !ok {
 		t.Fatalf("Expected to select service, got none")
 	}
@@ -113,7 +114,7 @@ func TestSelectService_LeastConnections(t *testing.T) {
 	balancer.IncrementConnections(svc1)
 
 	// Second selection - should select a different instance (with fewer connections)
-	svc2, ok := balancer.SelectService("api")
+	svc2, ok := balancer.SelectService("service:api")
 	if !ok {
 		t.Fatalf("Expected to select service, got none")
 	}
