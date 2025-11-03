@@ -213,11 +213,17 @@ func (r *queryResolver) ServicesCount(ctx context.Context) (int, error) {
 
 // ServicesByTags is the resolver for the servicesByTags field.
 func (r *queryResolver) ServicesByTags(ctx context.Context, tags []string) ([]*model.Service, error) {
+	startTime := time.Now()
+	queryName := "servicesByTags"
+
 	// Check authentication
 	// TODO: Add authentication check when auth middleware is implemented
 
 	r.logger.Info("GraphQL: querying services by tags",
 		logger.Int("tag_count", len(tags)))
+
+	// Track query complexity (number of tags)
+	metrics.GraphQLComplexity.WithLabelValues(queryName).Observe(float64(len(tags)))
 
 	// Query the store
 	storeServices := r.serviceStore.QueryByTags(tags)
@@ -238,6 +244,13 @@ func (r *queryResolver) ServicesByTags(ctx context.Context, tags []string) ([]*m
 			services = append(services, model.MapServiceFromStore(entry.Service, entry))
 		}
 	}
+
+	// Record metrics
+	duration := time.Since(startTime).Seconds()
+	metrics.GraphQLResolverDuration.WithLabelValues(queryName).Observe(duration)
+	metrics.GraphQLQueryDuration.WithLabelValues(queryName).Observe(duration)
+	metrics.GraphQLQueryResultsCount.WithLabelValues(queryName).Observe(float64(len(services)))
+	metrics.GraphQLQueriesTotal.WithLabelValues(queryName, "success").Inc()
 
 	r.logger.Debug("GraphQL: services by tags query completed",
 		logger.Int("result_count", len(services)))
