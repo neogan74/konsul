@@ -165,6 +165,7 @@ func (h *ServiceHandler) QueryByTags(c *fiber.Ctx) error {
 // Returns services that have ALL specified metadata key-value pairs (AND logic)
 func (h *ServiceHandler) QueryByMetadata(c *fiber.Ctx) error {
 	log := middleware.GetLogger(c)
+	startTime := c.Context().Time()
 
 	// Parse all query parameters as metadata filters
 	filters := make(map[string]string)
@@ -175,6 +176,7 @@ func (h *ServiceHandler) QueryByMetadata(c *fiber.Ctx) error {
 
 	if len(filters) == 0 {
 		log.Warn("Query by metadata called with no filters")
+		metrics.ServiceQueryTotal.WithLabelValues("metadata", "error").Inc()
 		return middleware.BadRequest(c, "At least one metadata filter must be specified")
 	}
 
@@ -183,10 +185,15 @@ func (h *ServiceHandler) QueryByMetadata(c *fiber.Ctx) error {
 
 	services := h.store.QueryByMetadata(filters)
 
+	// Record metrics
+	duration := c.Context().Time().Sub(startTime).Seconds()
+	metrics.ServiceQueryDuration.WithLabelValues("metadata").Observe(duration)
+	metrics.ServiceQueryResultsCount.WithLabelValues("metadata").Observe(float64(len(services)))
+	metrics.ServiceQueryTotal.WithLabelValues("metadata", "success").Inc()
+
 	log.Info("Query by metadata completed",
 		logger.Int("result_count", len(services)))
 
-	metrics.ServiceOperationsTotal.WithLabelValues("query_metadata", "success").Inc()
 	return c.JSON(fiber.Map{
 		"count":    len(services),
 		"services": services,
