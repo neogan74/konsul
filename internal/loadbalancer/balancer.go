@@ -42,18 +42,12 @@ func New(serviceStore *store.ServiceStore, strategy Strategy) *Balancer {
 	}
 }
 
-// SelectService selects a service instance using the configured strategy
+// SelectService selects a service instance by tag using the configured strategy
+// The serviceTag should be a tag that identifies the logical service (e.g., "service:api")
 // Returns the selected service and true if successful, or an empty Service and false if no instances available
-func (b *Balancer) SelectService(serviceName string) (store.Service, bool) {
-	// Get all instances of the service
-	services := b.store.List()
-	var instances []store.Service
-
-	for _, svc := range services {
-		if svc.Name == serviceName {
-			instances = append(instances, svc)
-		}
-	}
+func (b *Balancer) SelectService(serviceTag string) (store.Service, bool) {
+	// Get all instances with the specified tag
+	instances := b.store.QueryByTags([]string{serviceTag})
 
 	if len(instances) == 0 {
 		return store.Service{}, false
@@ -68,7 +62,7 @@ func (b *Balancer) SelectService(serviceName string) (store.Service, bool) {
 	case StrategyRoundRobin:
 		fallthrough
 	default:
-		return b.selectRoundRobin(serviceName, instances), true
+		return b.selectRoundRobin(serviceTag, instances), true
 	}
 }
 
