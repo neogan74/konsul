@@ -14,6 +14,7 @@ import (
 	"github.com/neogan74/konsul/internal/graphql/model"
 	"github.com/neogan74/konsul/internal/graphql/scalar"
 	"github.com/neogan74/konsul/internal/logger"
+	"github.com/neogan74/konsul/internal/metrics"
 	"github.com/neogan74/konsul/internal/store"
 )
 
