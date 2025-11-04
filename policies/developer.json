@@ -7,10 +7,6 @@
       "capabilities": ["read", "list"]
     },
     {
-      "path": "app/data/*",
-      "capabilities": ["read", "write", "list"]
-    },
-    {
       "path": "app/secrets/*",
       "capabilities": ["deny"]
     }
@@ -18,11 +14,7 @@
   "service": [
     {
       "name": "web-*",
-      "capabilities": ["read", "write", "register", "deregister"]
-    },
-    {
-      "name": "api-*",
-      "capabilities": ["read", "write", "register", "deregister"]
+      "capabilities": ["read", "write", "list", "register", "deregister"]
     },
     {
       "name": "database",
@@ -32,6 +24,16 @@
   "health": [
     {
       "capabilities": ["read"]
+    }
+  ],
+  "backup": [
+    {
+      "capabilities": ["deny"]
+    }
+  ],
+  "admin": [
+    {
+      "capabilities": ["deny"]
     }
   ]
 }
