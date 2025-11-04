@@ -1,0 +1,31 @@
+{
+  "name": "monitoring",
+  "description": "Monitoring and observability access (read-only for metrics)",
+  "kv": [
+    {
+      "path": "*",
+      "capabilities": ["read", "list"]
+    }
+  ],
+  "service": [
+    {
+      "name": "*",
+      "capabilities": ["read", "list"]
+    }
+  ],
+  "health": [
+    {
+      "capabilities": ["read"]
+    }
+  ],
+  "backup": [
+    {
+      "capabilities": ["deny"]
+    }
+  ],
+  "admin": [
+    {
+      "capabilities": ["read"]
+    }
+  ]
+}
