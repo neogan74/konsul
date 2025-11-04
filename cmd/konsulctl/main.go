@@ -34,6 +34,9 @@ func main() {
 	case "ratelimit":
 		rateLimitCmd := NewRateLimitCommands(cli)
 		rateLimitCmd.Handle(args)
+	case "acl":
+		aclCmd := NewACLCommands(cli)
+		aclCmd.Handle(args)
 	case "version":
 		cli.Printf("konsulctl version %s\n", version)
 	case "help", "-h", "--help":
