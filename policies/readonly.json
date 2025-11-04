@@ -1,6 +1,6 @@
 {
   "name": "readonly",
-  "description": "Read-only access to all resources",
+  "description": "Read-only access to all resources (no writes, no admin)",
   "kv": [
     {
       "path": "*",
@@ -20,7 +20,12 @@
   ],
   "backup": [
     {
-      "capabilities": ["list"]
+      "capabilities": ["deny"]
+    }
+  ],
+  "admin": [
+    {
+      "capabilities": ["deny"]
     }
   ]
 }
