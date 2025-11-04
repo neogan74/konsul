@@ -237,4 +237,57 @@ var (
 		},
 		[]string{"selection_type"},
 	)
+
+	// GraphQL metrics
+	GraphQLQueriesTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "konsul_graphql_queries_total",
+			Help: "Total number of GraphQL queries",
+		},
+		[]string{"query_name", "status"},
+	)
+
+	GraphQLQueryDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "konsul_graphql_query_duration_seconds",
+			Help:    "GraphQL query execution latencies in seconds",
+			Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0},
+		},
+		[]string{"query_name"},
+	)
+
+	GraphQLQueryResultsCount = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "konsul_graphql_query_results_count",
+			Help:    "Number of results returned by GraphQL queries",
+			Buckets: []float64{0, 1, 5, 10, 25, 50, 100, 250, 500, 1000},
+		},
+		[]string{"query_name"},
+	)
+
+	GraphQLResolverDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "konsul_graphql_resolver_duration_seconds",
+			Help:    "GraphQL resolver execution latencies in seconds",
+			Buckets: []float64{0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1},
+		},
+		[]string{"resolver"},
+	)
+
+	GraphQLErrors = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "konsul_graphql_errors_total",
+			Help: "Total number of GraphQL errors",
+		},
+		[]string{"query_name", "error_type"},
+	)
+
+	GraphQLComplexity = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "konsul_graphql_query_complexity",
+			Help:    "Complexity score of GraphQL queries",
+			Buckets: []float64{1, 5, 10, 25, 50, 100, 250, 500},
+		},
+		[]string{"query_name"},
+	)
 )
