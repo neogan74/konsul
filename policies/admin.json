@@ -10,7 +10,7 @@
   "service": [
     {
       "name": "*",
-      "capabilities": ["read", "write", "register", "deregister", "list"]
+      "capabilities": ["read", "write", "list", "register", "deregister"]
     }
   ],
   "health": [
@@ -20,12 +20,12 @@
   ],
   "backup": [
     {
-      "capabilities": ["create", "restore", "export", "import", "list", "delete"]
+      "capabilities": ["create", "restore", "export", "import"]
     }
   ],
   "admin": [
     {
-      "capabilities": ["read", "write"]
+      "capabilities": ["read", "write", "admin"]
     }
   ]
 }
