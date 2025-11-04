@@ -24,6 +24,7 @@ import (
 	"github.com/neogan74/konsul/internal/graphql"
 	"github.com/neogan74/konsul/internal/graphql/resolver"
 	"github.com/neogan74/konsul/internal/handlers"
+	"github.com/neogan74/konsul/internal/loadbalancer"
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/metrics"
 	"github.com/neogan74/konsul/internal/middleware"
@@ -201,9 +202,19 @@ func main() {
 		}
 	}()
 
+	// Initialize load balancer with default round-robin strategy
+	balancer := loadbalancer.New(svcStore, loadbalancer.StrategyRoundRobin)
+	appLogger.Info("Load balancer initialized", logger.String("strategy", string(loadbalancer.StrategyRoundRobin)))
+
+	// Initialize load balancer strategy gauge
+	metrics.LoadBalancerCurrentStrategy.WithLabelValues("round-robin").Set(1)
+	metrics.LoadBalancerCurrentStrategy.WithLabelValues("random").Set(0)
+	metrics.LoadBalancerCurrentStrategy.WithLabelValues("least-connections").Set(0)
+
 	// Initialize handlers
 	kvHandler := handlers.NewKVHandler(kv)
 	serviceHandler := handlers.NewServiceHandler(svcStore)
+	loadBalancerHandler := handlers.NewLoadBalancerHandler(balancer)
 	healthHandler := handlers.NewHealthHandler(kv, svcStore, version)
 	healthCheckHandler := handlers.NewHealthCheckHandler(svcStore)
 	backupHandler := handlers.NewBackupHandler(engine, appLogger)
@@ -332,6 +343,14 @@ func main() {
 	app.Get("/services/query/tags", serviceHandler.QueryByTags)
 	app.Get("/services/query/metadata", serviceHandler.QueryByMetadata)
 	app.Get("/services/query", serviceHandler.QueryByTagsAndMetadata)
+
+	// Load balancer endpoints
+	app.Get("/lb/service/:name", loadBalancerHandler.SelectService)
+	app.Get("/lb/tags", loadBalancerHandler.SelectServiceByTags)
+	app.Get("/lb/metadata", loadBalancerHandler.SelectServiceByMetadata)
+	app.Get("/lb/query", loadBalancerHandler.SelectServiceByQuery)
+	app.Get("/lb/strategy", loadBalancerHandler.GetStrategy)
+	app.Put("/lb/strategy", loadBalancerHandler.UpdateStrategy)
 
 	// Health check endpoints
 	app.Get("/health", healthHandler.Check)
