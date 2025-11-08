@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gofiber/contrib/websocket"
@@ -42,18 +43,27 @@ func (h *KVWatchHandler) WatchWebSocket(c *websocket.Conn) {
 		pattern = c.Query("key", "*")
 	}
 
-	// Get claims from locals (set by JWT middleware)
-	claims, ok := c.Locals("claims").(*auth.Claims)
-	if !ok || claims == nil {
-		h.log.Warn("WebSocket watch: no claims found")
-		c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "unauthorized"))
-		return
+	// Get claims from locals (set before WebSocket upgrade)
+	claimsVal := c.Locals("claims")
+	var claims *auth.Claims
+	var userID string
+	var policies []string
+
+	if claimsVal != nil {
+		var ok bool
+		claims, ok = claimsVal.(*auth.Claims)
+		if ok && claims != nil {
+			userID = claims.UserID
+			if userID == "" {
+				userID = claims.Username
+			}
+			policies = claims.Policies
+		}
 	}
 
-	// Get user ID
-	userID := claims.UserID
+	// If no user ID, use a default identifier
 	if userID == "" {
-		userID = claims.Username
+		userID = "anonymous"
 	}
 
 	h.log.Info("WebSocket watch connection established",
@@ -63,7 +73,7 @@ func (h *KVWatchHandler) WatchWebSocket(c *websocket.Conn) {
 
 	// Check ACL permission - user must have read permission for the pattern
 	resource := acl.NewKVResource(pattern)
-	if h.aclEval != nil && !h.aclEval.Evaluate(claims.Policies, resource, acl.CapabilityRead) {
+	if h.aclEval != nil && !h.aclEval.Evaluate(policies, resource, acl.CapabilityRead) {
 		h.log.Warn("WebSocket watch: ACL check failed")
 		c.WriteJSON(fiber.Map{
 			"error":   "forbidden",
@@ -74,7 +84,7 @@ func (h *KVWatchHandler) WatchWebSocket(c *websocket.Conn) {
 	}
 
 	// Add watcher
-	watcher, err := h.watchManager.AddWatcher(pattern, claims.Policies, watch.TransportWebSocket, userID)
+	watcher, err := h.watchManager.AddWatcher(pattern, policies, watch.TransportWebSocket, userID)
 	if err != nil {
 		h.log.Error("Failed to add watcher", logger.Error(err))
 		c.WriteJSON(fiber.Map{
@@ -289,6 +299,5 @@ func sendSSEEvent(w *bufio.Writer, event watch.WatchEvent) error {
 
 // containsWildcard checks if a pattern contains wildcards
 func containsWildcard(pattern string) bool {
-	return len(pattern) > 0 && (pattern[len(pattern)-1:] == "*" ||
-		len(pattern) > 1 && pattern[len(pattern)-2:] == "**")
+	return strings.Contains(pattern, "*")
 }

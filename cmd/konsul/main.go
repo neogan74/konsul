@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -33,6 +34,7 @@ import (
 	"github.com/neogan74/konsul/internal/store"
 	"github.com/neogan74/konsul/internal/telemetry"
 	konsultls "github.com/neogan74/konsul/internal/tls"
+	"github.com/neogan74/konsul/internal/watch"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -256,6 +258,28 @@ func main() {
 		}
 	}
 
+	// Initialize watch manager if enabled
+	var watchManager *watch.Manager
+	var kvWatchHandler *handlers.KVWatchHandler
+	if cfg.Watch.Enabled {
+		watchManager = watch.NewManager(
+			aclEvaluator,
+			appLogger,
+			cfg.Watch.BufferSize,
+			cfg.Watch.MaxPerClient,
+		)
+
+		// Connect watch manager to KV store
+		kv.SetWatchManager(watchManager)
+
+		// Create watch handler
+		kvWatchHandler = handlers.NewKVWatchHandler(kv, watchManager, aclEvaluator, appLogger)
+
+		appLogger.Info("Watch system initialized",
+			logger.Int("buffer_size", cfg.Watch.BufferSize),
+			logger.Int("max_per_client", cfg.Watch.MaxPerClient))
+	}
+
 	// Auth endpoints (public)
 	if cfg.Auth.Enabled {
 		app.Post("/auth/login", authHandler.Login)
@@ -330,6 +354,43 @@ func main() {
 		app.Get("/kv/:key", kvHandler.Get)
 		app.Put("/kv/:key", kvHandler.Set)
 		app.Delete("/kv/:key", kvHandler.Delete)
+	}
+
+	// KV Watch endpoints (WebSocket and SSE) - if watch is enabled
+	if cfg.Watch.Enabled && kvWatchHandler != nil {
+		// WebSocket watch endpoint with authentication
+		app.Get("/kv/watch/:key", func(c *fiber.Ctx) error {
+			// Apply authentication if required
+			if cfg.Auth.RequireAuth && cfg.Auth.Enabled {
+				// Run JWT auth middleware
+				if err := middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths)(c); err != nil {
+					return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+						"error":   "unauthorized",
+						"message": "authentication required for watch",
+					})
+				}
+			}
+
+			// Check if this is a WebSocket upgrade request
+			if websocket.IsWebSocketUpgrade(c) {
+				// Create WebSocket handler with authentication context
+				return websocket.New(func(conn *websocket.Conn) {
+					// Pass claims through locals
+					if cfg.Auth.Enabled {
+						claims := middleware.GetClaims(c)
+						conn.Locals("claims", claims)
+					}
+					kvWatchHandler.WatchWebSocket(conn)
+				})(c)
+			}
+
+			// Otherwise, handle as SSE
+			return kvWatchHandler.WatchSSE(c)
+		})
+
+		appLogger.Info("KV watch endpoints registered",
+			logger.String("websocket_path", "/kv/watch/:key (WebSocket)"),
+			logger.String("sse_path", "/kv/watch/:key (SSE)"))
 	}
 
 	// Service discovery endpoints
