@@ -20,6 +20,7 @@ type Config struct {
 	ACL         ACLConfig
 	GraphQL     GraphQLConfig
 	AdminUI     AdminUIConfig
+	Watch       WatchConfig
 }
 
 // ServerConfig contains HTTP server configuration
@@ -119,6 +120,13 @@ type AdminUIConfig struct {
 	Path    string
 }
 
+// WatchConfig contains KV watch/subscribe configuration
+type WatchConfig struct {
+	Enabled      bool
+	BufferSize   int // Event buffer size per watcher
+	MaxPerClient int // Max watchers per client (0 = unlimited)
+}
+
 // Load loads configuration from environment variables with defaults
 func Load() (*Config, error) {
 	config := &Config{
@@ -193,6 +201,11 @@ func Load() (*Config, error) {
 		AdminUI: AdminUIConfig{
 			Enabled: getEnvBool("KONSUL_ADMIN_UI_ENABLED", true),
 			Path:    getEnvString("KONSUL_ADMIN_UI_PATH", "/admin"),
+		},
+		Watch: WatchConfig{
+			Enabled:      getEnvBool("KONSUL_WATCH_ENABLED", true),
+			BufferSize:   getEnvInt("KONSUL_WATCH_BUFFER_SIZE", 100),
+			MaxPerClient: getEnvInt("KONSUL_WATCH_MAX_PER_CLIENT", 100),
 		},
 	}
 
