@@ -32,7 +32,19 @@
   - [x] Auto-generated self-signed certificates for development
   - [x] Environment variable configuration
   - [x] ListenTLS integration with Fiber
-- [ ] ACL for KV store access
+- [x] ACL system (Access Control Lists)
+  - [x] Policy-based authorization with resource types (kv, service, health, backup, admin)
+  - [x] Path/name pattern matching with wildcards (* and **)
+  - [x] Policy evaluator with deny-by-default security model
+  - [x] Policy CRUD API endpoints
+  - [x] Policy file storage and loading from directory
+  - [x] JWT token integration (policies in claims)
+  - [x] ACL middleware for authorization enforcement
+  - [x] Dynamic ACL middleware with automatic resource/capability inference
+  - [x] konsulctl CLI commands for policy management
+  - [x] ACL testing endpoint for debugging permissions
+  - [x] Comprehensive test coverage (evaluator, handlers, middleware)
+  - [x] Documentation (acl-guide.md, ADR-0010, policy examples)
 - [x] Rate limiting per client
   - [x] Token bucket algorithm implementation
   - [x] Per-IP rate limiting
@@ -77,12 +89,24 @@
 ## 6. KV Store Enhancements
 - [ ] Key prefixes/namespaces
 - [ ] Atomic operations (CAS - Compare-And-Swap)
-- [ ] Watch/subscribe to key changes
+- [x] Watch/subscribe to key changes
+  - [x] WatchManager for managing watchers
+  - [x] Pattern matching support (exact, *, **)
+  - [x] WebSocket transport for real-time updates
+  - [x] Server-Sent Events (SSE) transport
+  - [x] ACL integration (event filtering by permissions)
+  - [x] Per-client limits to prevent resource exhaustion
+  - [x] Prometheus metrics for monitoring
+  - [x] KVStore integration (notifies on Set/Delete/BatchSet/BatchDelete)
+  - [x] Comprehensive test coverage
+  - [ ] CLI command (konsulctl kv watch)
+  - [ ] Integration tests
+  - [ ] Client examples and documentation
 - [ ] Bulk operations
 
 ## 7. API Improvements
-- [ ] GraphQL interface
-- [ ] WebSocket support for real-time updates
+- [x] GraphQL interface
+- [x] WebSocket support for real-time updates (KV watch)
 - [ ] Batch operations API
 - [ ] API versioning (v1, v2)
 
@@ -177,3 +201,9 @@
 ✅ Production-Ready Deployment Options
 ✅ OpenTelemetry Distributed Tracing
 ✅ React Admin UI Build (Vite + Tailwind CSS v4)
+✅ ACL System (Policy-based Authorization)
+✅ ACL Middleware & Dynamic Resource Inference
+✅ ACL CLI Commands & Management API
+✅ KV Watch/Subscribe System (WebSocket & SSE)
+✅ Watch Manager with Pattern Matching
+✅ Watch Prometheus Metrics
