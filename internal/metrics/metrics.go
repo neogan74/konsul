@@ -290,4 +290,45 @@ var (
 		},
 		[]string{"query_name"},
 	)
+
+	// Watch metrics
+	WatchersActive = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "konsul_watchers_active",
+			Help: "Number of active watchers",
+		},
+		[]string{"transport"},
+	)
+
+	WatchEventsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "konsul_watch_events_total",
+			Help: "Total number of watch events sent",
+		},
+		[]string{"event_type"},
+	)
+
+	WatchConnectionsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "konsul_watch_connections_total",
+			Help: "Total number of watch connections",
+		},
+		[]string{"transport", "status"},
+	)
+
+	WatchEventsDropped = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "konsul_watch_events_dropped_total",
+			Help: "Total number of watch events dropped due to full buffer",
+		},
+		[]string{"reason"},
+	)
+
+	WatchACLDenials = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "konsul_watch_acl_denials_total",
+			Help: "Total number of watch requests denied by ACL",
+		},
+		[]string{"reason"},
+	)
 )
