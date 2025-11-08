@@ -44,8 +44,13 @@ func (h *ServiceHandler) Register(c *fiber.Ctx) error {
 	log.Info("Service registered successfully",
 		logger.String("service_name", svc.Name))
 
+	// Record service registration metrics
 	metrics.ServiceOperationsTotal.WithLabelValues("register", "success").Inc()
 	metrics.RegisteredServicesTotal.Set(float64(len(h.store.List())))
+
+	// Record tags and metadata metrics
+	metrics.ServiceTagsPerService.Observe(float64(len(svc.Tags)))
+	metrics.ServiceMetadataKeysPerService.Observe(float64(len(svc.Meta)))
 
 	return c.JSON(fiber.Map{"message": "service registered", "service": svc})
 }
@@ -111,6 +116,7 @@ func (h *ServiceHandler) Heartbeat(c *fiber.Ctx) error {
 // Returns services that have ALL specified tags (AND logic)
 func (h *ServiceHandler) QueryByTags(c *fiber.Ctx) error {
 	log := middleware.GetLogger(c)
+	startTime := c.Context().Time()
 
 	// Parse tags from query parameters (can appear multiple times)
 	tags := c.Query("tags", "")
@@ -134,6 +140,7 @@ func (h *ServiceHandler) QueryByTags(c *fiber.Ctx) error {
 
 	if len(tagList) == 0 {
 		log.Warn("Query by tags called with no tags")
+		metrics.ServiceQueryTotal.WithLabelValues("tags", "error").Inc()
 		return middleware.BadRequest(c, "At least one tag must be specified")
 	}
 
@@ -143,10 +150,15 @@ func (h *ServiceHandler) QueryByTags(c *fiber.Ctx) error {
 
 	services := h.store.QueryByTags(tagList)
 
+	// Record metrics
+	duration := c.Context().Time().Sub(startTime).Seconds()
+	metrics.ServiceQueryDuration.WithLabelValues("tags").Observe(duration)
+	metrics.ServiceQueryResultsCount.WithLabelValues("tags").Observe(float64(len(services)))
+	metrics.ServiceQueryTotal.WithLabelValues("tags", "success").Inc()
+
 	log.Info("Query by tags completed",
 		logger.Int("result_count", len(services)))
 
-	metrics.ServiceOperationsTotal.WithLabelValues("query_tags", "success").Inc()
 	return c.JSON(fiber.Map{
 		"count":    len(services),
 		"services": services,
@@ -158,6 +170,7 @@ func (h *ServiceHandler) QueryByTags(c *fiber.Ctx) error {
 // Returns services that have ALL specified metadata key-value pairs (AND logic)
 func (h *ServiceHandler) QueryByMetadata(c *fiber.Ctx) error {
 	log := middleware.GetLogger(c)
+	startTime := c.Context().Time()
 
 	// Parse all query parameters as metadata filters
 	filters := make(map[string]string)
@@ -168,6 +181,7 @@ func (h *ServiceHandler) QueryByMetadata(c *fiber.Ctx) error {
 
 	if len(filters) == 0 {
 		log.Warn("Query by metadata called with no filters")
+		metrics.ServiceQueryTotal.WithLabelValues("metadata", "error").Inc()
 		return middleware.BadRequest(c, "At least one metadata filter must be specified")
 	}
 
@@ -176,10 +190,15 @@ func (h *ServiceHandler) QueryByMetadata(c *fiber.Ctx) error {
 
 	services := h.store.QueryByMetadata(filters)
 
+	// Record metrics
+	duration := c.Context().Time().Sub(startTime).Seconds()
+	metrics.ServiceQueryDuration.WithLabelValues("metadata").Observe(duration)
+	metrics.ServiceQueryResultsCount.WithLabelValues("metadata").Observe(float64(len(services)))
+	metrics.ServiceQueryTotal.WithLabelValues("metadata", "success").Inc()
+
 	log.Info("Query by metadata completed",
 		logger.Int("result_count", len(services)))
 
-	metrics.ServiceOperationsTotal.WithLabelValues("query_metadata", "success").Inc()
 	return c.JSON(fiber.Map{
 		"count":    len(services),
 		"services": services,
@@ -192,6 +211,7 @@ func (h *ServiceHandler) QueryByMetadata(c *fiber.Ctx) error {
 // Returns services matching ALL specified criteria (AND logic)
 func (h *ServiceHandler) QueryByTagsAndMetadata(c *fiber.Ctx) error {
 	log := middleware.GetLogger(c)
+	startTime := c.Context().Time()
 
 	// Parse tags
 	var tagList []string
@@ -215,6 +235,7 @@ func (h *ServiceHandler) QueryByTagsAndMetadata(c *fiber.Ctx) error {
 
 	if len(tagList) == 0 && len(filters) == 0 {
 		log.Warn("Combined query called with no tags or metadata")
+		metrics.ServiceQueryTotal.WithLabelValues("combined", "error").Inc()
 		return middleware.BadRequest(c, "At least one tag or metadata filter must be specified")
 	}
 
@@ -224,10 +245,15 @@ func (h *ServiceHandler) QueryByTagsAndMetadata(c *fiber.Ctx) error {
 
 	services := h.store.QueryByTagsAndMetadata(tagList, filters)
 
+	// Record metrics
+	duration := c.Context().Time().Sub(startTime).Seconds()
+	metrics.ServiceQueryDuration.WithLabelValues("combined").Observe(duration)
+	metrics.ServiceQueryResultsCount.WithLabelValues("combined").Observe(float64(len(services)))
+	metrics.ServiceQueryTotal.WithLabelValues("combined", "success").Inc()
+
 	log.Info("Combined query completed",
 		logger.Int("result_count", len(services)))
 
-	metrics.ServiceOperationsTotal.WithLabelValues("query_combined", "success").Inc()
 	return c.JSON(fiber.Map{
 		"count":    len(services),
 		"services": services,

@@ -1,203 +1,270 @@
-# ACL Policies
+# ACL Policy Examples
 
-This directory contains example ACL policies for Konsul. These policies demonstrate various permission models for different user roles and use cases.
+This directory contains example ACL policy files that can be loaded by Konsul for fine-grained authorization control.
 
-## Available Policies
+## Overview
 
-### 1. Admin Policy (`admin.json`)
-Full administrative access to all resources.
+ACL policies in Konsul define what actions users and services can perform on different resources. Policies are written in JSON format and support:
 
-**Use Case**: System administrators, DevOps leads
+- **Resource types**: `kv`, `service`, `health`, `backup`, `admin`
+- **Path/name matching**: Exact matches, single-level wildcards (`*`), and multi-level wildcards (`**`)
+- **Capabilities**: Specific permissions like `read`, `write`, `delete`, `register`, `deregister`, etc.
+- **Explicit deny**: Use `deny` capability to explicitly block access
 
-**Permissions**:
-- KV Store: Full access (read, write, list, delete) to all keys
-- Services: Full access to all services
-- Health Checks: Read and write
-- Backups: Create, restore, export, import
-- Admin Operations: Full access
+## Policy Files
 
-### 2. Developer Policy (`developer.json`)
-Developer access with controlled permissions.
+### 1. `admin.json` - Full Administrative Access
 
-**Use Case**: Application developers
+**Use case**: System administrators, CI/CD pipelines with full control
 
-**Permissions**:
-- KV Store: Read access to `app/config/*`, denied access to `app/secrets/*`
-- Services: Full access to `web-*` services, read-only access to `database` service
-- Health Checks: Read-only
-- Backups: Denied
-- Admin Operations: Denied
+```json
+{
+  "name": "admin",
+  "description": "Full administrative access to all resources",
+  "kv": [{"path": "*", "capabilities": ["read", "write", "list", "delete"]}],
+  "service": [{"name": "*", "capabilities": ["read", "write", "register", "deregister", "list"]}],
+  "health": [{"capabilities": ["read", "write"]}],
+  "backup": [{"capabilities": ["create", "restore", "export", "import", "list", "delete"]}],
+  "admin": [{"capabilities": ["read", "write"]}]
+}
+```
 
-### 3. Read-Only Policy (`readonly.json`)
-Read-only access to all resources, no modifications allowed.
+**Grants**:
+- Full access to all KV store keys
+- Full access to all services
+- Full access to health checks
+- Full backup/restore capabilities
+- Full admin API access (policies, metrics)
 
-**Use Case**: Auditors, viewers, monitoring tools
+---
 
-**Permissions**:
-- KV Store: Read and list all keys
-- Services: Read and list all services
-- Health Checks: Read-only
-- Backups: Denied
-- Admin Operations: Denied
+### 2. `developer.json` - Developer Access
 
-### 4. CI/CD Deploy Policy (`ci-deploy.json`)
-Permissions for continuous integration and deployment pipelines.
+**Use case**: Application developers needing limited access to configs and services
 
-**Use Case**: CI/CD systems (GitHub Actions, GitLab CI, Jenkins)
+```json
+{
+  "name": "developer",
+  "description": "Developer access with limited permissions",
+  "kv": [
+    {"path": "app/config/*", "capabilities": ["read", "list"]},
+    {"path": "app/data/*", "capabilities": ["read", "write", "list"]},
+    {"path": "app/secrets/*", "capabilities": ["deny"]}
+  ],
+  "service": [
+    {"name": "web-*", "capabilities": ["read", "write", "register", "deregister"]},
+    {"name": "api-*", "capabilities": ["read", "write", "register", "deregister"]},
+    {"name": "database", "capabilities": ["read"]}
+  ],
+  "health": [{"capabilities": ["read"]}]
+}
+```
 
-**Permissions**:
-- KV Store: Full access to `deploy/*`, read access to `config/production/*`
-- Services: Full access to `app-*` and `api-*` services
-- Health Checks: Read and write
-- Backups: Create and export
-- Admin Operations: Denied
+**Grants**:
+- Read-only access to `app/config/*` keys
+- Read/write access to `app/data/*` keys
+- **Explicit deny** for `app/secrets/*` keys
+- Full control over `web-*` and `api-*` services
+- Read-only access to `database` service
+- Read-only access to health checks
 
-### 5. Monitoring Policy (`monitoring.json`)
-Read-only access for monitoring and observability tools.
+**Example usage**:
+```bash
+# Allowed
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8888/kv/app/config/database
+curl -H "Authorization: Bearer $TOKEN" -X PUT -d '{"value":"test"}' http://localhost:8888/kv/app/data/cache
 
-**Use Case**: Prometheus, Grafana, Datadog, monitoring systems
+# Denied
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8888/kv/app/secrets/password  # 403
+curl -H "Authorization: Bearer $TOKEN" -X PUT http://localhost:8888/kv/app/config/db  # 403 (no write)
+```
 
-**Permissions**:
-- KV Store: Read and list all keys
-- Services: Read and list all services
-- Health Checks: Read-only
-- Backups: Denied
-- Admin Operations: Read-only (for metrics)
+---
 
-## Using Policies
+### 3. `readonly.json` - Read-Only Access
 
-### Via API
+**Use case**: Monitoring tools, auditors, read-only dashboards
 
-Create a policy:
+```json
+{
+  "name": "readonly",
+  "description": "Read-only access to all resources",
+  "kv": [{"path": "*", "capabilities": ["read", "list"]}],
+  "service": [{"name": "*", "capabilities": ["read", "list"]}],
+  "health": [{"capabilities": ["read"]}]
+}
+```
+
+**Grants**:
+- Read-only access to all KV store keys
+- Read-only access to all services
+- Read-only access to health checks
+- No write, delete, or admin capabilities
+
+---
+
+## Loading Policies
+
+### Method 1: Load from Directory (Startup)
+
+Set the policy directory via environment variable:
+
+```bash
+export KONSUL_ACL_ENABLED=true
+export KONSUL_ACL_POLICY_DIR=./policies
+./konsul
+```
+
+Konsul will automatically load all `.json` files from the specified directory at startup.
+
+### Method 2: Create via API
+
 ```bash
 curl -X POST http://localhost:8888/acl/policies \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <token>" \
-  -d @policies/admin.json
+  -d @policies/developer.json
 ```
 
-List policies:
+### Method 3: Create via CLI
+
 ```bash
-curl http://localhost:8888/acl/policies \
-  -H "Authorization: Bearer <token>"
-```
-
-Get policy details:
-```bash
-curl http://localhost:8888/acl/policies/admin \
-  -H "Authorization: Bearer <token>"
-```
-
-Delete a policy:
-```bash
-curl -X DELETE http://localhost:8888/acl/policies/admin \
-  -H "Authorization: Bearer <token>"
-```
-
-### Via CLI (konsulctl)
-
-Create a policy:
-```bash
-konsulctl acl policy create policies/admin.json
-```
-
-List policies:
-```bash
-konsulctl acl policy list
-```
-
-Get policy details:
-```bash
-konsulctl acl policy get admin
-```
-
-Update a policy:
-```bash
-konsulctl acl policy update policies/admin.json
-```
-
-Delete a policy:
-```bash
-konsulctl acl policy delete admin
-```
-
-Test ACL permissions:
-```bash
-# Test if developer policy allows reading app/config/db
-konsulctl acl test developer kv app/config/db read
-
-# Test if developer policy allows writing to app/secrets
-konsulctl acl test developer kv app/secrets/api-key write
-
-# Test multiple policies
-konsulctl acl test developer,readonly service web-app register
+konsulctl acl policy create policies/developer.json
 ```
 
 ## Attaching Policies to Tokens
 
-### JWT Tokens
+Policies are attached to JWT tokens via the `policies` claim:
 
-When generating JWT tokens, include policies in the claims:
-
-```go
-token, err := jwtService.GenerateTokenWithPolicies(
-    userID,
-    username,
-    roles,
-    []string{"developer", "readonly"}, // Policies
-)
+```bash
+# Login with policies
+curl -X POST http://localhost:8888/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "user123",
+    "username": "alice",
+    "roles": ["developer"],
+    "policies": ["developer", "readonly"]
+  }'
 ```
 
-The JWT will contain:
+The resulting JWT will contain:
+
 ```json
 {
   "user_id": "user123",
   "username": "alice",
   "roles": ["developer"],
-  "policies": ["developer", "readonly"]
+  "policies": ["developer", "readonly"],
+  "exp": 1234567890
 }
 ```
 
-### API Keys
+## Testing Policies
 
-API keys can be associated with policies through metadata:
+Use the ACL test endpoint to debug permissions:
 
-```go
-apiKey := &APIKey{
-    ID:       "key-123",
-    Name:     "ci-pipeline",
-    Policies: []string{"ci-deploy"},
+```bash
+curl -X POST http://localhost:8888/acl/test \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "policies": ["developer"],
+    "resource": "kv",
+    "path": "app/config/database",
+    "capability": "read"
+  }'
+
+# Response
+{
+  "allowed": true,
+  "policies": ["developer"],
+  "resource": "kv",
+  "path": "app/config/database",
+  "capability": "read"
 }
 ```
 
-## Policy Format
+Or use the CLI:
 
-Policies are defined in JSON with the following structure:
+```bash
+konsulctl acl test developer kv app/config/database read
+# Output: ✓ Allowed
+```
+
+## Creating Custom Policies
+
+### Example: CI/CD Pipeline Policy
+
+Create `policies/ci-deploy.json`:
 
 ```json
 {
-  "name": "policy-name",
-  "description": "Policy description",
+  "name": "ci-deploy",
+  "description": "CI/CD pipeline deployment access",
   "kv": [
     {
-      "path": "path/pattern/*",
-      "capabilities": ["read", "write", "list", "delete", "deny"]
+      "path": "app/config/prod/*",
+      "capabilities": ["read"]
+    },
+    {
+      "path": "deployments/**",
+      "capabilities": ["read", "write", "list"]
     }
   ],
   "service": [
     {
-      "name": "service-pattern*",
-      "capabilities": ["read", "write", "list", "register", "deregister", "deny"]
+      "name": "frontend-*",
+      "capabilities": ["register", "deregister", "read"]
+    },
+    {
+      "name": "backend-*",
+      "capabilities": ["register", "deregister", "read"]
     }
   ],
   "health": [
     {
-      "capabilities": ["read", "write", "deny"]
+      "capabilities": ["read", "write"]
     }
   ],
   "backup": [
     {
-      "capabilities": ["create", "restore", "export", "import", "deny"]
+      "capabilities": ["create"]
+    }
+  ]
+}
+```
+
+**This policy allows**:
+- Read production configs
+- Read/write deployment metadata
+- Register/deregister frontend and backend services
+- Update health checks
+- Create backups (but not restore)
+
+### Example: Monitoring Policy
+
+Create `policies/monitoring.json`:
+
+```json
+{
+  "name": "monitoring",
+  "description": "Monitoring system access",
+  "kv": [
+    {
+      "path": "*",
+      "capabilities": ["read", "list"]
+    }
+  ],
+  "service": [
+    {
+      "name": "*",
+      "capabilities": ["read", "list"]
+    }
+  ],
+  "health": [
+    {
+      "capabilities": ["read"]
     }
   ],
   "admin": [
