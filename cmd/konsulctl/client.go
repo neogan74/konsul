@@ -862,3 +862,196 @@ func (c *KonsulClient) UpdateRateLimitConfig(requestsPerSec *float64, burst *int
 
 	return &updateResp, nil
 }
+
+// ACL Policy Methods
+
+// ListACLPolicies lists all ACL policies
+func (c *KonsulClient) ListACLPolicies() (*ACLPoliciesResponse, error) {
+	url := fmt.Sprintf("%s/acl/policies", c.BaseURL)
+
+	resp, err := c.HTTPClient.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("server returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result ACLPoliciesResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// GetACLPolicy retrieves a specific ACL policy
+func (c *KonsulClient) GetACLPolicy(name string) (map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/acl/policies/%s", c.BaseURL, name)
+
+	resp, err := c.HTTPClient.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("server returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// CreateACLPolicy creates a new ACL policy
+func (c *KonsulClient) CreateACLPolicy(policy map[string]interface{}) (map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/acl/policies", c.BaseURL)
+
+	jsonData, err := json.Marshal(policy)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("server returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// UpdateACLPolicy updates an existing ACL policy
+func (c *KonsulClient) UpdateACLPolicy(name string, policy map[string]interface{}) (map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/acl/policies/%s", c.BaseURL, name)
+
+	jsonData, err := json.Marshal(policy)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("server returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// DeleteACLPolicy deletes an ACL policy
+func (c *KonsulClient) DeleteACLPolicy(name string) (map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/acl/policies/%s", c.BaseURL, name)
+
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("server returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// TestACLPolicy tests ACL permissions
+func (c *KonsulClient) TestACLPolicy(policies []string, resource, path, capability string) (map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/acl/test", c.BaseURL)
+
+	request := map[string]interface{}{
+		"policies":   policies,
+		"resource":   resource,
+		"path":       path,
+		"capability": capability,
+	}
+
+	jsonData, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("server returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// ACL Response types
+
+// ACLPoliciesResponse represents the response from listing policies
+type ACLPoliciesResponse struct {
+	Policies []string `json:"policies"`
+	Count    int      `json:"count"`
+}

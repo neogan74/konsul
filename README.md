@@ -188,6 +188,97 @@ PUT /register
 }
 ```
 
+### Access Control Lists (ACL)
+
+Konsul implements a fine-grained **ACL system** for authorization, allowing you to control access to resources (KV store, services, health checks, backups, admin operations) using policies.
+
+#### Features
+
+- **Fine-grained permissions** - Control access at the resource level
+- **Path-based rules** - Use wildcards (`*`, `**`) for flexible matching
+- **Policy composition** - Attach multiple policies to tokens
+- **Deny-by-default** - Secure by default security model
+- **Explicit deny** - Block specific resources explicitly
+- **File-based policies** - Store policies as JSON files
+
+#### Quick Start
+
+**1. Enable ACL system:**
+```yaml
+# config.yaml
+acl:
+  enabled: true
+  policy_dir: ./policies
+```
+
+**2. Create a policy** (`policies/developer.json`):
+```json
+{
+  "name": "developer",
+  "description": "Developer access",
+  "kv": [
+    {
+      "path": "app/config/*",
+      "capabilities": ["read", "list"]
+    }
+  ],
+  "service": [
+    {
+      "name": "web-*",
+      "capabilities": ["read", "register", "deregister"]
+    }
+  ]
+}
+```
+
+**3. Load policy:**
+```bash
+konsulctl acl policy create policies/developer.json
+```
+
+**4. Generate token with policies:**
+```bash
+curl -X POST http://localhost:8888/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "user123",
+    "username": "alice",
+    "roles": ["developer"],
+    "policies": ["developer", "readonly"]
+  }'
+```
+
+#### CLI Commands
+
+```bash
+# Policy management
+konsulctl acl policy list
+konsulctl acl policy get <name>
+konsulctl acl policy create <file>
+konsulctl acl policy update <file>
+konsulctl acl policy delete <name>
+
+# Test permissions
+konsulctl acl test developer kv app/config read
+```
+
+#### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/acl/policies` | List all policies |
+| GET | `/acl/policies/:name` | Get policy details |
+| POST | `/acl/policies` | Create new policy |
+| PUT | `/acl/policies/:name` | Update policy |
+| DELETE | `/acl/policies/:name` | Delete policy |
+| POST | `/acl/test` | Test ACL permissions |
+
+#### Documentation
+
+- [Complete ACL Guide](docs/acl.md) - Full documentation
+- [Policy Examples](policies/README.md) - Pre-built policy templates
+- [ADR-0010](docs/adr/0010-acl-system.md) - Architecture decision
+
 ## GraphQL API
 
 Konsul provides a GraphQL API alongside the REST API for flexible querying of resources.

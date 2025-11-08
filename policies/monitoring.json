@@ -1,6 +1,6 @@
 {
-  "name": "readonly",
-  "description": "Read-only access to all resources (no writes, no admin)",
+  "name": "monitoring",
+  "description": "Monitoring and observability access (read-only for metrics)",
   "kv": [
     {
       "path": "*",
@@ -25,7 +25,7 @@
   ],
   "admin": [
     {
-      "capabilities": ["deny"]
+      "capabilities": ["read"]
     }
   ]
 }

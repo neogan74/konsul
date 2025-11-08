@@ -269,149 +269,119 @@ Create `policies/monitoring.json`:
   ],
   "admin": [
     {
-      "capabilities": ["read"]
+      "capabilities": ["read", "write", "admin", "deny"]
     }
   ]
 }
 ```
 
-**This policy allows**:
-- Read-only access to all KV keys
-- Read-only access to all services
-- Read-only access to health checks
-- Read-only access to metrics and admin endpoints
+### Path Matching
 
-## Path Matching Examples
+Paths support wildcard patterns:
+- `*` - Matches any characters within a single path segment
+- `**` - Matches any characters including path separators
+- `app/*` - Matches `app/config`, `app/db`, but not `app/config/prod`
+- `app/**` - Matches `app/config`, `app/config/prod`, `app/config/prod/db`
 
-### Single-level Wildcard (`*`)
+### Capabilities
 
-```
-Pattern: app/*
-✓ Matches: app/config, app/data, app/cache
-✗ Does NOT match: app/config/nested, other/path
-```
-
-### Multi-level Wildcard (`**`)
-
-```
-Pattern: app/**
-✓ Matches: app/config, app/config/nested, app/config/nested/deep
-✗ Does NOT match: other/path
-```
-
-### Exact Match
-
-```
-Pattern: app/config/database
-✓ Matches: app/config/database
-✗ Does NOT match: app/config/database-prod, app/config
-```
-
-### Mixed Wildcards
-
-```
-Pattern: app/*/config
-✓ Matches: app/frontend/config, app/backend/config
-✗ Does NOT match: app/config, app/frontend/config/nested
-```
-
-## Capability Reference
-
-### KV Store Capabilities
+**KV Store**:
 - `read` - Read key values
-- `write` - Create/update keys
+- `write` - Write/update key values
 - `list` - List keys
 - `delete` - Delete keys
-- `deny` - Explicitly deny all access
+- `deny` - Explicitly deny access
 
-### Service Capabilities
+**Services**:
 - `read` - Read service information
-- `write` - Update service metadata
+- `write` - Update service information
 - `list` - List services
 - `register` - Register new services
-- `deregister` - Remove services
-- `deny` - Explicitly deny all access
+- `deregister` - Deregister services
+- `deny` - Explicitly deny access
 
-### Health Capabilities
-- `read` - Read health status
-- `write` - Update health checks
-- `deny` - Explicitly deny all access
+**Health Checks**:
+- `read` - Read health check status
+- `write` - Update health check status
+- `deny` - Explicitly deny access
 
-### Backup Capabilities
+**Backups**:
 - `create` - Create backups
 - `restore` - Restore from backups
 - `export` - Export data
 - `import` - Import data
-- `list` - List backups
-- `delete` - Delete backups
-- `deny` - Explicitly deny all access
+- `deny` - Explicitly deny access
 
-### Admin Capabilities
-- `read` - View policies, metrics, admin info
-- `write` - Manage policies, system configuration
-- `deny` - Explicitly deny all access
+**Admin**:
+- `read` - Read admin information (metrics, etc.)
+- `write` - Admin write operations (policy management)
+- `admin` - Full admin access
+- `deny` - Explicitly deny access
 
-## Policy Evaluation Rules
+## Evaluation Logic
 
-1. **No policies attached** → **DENY** (default deny)
-2. **Explicit `deny` capability** → **DENY** immediately (overrides all)
-3. **Any policy allows** → **ALLOW**
-4. **No matching rule** → **DENY**
+ACL policies are evaluated with the following rules:
 
-### Example: Multiple Policies
-
-If a token has both `readonly` and `developer` policies:
-
-```
-Token has: ["readonly", "developer"]
-
-Request: Write to app/data/cache
-- readonly: No write capability → No match
-- developer: Has write for app/data/* → ALLOW
-Result: ALLOWED (at least one policy allows)
-
-Request: Read app/secrets/password
-- readonly: Has read for * → Would allow
-- developer: Has explicit deny for app/secrets/* → DENY
-Result: DENIED (explicit deny overrides all)
-```
+1. **Default Deny**: If no policy allows an action, it is denied by default
+2. **Explicit Deny Wins**: If any policy explicitly denies an action, it is denied
+3. **First Match**: The first matching rule within a policy determines the outcome
+4. **Multiple Policies**: If multiple policies are attached to a token, any one allowing the action grants access (unless explicitly denied)
 
 ## Best Practices
 
-1. **Start with least privilege** - Grant minimum required permissions
-2. **Use explicit deny** - Block sensitive paths explicitly
-3. **Organize by role** - Create policies matching job functions
-4. **Test before deploying** - Use `/acl/test` endpoint to verify
-5. **Version control** - Store policies in Git
-6. **Document policies** - Add clear descriptions
-7. **Review regularly** - Audit and update policies
-8. **Monitor metrics** - Track ACL denials in Prometheus
+1. **Principle of Least Privilege**: Grant only the minimum permissions needed
+2. **Use Explicit Deny**: Use `deny` capability to explicitly block access to sensitive resources
+3. **Path Patterns**: Use specific path patterns instead of wildcards when possible
+4. **Policy Composition**: Combine multiple focused policies rather than creating one large policy
+5. **Regular Reviews**: Periodically review and update policies
+6. **Testing**: Use `konsulctl acl test` to verify policies before deployment
+7. **Version Control**: Store policies in Git for change tracking
+8. **Documentation**: Document the purpose and use case for each policy
+
+## Configuration
+
+Enable ACL system in Konsul configuration:
+
+```yaml
+acl:
+  enabled: true
+  policy_dir: ./policies  # Directory to load policies from
+  default_policy: deny    # Default action when no policy matches
+```
+
+Or via environment variables:
+
+```bash
+KONSUL_ACL_ENABLED=true
+KONSUL_ACL_POLICY_DIR=./policies
+KONSUL_ACL_DEFAULT_POLICY=deny
+```
 
 ## Troubleshooting
 
-### Access Denied Errors
-
-**Problem**: Getting 403 Forbidden
-
-**Solutions**:
-1. Check token has policies attached: `konsulctl acl test <policy> <resource> <path> <capability>`
-2. Verify policy is loaded: `konsulctl acl policy list`
-3. Check for explicit deny rules
-4. Review path matching (exact vs wildcard)
-
 ### Policy Not Loading
 
-**Problem**: Policy file not loading at startup
+Check the logs for policy loading errors:
+```bash
+grep "ACL policy" /var/log/konsul.log
+```
 
-**Solutions**:
-1. Verify JSON syntax is valid
-2. Check `KONSUL_ACL_POLICY_DIR` is correct
-3. Ensure file has `.json` extension
-4. Check file permissions (readable by Konsul)
-5. Review startup logs for errors
+### Permission Denied
 
-## See Also
+Test the policy to understand why access was denied:
+```bash
+konsulctl acl test <policy-name> <resource> <path> <capability>
+```
 
-- [ACL Guide](../docs/acl-guide.md) - Complete ACL documentation
-- [ADR-0010](../docs/adr/0010-acl-system.md) - ACL architecture decision
-- [Authentication Guide](../docs/authentication.md) - JWT and API key setup
+### Policy Validation Errors
+
+Validate policy JSON:
+```bash
+jq empty policies/admin.json  # Check JSON syntax
+```
+
+## Additional Resources
+
+- [Konsul ACL Documentation](../docs/acl.md)
+- [ADR-0010: ACL System](../docs/adr/0010-acl-system.md)
+- [API Reference](../docs/api-reference.md#acl-endpoints)

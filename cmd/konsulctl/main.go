@@ -34,6 +34,9 @@ func main() {
 	case "ratelimit":
 		rateLimitCmd := NewRateLimitCommands(cli)
 		rateLimitCmd.Handle(args)
+	case "acl":
+		aclCmd := NewACLCommands(cli)
+		aclCmd.Handle(args)
 	case "version":
 		cli.Printf("konsulctl version %s\n", version)
 	case "help", "-h", "--help":
@@ -82,6 +85,14 @@ func printUsage() {
 	fmt.Println("    reset apikey <key>  Reset rate limit for API key")
 	fmt.Println("    reset all [--type <type>]  Reset all rate limiters")
 	fmt.Println("    update <--rate <n> | --burst <n>>  Update configuration")
+	fmt.Println()
+	fmt.Println("  acl <subcommand>    ACL policy operations")
+	fmt.Println("    policy list      List all policies")
+	fmt.Println("    policy get <name>  Get policy details")
+	fmt.Println("    policy create <file>  Create policy from JSON file")
+	fmt.Println("    policy update <file>  Update policy from JSON file")
+	fmt.Println("    policy delete <name>  Delete a policy")
+	fmt.Println("    test <policies> <resource> <path> <capability>  Test ACL permissions")
 	fmt.Println()
 	fmt.Println("  version            Show version")
 	fmt.Println("  help               Show this help")

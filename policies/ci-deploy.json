@@ -1,0 +1,39 @@
+{
+  "name": "ci-deploy",
+  "description": "CI/CD pipeline deployment permissions",
+  "kv": [
+    {
+      "path": "deploy/*",
+      "capabilities": ["read", "write", "list"]
+    },
+    {
+      "path": "config/production/*",
+      "capabilities": ["read", "list"]
+    }
+  ],
+  "service": [
+    {
+      "name": "app-*",
+      "capabilities": ["read", "write", "register", "deregister"]
+    },
+    {
+      "name": "api-*",
+      "capabilities": ["read", "write", "register", "deregister"]
+    }
+  ],
+  "health": [
+    {
+      "capabilities": ["read", "write"]
+    }
+  ],
+  "backup": [
+    {
+      "capabilities": ["create", "export"]
+    }
+  ],
+  "admin": [
+    {
+      "capabilities": ["deny"]
+    }
+  ]
+}
