@@ -118,7 +118,7 @@ export const deleteKV = async (key: string): Promise<void> => {
   await api.delete(`/kv/${key}`);
 };
 
-export const listKV = async (prefix: string = ''): Promise<KVPair[]> => {
+export const listKV = async (): Promise<KVPair[]> => {
   try {
     const response = await api.get('/kv/');
     if (response.data && Array.isArray(response.data)) {
@@ -134,7 +134,7 @@ export const listKV = async (prefix: string = ''): Promise<KVPair[]> => {
   }
 };
 
-export const listKVWithValues = async (prefix: string = ''): Promise<KVPair[]> => {
+export const listKVWithValues = async (): Promise<KVPair[]> => {
   try {
     const response = await api.get('/kv/');
     if (!response.data || !Array.isArray(response.data)) {
