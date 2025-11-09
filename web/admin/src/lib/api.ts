@@ -74,7 +74,7 @@ export interface RegisterServiceRequest {
 // Service API
 export const getServices = async (): Promise<Service[]> => {
   try {
-    const response = await api.get('/v1/catalog/services');
+    const response = await api.get('/services/');
     return response.data || [];
   } catch (error) {
     console.error('Error fetching services:', error);
@@ -83,51 +83,44 @@ export const getServices = async (): Promise<Service[]> => {
 };
 
 export const registerService = async (service: RegisterServiceRequest): Promise<void> => {
-  await api.put('/v1/agent/service/register', service);
+  await api.put('/register', service);
 };
 
-export const deregisterService = async (serviceId: string): Promise<void> => {
-  await api.put(`/v1/agent/service/deregister/${serviceId}`);
+export const deregisterService = async (serviceName: string): Promise<void> => {
+  await api.delete(`/deregister/${serviceName}`);
 };
 
-export const sendHeartbeat = async (checkId: string): Promise<void> => {
-  await api.put(`/v1/agent/check/pass/${checkId}`);
+export const sendHeartbeat = async (serviceName: string): Promise<void> => {
+  await api.put(`/heartbeat/${serviceName}`);
 };
 
 export const getService = async (serviceName: string): Promise<Service[]> => {
-  const response = await api.get(`/v1/catalog/service/${serviceName}`);
+  const response = await api.get(`/services/${serviceName}`);
   return response.data || [];
 };
 
 // KV Store API
 export const getKV = async (key: string): Promise<KVPair | null> => {
   try {
-    const response = await api.get(`/v1/kv/${key}`);
-    if (response.data && response.data.length > 0) {
-      return response.data[0];
-    }
-    return null;
+    const response = await api.get(`/kv/${key}`);
+    return { key, value: response.data };
   } catch (error) {
     console.error('Error fetching KV:', error);
     return null;
   }
 };
 
-export const setKV = async (key: string, value: string, flags?: number): Promise<void> => {
-  const params = flags !== undefined ? { flags } : {};
-  await api.put(`/v1/kv/${key}`, value, { params });
+export const setKV = async (key: string, value: string): Promise<void> => {
+  await api.put(`/kv/${key}`, { value });
 };
 
-export const deleteKV = async (key: string, recurse: boolean = false): Promise<void> => {
-  const params = recurse ? { recurse: 'true' } : {};
-  await api.delete(`/v1/kv/${key}`, { params });
+export const deleteKV = async (key: string): Promise<void> => {
+  await api.delete(`/kv/${key}`);
 };
 
 export const listKV = async (prefix: string = ''): Promise<KVPair[]> => {
   try {
-    const url = prefix ? `/v1/kv/${prefix}` : '/v1/kv/';
-    const response = await api.get(url, { params: { keys: 'true' } });
-
+    const response = await api.get('/kv/');
     if (response.data && Array.isArray(response.data)) {
       return response.data.map((key: string) => ({
         key,
@@ -143,9 +136,28 @@ export const listKV = async (prefix: string = ''): Promise<KVPair[]> => {
 
 export const listKVWithValues = async (prefix: string = ''): Promise<KVPair[]> => {
   try {
-    const url = prefix ? `/v1/kv/${prefix}` : '/v1/kv/';
-    const response = await api.get(url, { params: { recurse: 'true' } });
-    return response.data || [];
+    const response = await api.get('/kv/');
+    if (!response.data || !Array.isArray(response.data)) {
+      return [];
+    }
+
+    // Fetch values for all keys in parallel
+    const keys = response.data;
+    const kvPairs = await Promise.all(
+      keys.map(async (key: string) => {
+        try {
+          const valueResponse = await api.get(`/kv/${key}`);
+          return {
+            key,
+            value: valueResponse.data,
+          };
+        } catch {
+          return { key, value: '' };
+        }
+      })
+    );
+
+    return kvPairs;
   } catch (error) {
     console.error('Error listing KV with values:', error);
     return [];
@@ -154,7 +166,7 @@ export const listKVWithValues = async (prefix: string = ''): Promise<KVPair[]> =
 
 // Health API
 export const getHealth = async (): Promise<HealthResponse> => {
-  const response = await api.get('/v1/health');
+  const response = await api.get('/health');
   return response.data;
 };
 
