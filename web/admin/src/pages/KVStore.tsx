@@ -15,7 +15,7 @@ export default function KVStore() {
 
   const { data: kvPairs, isLoading, refetch } = useQuery({
     queryKey: ['kv-all'],
-    queryFn: () => listKVWithValues(''),
+    queryFn: listKVWithValues,
     refetchInterval: 5000,
   });
 
