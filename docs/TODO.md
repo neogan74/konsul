@@ -69,7 +69,7 @@
 - [x] Dashboard integration (Grafana)
 - [x] Web Admin UI (React + Vite + Tailwind CSS)
   - [x] Production build created (332KB JS, 20KB CSS)
-  - [ ] Integration with Fiber (serve static files)
+  - [x] Integration with Fiber (serve static files)
   - [ ] Dashboard view (services overview, metrics)
   - [ ] Services management (list, register, deregister)
   - [ ] KV store browser (CRUD operations)
@@ -153,7 +153,7 @@
 ## 11. Web Admin UI
 - [x] Technology stack selection (React 19 + Vite + Tailwind v4)
 - [x] Initial build setup and production bundle
-- [ ] Static file serving integration with Fiber
+- [x] Static file serving integration with Fiber
 - [ ] Core UI features:
   - [ ] Dashboard with system overview
   - [ ] Services page (list, filter, search)
@@ -209,3 +209,4 @@
 ✅ Watch Prometheus Metrics
 ✅ konsulctl kv watch CLI Command
 ✅ Watch Documentation & Examples (JavaScript, Go, curl)
+✅ Admin UI Static File Serving Integration with Fiber
