@@ -59,6 +59,7 @@ func printUsage() {
 	fmt.Println("    set <key> <value>  Set key-value pair")
 	fmt.Println("    delete <key>     Delete key")
 	fmt.Println("    list             List all keys")
+	fmt.Println("    watch <key|pattern>  Watch for key changes")
 	fmt.Println()
 	fmt.Println("  service <subcommand>  Service operations")
 	fmt.Println("    register <name> <address> <port>  Register service")
