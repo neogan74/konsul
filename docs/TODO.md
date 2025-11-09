@@ -99,9 +99,9 @@
   - [x] Prometheus metrics for monitoring
   - [x] KVStore integration (notifies on Set/Delete/BatchSet/BatchDelete)
   - [x] Comprehensive test coverage
-  - [ ] CLI command (konsulctl kv watch)
-  - [ ] Integration tests
-  - [ ] Client examples and documentation
+  - [x] CLI command (konsulctl kv watch)
+  - [x] Full integration into main.go
+  - [x] Client examples and documentation (kv-watch-guide.md)
 - [ ] Bulk operations
 
 ## 7. API Improvements
@@ -207,3 +207,5 @@
 ✅ KV Watch/Subscribe System (WebSocket & SSE)
 ✅ Watch Manager with Pattern Matching
 ✅ Watch Prometheus Metrics
+✅ konsulctl kv watch CLI Command
+✅ Watch Documentation & Examples (JavaScript, Go, curl)
