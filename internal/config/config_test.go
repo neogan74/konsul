@@ -1145,9 +1145,24 @@ func TestGetEnvStringSlice_Empty(t *testing.T) {
 		t.Fatalf("Load() failed: %v", err)
 	}
 
-	// Should fall back to default
-	if len(cfg.Auth.PublicPaths) != 4 {
-		t.Errorf("expected 4 default public paths, got %d", len(cfg.Auth.PublicPaths))
+	expectedPaths := []string{
+		"/health",
+		"/health/live",
+		"/health/ready",
+		"/metrics",
+		"/admin",
+		"/admin/",
+		"/admin/assets/",
+	}
+
+	if len(cfg.Auth.PublicPaths) != len(expectedPaths) {
+		t.Errorf("expected %d default public paths, got %d", len(expectedPaths), len(cfg.Auth.PublicPaths))
+	}
+
+	for i, expected := range expectedPaths {
+		if i >= len(cfg.Auth.PublicPaths) || cfg.Auth.PublicPaths[i] != expected {
+			t.Errorf("expected default path[%d] = %q, got %q", i, expected, cfg.Auth.PublicPaths[i])
+		}
 	}
 }
 
