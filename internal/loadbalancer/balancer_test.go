@@ -10,7 +10,7 @@ func setupTestStore() *store.ServiceStore {
 	return store.NewServiceStore()
 }
 
-  func TestSelectService_RoundRobin(t *testing.T) {
+func TestSelectService_RoundRobin(t *testing.T) {
 	svcStore := setupTestStore()
 	balancer := New(svcStore, StrategyRoundRobin)
 
@@ -130,8 +130,8 @@ func TestSelectServiceByTags(t *testing.T) {
 
 	// Register services with different tags
 	services := []store.Service{
-		{Name: "api", Address: "10.0.0.1", Port: 8080, Tags: []string{"env:prod", "http"}},
-		{Name: "api", Address: "10.0.0.2", Port: 8080, Tags: []string{"env:dev", "http"}},
+		{Name: "api-prod", Address: "10.0.0.1", Port: 8080, Tags: []string{"env:prod", "http"}},
+		{Name: "api-dev", Address: "10.0.0.2", Port: 8080, Tags: []string{"env:dev", "http"}},
 		{Name: "db", Address: "10.0.0.3", Port: 5432, Tags: []string{"env:prod", "postgres"}},
 	}
 
@@ -159,13 +159,13 @@ func TestSelectServiceByMetadata(t *testing.T) {
 	// Register services with different metadata
 	services := []store.Service{
 		{
-			Name:    "api",
+			Name:    "api-platform",
 			Address: "10.0.0.1",
 			Port:    8080,
 			Meta:    map[string]string{"team": "platform", "env": "prod"},
 		},
 		{
-			Name:    "api",
+			Name:    "api-frontend",
 			Address: "10.0.0.2",
 			Port:    8080,
 			Meta:    map[string]string{"team": "frontend", "env": "prod"},
@@ -197,14 +197,14 @@ func TestSelectServiceByQuery(t *testing.T) {
 	// Register services with tags and metadata
 	services := []store.Service{
 		{
-			Name:    "api",
+			Name:    "api-v2",
 			Address: "10.0.0.1",
 			Port:    8080,
 			Tags:    []string{"http", "v2"},
 			Meta:    map[string]string{"team": "platform"},
 		},
 		{
-			Name:    "api",
+			Name:    "api-v1",
 			Address: "10.0.0.2",
 			Port:    8080,
 			Tags:    []string{"http", "v1"},

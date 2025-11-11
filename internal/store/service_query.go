@@ -1,6 +1,9 @@
 package store
 
-import "time"
+import (
+	"sort"
+	"time"
+)
 
 // QueryByTags returns services that have ALL specified tags (AND logic)
 func (s *ServiceStore) QueryByTags(tags []string) []Service {
@@ -36,10 +39,16 @@ func (s *ServiceStore) QueryByTags(tags []string) []Service {
 		}
 	}
 
-	// Build result list (filter expired)
-	now := time.Now()
-	result := make([]Service, 0, len(candidateServices))
+	// Build result list (filter expired) with deterministic ordering
+	names := make([]string, 0, len(candidateServices))
 	for name := range candidateServices {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	now := time.Now()
+	result := make([]Service, 0, len(names))
+	for _, name := range names {
 		if entry, ok := s.Data[name]; ok && entry.ExpiresAt.After(now) {
 			result = append(result, entry.Service)
 		}
@@ -107,10 +116,16 @@ func (s *ServiceStore) QueryByMetadata(filters map[string]string) []Service {
 		}
 	}
 
-	// Build result list (filter expired)
-	now := time.Now()
-	result := make([]Service, 0, len(candidateServices))
+	// Build result list (filter expired) with deterministic ordering
+	names := make([]string, 0, len(candidateServices))
 	for name := range candidateServices {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	now := time.Now()
+	result := make([]Service, 0, len(names))
+	for _, name := range names {
 		if entry, ok := s.Data[name]; ok && entry.ExpiresAt.After(now) {
 			result = append(result, entry.Service)
 		}
@@ -160,6 +175,10 @@ func (s *ServiceStore) QueryByTagsAndMetadata(tags []string, meta map[string]str
 			result = append(result, svc)
 		}
 	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Name < result[j].Name
+	})
 
 	return result
 }

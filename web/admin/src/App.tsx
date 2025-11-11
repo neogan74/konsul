@@ -11,7 +11,7 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
-    <Router>
+    <Router basename="/admin">
       <div className="min-h-screen bg-slate-900">
         <Navbar onMenuClick={() => setIsSidebarOpen(true)} />
 

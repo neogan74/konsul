@@ -440,35 +440,14 @@ func main() {
 		if err != nil {
 			appLogger.Warn("Failed to load embedded admin UI", logger.Error(err))
 		} else {
-			// Read index.html from embedded FS for SPA fallback
-			indexHTML, err := fs.ReadFile(uiFS, "index.html")
-			if err != nil {
-				appLogger.Warn("Failed to read index.html from embedded FS", logger.Error(err))
-			}
-
 			// Serve static files (JS, CSS, images) from configured path
 			app.Use(cfg.AdminUI.Path, filesystem.New(filesystem.Config{
-				Root:       http.FS(uiFS),
-				PathPrefix: "",
-				Browse:     false,
-				Index:      "index.html",
+				Root:         http.FS(uiFS),
+				PathPrefix:   "",
+				Browse:       false,
+				Index:        "index.html",
+				NotFoundFile: "index.html",
 			}))
-
-			// SPA fallback - serve index.html for all admin UI routes
-			// This handles client-side routing (e.g., /admin/services, /admin/kv)
-			if len(indexHTML) > 0 {
-				app.Use(cfg.AdminUI.Path+"/*", func(c *fiber.Ctx) error {
-					// Don't interfere with asset requests
-					path := c.Path()
-					pathLen := len(cfg.AdminUI.Path)
-					if len(path) > pathLen+8 && path[pathLen+1:pathLen+8] == "/assets" {
-						return c.Next()
-					}
-					// Serve index.html from embedded FS for SPA routes
-					c.Type("html")
-					return c.Send(indexHTML)
-				})
-			}
 
 			// Redirect root to UI
 			app.Get("/", func(c *fiber.Ctx) error {

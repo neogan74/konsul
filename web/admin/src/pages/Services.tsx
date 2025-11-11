@@ -41,7 +41,7 @@ export default function Services() {
   });
 
   const heartbeatMutation = useMutation({
-    mutationFn: (serviceId: string) => sendHeartbeat(`service:${serviceId}`),
+    mutationFn: (serviceName: string) => sendHeartbeat(serviceName),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['services'] });
     },

@@ -9,16 +9,38 @@ import (
 
 // JWTAuth creates a middleware for JWT authentication
 func JWTAuth(jwtService *auth.JWTService, publicPaths []string) fiber.Handler {
-	// Create a map for faster path lookup
+	// Create lookup structures for public paths
 	publicPathMap := make(map[string]bool)
+	publicPathPrefixes := make([]string, 0)
+
 	for _, path := range publicPaths {
-		publicPathMap[path] = true
+		path = strings.TrimSpace(path)
+		if path == "" {
+			continue
+		}
+
+		switch {
+		case strings.HasSuffix(path, "/*"):
+			publicPathPrefixes = append(publicPathPrefixes, strings.TrimSuffix(path, "*"))
+		case path != "/" && strings.HasSuffix(path, "/"):
+			publicPathPrefixes = append(publicPathPrefixes, path)
+		default:
+			publicPathMap[path] = true
+		}
 	}
 
 	return func(c *fiber.Ctx) error {
+		path := c.Path()
+
 		// Check if path is public
-		if publicPathMap[c.Path()] {
+		if publicPathMap[path] {
 			return c.Next()
+		}
+
+		for _, prefix := range publicPathPrefixes {
+			if strings.HasPrefix(path, prefix) {
+				return c.Next()
+			}
 		}
 
 		// Get token from Authorization header

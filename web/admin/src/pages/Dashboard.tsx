@@ -12,7 +12,7 @@ export default function Dashboard() {
 
   const { data: kvKeys, isLoading: kvLoading } = useQuery({
     queryKey: ['kv-list'],
-    queryFn: () => listKV(''),
+    queryFn: listKV,
     refetchInterval: 5000,
   });
 
