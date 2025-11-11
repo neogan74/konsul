@@ -33,6 +33,26 @@ func TestJWTAuth_PublicPath(t *testing.T) {
 	}
 }
 
+func TestJWTAuth_PublicPathPrefix(t *testing.T) {
+	jwtService := auth.NewJWTService("test-secret", 15*time.Minute, 24*time.Hour, "konsul")
+
+	app := fiber.New()
+	app.Use(JWTAuth(jwtService, []string{"/admin/"}))
+	app.Get("/admin/health", func(c *fiber.Ctx) error {
+		return c.SendString("ok")
+	})
+
+	req := httptest.NewRequest("GET", "/admin/health", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+
+	if resp.StatusCode != fiber.StatusOK {
+		t.Errorf("expected status 200, got %d", resp.StatusCode)
+	}
+}
+
 func TestJWTAuth_MissingHeader(t *testing.T) {
 	jwtService := auth.NewJWTService("test-secret", 15*time.Minute, 24*time.Hour, "konsul")
 
