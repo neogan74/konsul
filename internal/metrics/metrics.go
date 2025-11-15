@@ -331,4 +331,30 @@ var (
 		},
 		[]string{"reason"},
 	)
+
+	// Audit logging metrics
+	AuditEventsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "konsul_audit_events_total",
+			Help: "Total number of audit events processed",
+		},
+		[]string{"sink", "status"},
+	)
+
+	AuditEventsDroppedTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "konsul_audit_events_dropped_total",
+			Help: "Total number of audit events dropped",
+		},
+		[]string{"sink", "reason"},
+	)
+
+	AuditWriterFlushDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "konsul_audit_writer_flush_duration_seconds",
+			Help:    "Duration of audit writer flush operations",
+			Buckets: []float64{0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5},
+		},
+		[]string{"sink"},
+	)
 )
