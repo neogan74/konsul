@@ -21,6 +21,7 @@ type Config struct {
 	GraphQL     GraphQLConfig
 	AdminUI     AdminUIConfig
 	Watch       WatchConfig
+	Audit       AuditConfig
 }
 
 // ServerConfig contains HTTP server configuration
@@ -127,6 +128,16 @@ type WatchConfig struct {
 	MaxPerClient int // Max watchers per client (0 = unlimited)
 }
 
+// AuditConfig contains audit logging configuration
+type AuditConfig struct {
+	Enabled       bool
+	Sink          string
+	FilePath      string
+	BufferSize    int
+	FlushInterval time.Duration
+	DropPolicy    string // "block" or "drop"
+}
+
 // Load loads configuration from environment variables with defaults
 func Load() (*Config, error) {
 	config := &Config{
@@ -206,6 +217,14 @@ func Load() (*Config, error) {
 			Enabled:      getEnvBool("KONSUL_WATCH_ENABLED", true),
 			BufferSize:   getEnvInt("KONSUL_WATCH_BUFFER_SIZE", 100),
 			MaxPerClient: getEnvInt("KONSUL_WATCH_MAX_PER_CLIENT", 100),
+		},
+		Audit: AuditConfig{
+			Enabled:       getEnvBool("KONSUL_AUDIT_ENABLED", false),
+			Sink:          getEnvString("KONSUL_AUDIT_SINK", "file"),
+			FilePath:      getEnvString("KONSUL_AUDIT_FILE_PATH", "./logs/audit.log"),
+			BufferSize:    getEnvInt("KONSUL_AUDIT_BUFFER_SIZE", 1024),
+			FlushInterval: getEnvDuration("KONSUL_AUDIT_FLUSH_INTERVAL", time.Second),
+			DropPolicy:    getEnvString("KONSUL_AUDIT_DROP_POLICY", "drop"),
 		},
 	}
 
@@ -328,6 +347,29 @@ func (c *Config) Validate() error {
 
 		if !c.Auth.Enabled {
 			return fmt.Errorf("ACL requires authentication to be enabled")
+		}
+	}
+
+	// Validate audit logging configuration if enabled
+	if c.Audit.Enabled {
+		validSinks := map[string]bool{
+			"file":   true,
+			"stdout": true,
+		}
+		if !validSinks[c.Audit.Sink] {
+			return fmt.Errorf("invalid audit sink: %s (must be file or stdout)", c.Audit.Sink)
+		}
+		if c.Audit.Sink == "file" && c.Audit.FilePath == "" {
+			return fmt.Errorf("audit file path must be specified when sink=file")
+		}
+		if c.Audit.BufferSize <= 0 {
+			return fmt.Errorf("audit buffer size must be positive")
+		}
+		if c.Audit.FlushInterval <= 0 {
+			return fmt.Errorf("audit flush interval must be positive")
+		}
+		if c.Audit.DropPolicy != "drop" && c.Audit.DropPolicy != "block" {
+			return fmt.Errorf("audit drop policy must be 'drop' or 'block'")
 		}
 	}
 

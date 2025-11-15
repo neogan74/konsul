@@ -546,6 +546,19 @@ Configure via environment variables:
 | `KONSUL_ADMIN_UI_ENABLED` | `true` | Enable Admin UI |
 | `KONSUL_ADMIN_UI_PATH` | `/admin` | Base path for Admin UI |
 
+### Audit Logging Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `KONSUL_AUDIT_ENABLED` | `false` | Enable the audit logging subsystem |
+| `KONSUL_AUDIT_SINK` | `file` | Destination for audit events (`file` or `stdout`) |
+| `KONSUL_AUDIT_FILE_PATH` | `./logs/audit.log` | Path to the audit log when `sink=file` |
+| `KONSUL_AUDIT_BUFFER_SIZE` | `1024` | Channel size for pending audit events |
+| `KONSUL_AUDIT_FLUSH_INTERVAL` | `1s` | Interval for flushing buffered events |
+| `KONSUL_AUDIT_DROP_POLICY` | `drop` | Behavior when the buffer is full (`drop` or `block`) |
+
+> Audit logging plumbing is in active development (see `docs/adr/0019-audit-logging.md`); future phases will emit events for each privileged operation.
+
 **Examples:**
 ```bash
 # Custom port
