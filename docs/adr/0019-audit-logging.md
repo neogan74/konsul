@@ -2,7 +2,7 @@
 
 **Date**: 2025-02-14
 
-**Status**: Proposed
+**Status**: Accepted
 
 **Deciders**: Konsul Maintainers
 
@@ -95,8 +95,50 @@ Risks: accidental leakage of sensitive payloads (mitigated by hashing request bo
 
 ---
 
+## Implementation Status
+
+**Completed**: 2025-11-15
+
+All planned features have been implemented:
+
+1. ✅ **Audit Package** (`internal/audit/`)
+   - Event schema with full metadata capture
+   - Async manager with buffering and drop policies
+   - File and stdout sinks (OTLP deferred to future)
+   - Graceful shutdown with flush guarantees
+
+2. ✅ **Configuration**
+   - Environment variables: `KONSUL_AUDIT_*`
+   - Validation in config package
+   - Runtime enable/disable support
+
+3. ✅ **Middleware Integration**
+   - KV operations (`/kv/*`)
+   - Service discovery (`/register`, `/deregister`, `/heartbeat`)
+   - ACL management (`/acl/*`)
+   - API key operations (`/auth/apikeys/*`)
+   - Rate limit admin (`/admin/ratelimit/*`)
+   - Backup/restore operations
+
+4. ✅ **Observability**
+   - Prometheus metrics: `konsul_audit_events_total`, `konsul_audit_events_dropped_total`, `konsul_audit_writer_flush_duration_seconds`
+   - Request/response correlation via trace IDs
+
+5. ✅ **Documentation**
+   - User guide: `docs/audit-logging.md` (400+ lines)
+   - Integration examples: `docs/examples/audit-integration-example.md`
+   - Routes coverage: `docs/examples/audit-routes-coverage.md`
+
+6. ✅ **Testing**
+   - Unit tests: 7 tests in `internal/audit/*_test.go`
+   - Middleware tests: Action mapper validation
+   - Integration tests: 6 end-to-end tests in `internal/middleware/audit_integration_test.go`
+
+**Coverage**: All privileged operations (create, update, delete) are audited. Read operations are selectively logged to reduce volume.
+
 ## Revision History
 
 | Date | Author | Changes |
 |------|--------|---------|
 | 2025-02-14 | Codex Agent | Initial version |
+| 2025-11-15 | Codex Agent | Implementation complete, status changed to Accepted |
