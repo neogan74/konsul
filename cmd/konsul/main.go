@@ -19,6 +19,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/neogan74/konsul/internal/acl"
+	"github.com/neogan74/konsul/internal/audit"
 	"github.com/neogan74/konsul/internal/auth"
 	"github.com/neogan74/konsul/internal/config"
 	"github.com/neogan74/konsul/internal/dns"
@@ -95,6 +96,35 @@ func main() {
 	}
 
 	app := fiber.New()
+
+	// Initialize audit logging subsystem
+	auditManager, err := audit.NewManager(audit.Config{
+		Enabled:       cfg.Audit.Enabled,
+		Sink:          cfg.Audit.Sink,
+		FilePath:      cfg.Audit.FilePath,
+		BufferSize:    cfg.Audit.BufferSize,
+		FlushInterval: cfg.Audit.FlushInterval,
+		DropPolicy:    audit.DropPolicy(cfg.Audit.DropPolicy),
+	}, appLogger)
+	if err != nil {
+		log.Fatalf("Failed to initialize audit logging: %v", err)
+	}
+
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := auditManager.Shutdown(shutdownCtx); err != nil {
+			appLogger.Error("Failed to shutdown audit manager", logger.Error(err))
+		}
+	}()
+
+	if auditManager.Enabled() {
+		appLogger.Info("Audit logging enabled",
+			logger.String("sink", cfg.Audit.Sink),
+			logger.Int("buffer_size", cfg.Audit.BufferSize),
+			logger.String("flush_interval", cfg.Audit.FlushInterval.String()),
+			logger.String("drop_policy", cfg.Audit.DropPolicy))
+	}
 
 	// CORS middleware - allow UI to call API from same or different origin
 	app.Use(cors.New(cors.Config{
@@ -286,13 +316,21 @@ func main() {
 		app.Post("/auth/refresh", authHandler.Refresh)
 		app.Get("/auth/verify", middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths), authHandler.Verify)
 
-		// API key management endpoints (protected)
-		app.Post("/auth/apikeys", middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths), authHandler.CreateAPIKey)
-		app.Get("/auth/apikeys", middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths), authHandler.ListAPIKeys)
-		app.Get("/auth/apikeys/:id", middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths), authHandler.GetAPIKey)
-		app.Put("/auth/apikeys/:id", middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths), authHandler.UpdateAPIKey)
-		app.Delete("/auth/apikeys/:id", middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths), authHandler.DeleteAPIKey)
-		app.Post("/auth/apikeys/:id/revoke", middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths), authHandler.RevokeAPIKey)
+		// API key management endpoints (protected with audit logging)
+		apiKeyRoutes := app.Group("/auth/apikeys")
+		apiKeyRoutes.Use(middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths))
+		if auditManager.Enabled() {
+			apiKeyRoutes.Use(middleware.AuditMiddleware(middleware.AuditConfig{
+				Manager:      auditManager,
+				ResourceType: "auth",
+			}))
+		}
+		apiKeyRoutes.Post("/", authHandler.CreateAPIKey)
+		apiKeyRoutes.Get("/", authHandler.ListAPIKeys)
+		apiKeyRoutes.Get("/:id", authHandler.GetAPIKey)
+		apiKeyRoutes.Put("/:id", authHandler.UpdateAPIKey)
+		apiKeyRoutes.Delete("/:id", authHandler.DeleteAPIKey)
+		apiKeyRoutes.Post("/:id/revoke", authHandler.RevokeAPIKey)
 	}
 
 	// Apply auth middleware to protected routes if required
@@ -306,6 +344,13 @@ func main() {
 		if cfg.Auth.Enabled {
 			aclRoutes.Use(middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths))
 			aclRoutes.Use(middleware.ACLMiddleware(aclEvaluator, acl.ResourceTypeAdmin, acl.CapabilityWrite))
+		}
+		if auditManager.Enabled() {
+			aclRoutes.Use(middleware.AuditMiddleware(middleware.AuditConfig{
+				Manager:      auditManager,
+				ResourceType: "acl",
+				ActionMapper: middleware.ACLActionMapper,
+			}))
 		}
 		aclRoutes.Post("/policies", aclHandler.CreatePolicy)
 		aclRoutes.Get("/policies", aclHandler.ListPolicies)
@@ -328,6 +373,15 @@ func main() {
 			}
 		}
 
+		// Apply audit logging
+		if auditManager.Enabled() {
+			adminRateLimitRoutes.Use(middleware.AuditMiddleware(middleware.AuditConfig{
+				Manager:      auditManager,
+				ResourceType: "admin",
+				ActionMapper: middleware.AdminActionMapper,
+			}))
+		}
+
 		// Read-only endpoints (for monitoring)
 		adminRateLimitRoutes.Get("/stats", rateLimitHandler.GetStats)
 		adminRateLimitRoutes.Get("/config", rateLimitHandler.GetConfig)
@@ -343,18 +397,23 @@ func main() {
 		appLogger.Info("Rate limit admin endpoints registered")
 	}
 
-	// KV endpoints - with ACL enforcement if enabled
+	// KV endpoints - with ACL enforcement and audit logging if enabled
+	kvRoutes := app.Group("/kv")
 	if cfg.ACL.Enabled {
-		app.Get("/kv/", middleware.ACLMiddleware(aclEvaluator, acl.ResourceTypeKV, acl.CapabilityList), kvHandler.List)
-		app.Get("/kv/:key", middleware.ACLMiddleware(aclEvaluator, acl.ResourceTypeKV, acl.CapabilityRead), kvHandler.Get)
-		app.Put("/kv/:key", middleware.ACLMiddleware(aclEvaluator, acl.ResourceTypeKV, acl.CapabilityWrite), kvHandler.Set)
-		app.Delete("/kv/:key", middleware.ACLMiddleware(aclEvaluator, acl.ResourceTypeKV, acl.CapabilityDelete), kvHandler.Delete)
-	} else {
-		app.Get("/kv/", kvHandler.List)
-		app.Get("/kv/:key", kvHandler.Get)
-		app.Put("/kv/:key", kvHandler.Set)
-		app.Delete("/kv/:key", kvHandler.Delete)
+		// Apply dynamic ACL middleware (infers capability from method/path)
+		kvRoutes.Use(middleware.DynamicACLMiddleware(aclEvaluator))
 	}
+	if auditManager.Enabled() {
+		kvRoutes.Use(middleware.AuditMiddleware(middleware.AuditConfig{
+			Manager:      auditManager,
+			ResourceType: "kv",
+			ActionMapper: middleware.KVActionMapper,
+		}))
+	}
+	kvRoutes.Get("/", kvHandler.List)
+	kvRoutes.Get("/:key", kvHandler.Get)
+	kvRoutes.Put("/:key", kvHandler.Set)
+	kvRoutes.Delete("/:key", kvHandler.Delete)
 
 	// KV Watch endpoints (WebSocket and SSE) - if watch is enabled
 	if cfg.Watch.Enabled && kvWatchHandler != nil {
@@ -393,14 +452,33 @@ func main() {
 			logger.String("sse_path", "/kv/watch/:key (SSE)"))
 	}
 
-	// Service discovery endpoints
-	app.Put("/register", serviceHandler.Register)
+	// Service discovery endpoints with audit logging
+	if auditManager.Enabled() {
+		// Register/deregister operations
+		app.Put("/register", middleware.AuditMiddleware(middleware.AuditConfig{
+			Manager:      auditManager,
+			ResourceType: "service",
+			ActionMapper: middleware.ServiceActionMapper,
+		}), serviceHandler.Register)
+		app.Delete("/deregister/:name", middleware.AuditMiddleware(middleware.AuditConfig{
+			Manager:      auditManager,
+			ResourceType: "service",
+			ActionMapper: middleware.ServiceActionMapper,
+		}), serviceHandler.Deregister)
+		app.Put("/heartbeat/:name", middleware.AuditMiddleware(middleware.AuditConfig{
+			Manager:      auditManager,
+			ResourceType: "service",
+			ActionMapper: middleware.ServiceActionMapper,
+		}), serviceHandler.Heartbeat)
+	} else {
+		app.Put("/register", serviceHandler.Register)
+		app.Delete("/deregister/:name", serviceHandler.Deregister)
+		app.Put("/heartbeat/:name", serviceHandler.Heartbeat)
+	}
+
+	// Service read-only endpoints (query/list) - no audit needed for reads
 	app.Get("/services/", serviceHandler.List)
 	app.Get("/services/:name", serviceHandler.Get)
-	app.Delete("/deregister/:name", serviceHandler.Deregister)
-	app.Put("/heartbeat/:name", serviceHandler.Heartbeat)
-
-	// Service query endpoints (tags and metadata)
 	app.Get("/services/query/tags", serviceHandler.QueryByTags)
 	app.Get("/services/query/metadata", serviceHandler.QueryByMetadata)
 	app.Get("/services/query", serviceHandler.QueryByTagsAndMetadata)
@@ -423,12 +501,20 @@ func main() {
 	app.Get("/health/service/:name", healthCheckHandler.GetServiceChecks)
 	app.Put("/health/check/:id", healthCheckHandler.UpdateTTLCheck)
 
-	// Backup/restore endpoints
-	app.Post("/backup", backupHandler.CreateBackup)
-	app.Post("/restore", backupHandler.RestoreBackup)
-	app.Get("/export", backupHandler.ExportData)
-	app.Post("/import", backupHandler.ImportData)
-	app.Get("/backups", backupHandler.ListBackups)
+	// Backup/restore endpoints with audit logging
+	backupRoutes := app.Group("")
+	if auditManager.Enabled() {
+		backupRoutes.Use(middleware.AuditMiddleware(middleware.AuditConfig{
+			Manager:      auditManager,
+			ResourceType: "backup",
+			ActionMapper: middleware.BackupActionMapper,
+		}))
+	}
+	backupRoutes.Post("/backup", backupHandler.CreateBackup)
+	backupRoutes.Post("/restore", backupHandler.RestoreBackup)
+	backupRoutes.Get("/export", backupHandler.ExportData)
+	backupRoutes.Post("/import", backupHandler.ImportData)
+	backupRoutes.Get("/backups", backupHandler.ListBackups)
 
 	// Metrics endpoint for Prometheus
 	app.Get("/metrics", adaptor.HTTPHandler(promhttp.Handler()))
