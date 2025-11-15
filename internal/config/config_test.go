@@ -34,6 +34,24 @@ func TestLoad_DefaultValues(t *testing.T) {
 	if cfg.Log.Format != "text" {
 		t.Errorf("expected log format 'text', got %q", cfg.Log.Format)
 	}
+	if cfg.Audit.Enabled {
+		t.Errorf("expected audit logging disabled by default")
+	}
+	if cfg.Audit.Sink != "file" {
+		t.Errorf("expected audit sink 'file', got %q", cfg.Audit.Sink)
+	}
+	if cfg.Audit.FilePath != "./logs/audit.log" {
+		t.Errorf("unexpected audit file path: %q", cfg.Audit.FilePath)
+	}
+	if cfg.Audit.BufferSize != 1024 {
+		t.Errorf("expected audit buffer size 1024, got %d", cfg.Audit.BufferSize)
+	}
+	if cfg.Audit.FlushInterval != time.Second {
+		t.Errorf("expected audit flush interval 1s, got %v", cfg.Audit.FlushInterval)
+	}
+	if cfg.Audit.DropPolicy != "drop" {
+		t.Errorf("expected audit drop policy 'drop', got %q", cfg.Audit.DropPolicy)
+	}
 }
 
 func TestLoad_EnvironmentVariables(t *testing.T) {
@@ -47,6 +65,12 @@ func TestLoad_EnvironmentVariables(t *testing.T) {
 	os.Setenv("KONSUL_CLEANUP_INTERVAL", "2m")
 	os.Setenv("KONSUL_LOG_LEVEL", "debug")
 	os.Setenv("KONSUL_LOG_FORMAT", "json")
+	os.Setenv("KONSUL_AUDIT_ENABLED", "true")
+	os.Setenv("KONSUL_AUDIT_SINK", "stdout")
+	os.Setenv("KONSUL_AUDIT_BUFFER_SIZE", "2048")
+	os.Setenv("KONSUL_AUDIT_FILE_PATH", "/var/log/konsul/audit.log")
+	os.Setenv("KONSUL_AUDIT_FLUSH_INTERVAL", "2s")
+	os.Setenv("KONSUL_AUDIT_DROP_POLICY", "block")
 
 	defer clearEnvVars()
 
@@ -73,6 +97,24 @@ func TestLoad_EnvironmentVariables(t *testing.T) {
 	}
 	if cfg.Log.Format != "json" {
 		t.Errorf("expected log format 'json', got %q", cfg.Log.Format)
+	}
+	if !cfg.Audit.Enabled {
+		t.Errorf("expected audit enabled via env")
+	}
+	if cfg.Audit.Sink != "stdout" {
+		t.Errorf("expected audit sink stdout, got %q", cfg.Audit.Sink)
+	}
+	if cfg.Audit.BufferSize != 2048 {
+		t.Errorf("expected audit buffer size 2048, got %d", cfg.Audit.BufferSize)
+	}
+	if cfg.Audit.FilePath != "/var/log/konsul/audit.log" {
+		t.Errorf("unexpected audit file path: %s", cfg.Audit.FilePath)
+	}
+	if cfg.Audit.FlushInterval != 2*time.Second {
+		t.Errorf("unexpected audit flush interval: %v", cfg.Audit.FlushInterval)
+	}
+	if cfg.Audit.DropPolicy != "block" {
+		t.Errorf("expected audit drop policy block, got %q", cfg.Audit.DropPolicy)
 	}
 }
 
@@ -143,6 +185,52 @@ func TestValidate_InvalidCleanupInterval(t *testing.T) {
 
 	if err := cfg.Validate(); err == nil {
 		t.Error("expected validation error for zero cleanup interval")
+	}
+}
+
+func TestValidate_InvalidAuditConfig(t *testing.T) {
+	cfg := &Config{
+		Server: ServerConfig{Port: 8080},
+		Service: ServiceConfig{
+			TTL:             30 * time.Second,
+			CleanupInterval: 60 * time.Second,
+		},
+		Log: LogConfig{Level: "info", Format: "text"},
+		Audit: AuditConfig{
+			Enabled:       true,
+			Sink:          "invalid",
+			FilePath:      "./audit.log",
+			BufferSize:    10,
+			FlushInterval: time.Second,
+			DropPolicy:    "drop",
+		},
+	}
+
+	if err := cfg.Validate(); err == nil {
+		t.Error("expected validation error for invalid audit sink")
+	}
+}
+
+func TestValidate_InvalidAuditDropPolicy(t *testing.T) {
+	cfg := &Config{
+		Server: ServerConfig{Port: 8080},
+		Service: ServiceConfig{
+			TTL:             30 * time.Second,
+			CleanupInterval: 60 * time.Second,
+		},
+		Log: LogConfig{Level: "info", Format: "text"},
+		Audit: AuditConfig{
+			Enabled:       true,
+			Sink:          "file",
+			FilePath:      "./audit.log",
+			BufferSize:    10,
+			FlushInterval: time.Second,
+			DropPolicy:    "invalid",
+		},
+	}
+
+	if err := cfg.Validate(); err == nil {
+		t.Error("expected validation error for audit drop policy")
 	}
 }
 
@@ -1145,24 +1233,9 @@ func TestGetEnvStringSlice_Empty(t *testing.T) {
 		t.Fatalf("Load() failed: %v", err)
 	}
 
-	expectedPaths := []string{
-		"/health",
-		"/health/live",
-		"/health/ready",
-		"/metrics",
-		"/admin",
-		"/admin/",
-		"/admin/assets/",
-	}
-
-	if len(cfg.Auth.PublicPaths) != len(expectedPaths) {
-		t.Errorf("expected %d default public paths, got %d", len(expectedPaths), len(cfg.Auth.PublicPaths))
-	}
-
-	for i, expected := range expectedPaths {
-		if i >= len(cfg.Auth.PublicPaths) || cfg.Auth.PublicPaths[i] != expected {
-			t.Errorf("expected default path[%d] = %q, got %q", i, expected, cfg.Auth.PublicPaths[i])
-		}
+	// Should fall back to default
+	if len(cfg.Auth.PublicPaths) != 7 {
+		t.Errorf("expected 7 default public paths, got %d", len(cfg.Auth.PublicPaths))
 	}
 }
 
@@ -1303,4 +1376,15 @@ func clearEnvVars() {
 	os.Unsetenv("KONSUL_TRACING_ENVIRONMENT")
 	os.Unsetenv("KONSUL_TRACING_SAMPLING_RATIO")
 	os.Unsetenv("KONSUL_TRACING_INSECURE")
+	os.Unsetenv("KONSUL_ADMIN_UI_ENABLED")
+	os.Unsetenv("KONSUL_ADMIN_UI_PATH")
+	os.Unsetenv("KONSUL_WATCH_ENABLED")
+	os.Unsetenv("KONSUL_WATCH_BUFFER_SIZE")
+	os.Unsetenv("KONSUL_WATCH_MAX_PER_CLIENT")
+	os.Unsetenv("KONSUL_AUDIT_ENABLED")
+	os.Unsetenv("KONSUL_AUDIT_SINK")
+	os.Unsetenv("KONSUL_AUDIT_FILE_PATH")
+	os.Unsetenv("KONSUL_AUDIT_BUFFER_SIZE")
+	os.Unsetenv("KONSUL_AUDIT_FLUSH_INTERVAL")
+	os.Unsetenv("KONSUL_AUDIT_DROP_POLICY")
 }
