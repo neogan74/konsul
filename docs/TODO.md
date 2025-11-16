@@ -124,7 +124,18 @@
 ## 7. API Improvements
 - [x] GraphQL interface
 - [x] WebSocket support for real-time updates (KV watch)
-- [ ] Batch operations API
+- [x] Batch operations API
+  - [x] Batch KV Get (`POST /batch/kv/get`)
+  - [x] Batch KV Set (`POST /batch/kv/set`)
+  - [x] Batch KV Delete (`POST /batch/kv/delete`)
+  - [x] Batch Service Get (`POST /batch/services/get`)
+  - [x] Batch Service Register (`POST /batch/services/register`)
+  - [x] Batch Service Deregister (`POST /batch/services/deregister`)
+  - [x] Request validation and size limits
+  - [x] Audit logging integration
+  - [x] Prometheus metrics
+  - [x] Comprehensive unit tests (14 tests)
+  - [x] Full API documentation (batch-operations-api.md)
 - [ ] API versioning (v1, v2)
 
 ## 8. Developer Experience
@@ -249,3 +260,6 @@
 ✅ Load Balancing Strategies (Round-Robin)
 ✅ Load Balancer API Endpoints
 ✅ GraphQL Service Tags/Metadata Integration
+✅ Batch Operations API (KV & Services)
+✅ Batch KV Get/Set/Delete Operations
+✅ Batch Service Register/Deregister/Get Operations

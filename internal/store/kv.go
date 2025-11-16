@@ -148,6 +148,26 @@ func (kv *KVStore) List() []string {
 	return keys
 }
 
+// BatchGet retrieves multiple keys at once
+// Returns a map of key to value, and a slice of keys that were not found
+func (kv *KVStore) BatchGet(keys []string) (map[string]string, []string) {
+	kv.Mutex.RLock()
+	defer kv.Mutex.RUnlock()
+
+	found := make(map[string]string)
+	notFound := make([]string, 0)
+
+	for _, key := range keys {
+		if value, ok := kv.Data[key]; ok {
+			found[key] = value
+		} else {
+			notFound = append(notFound, key)
+		}
+	}
+
+	return found, notFound
+}
+
 // BatchSet sets multiple key-value pairs atomically
 func (kv *KVStore) BatchSet(items map[string]string) error {
 	kv.Mutex.Lock()
