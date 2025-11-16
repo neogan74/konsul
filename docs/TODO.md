@@ -81,9 +81,26 @@
   - [ ] Testing suite (Vitest + React Testing Library)
 
 ## 5. Advanced Service Discovery
-- [ ] Service tags and metadata
+- [x] Service tags and metadata
+  - [x] Tag-based service queries (`/services/query/tags`)
+  - [x] Metadata-based service queries (`/services/query/metadata`)
+  - [x] Combined tag+metadata queries (`/services/query`)
+  - [x] Service indexing by tags and metadata
+  - [x] Validation for tags and metadata
+  - [x] Comprehensive tests (index, query, validation)
+  - [x] GraphQL integration for tags/metadata queries
+  - [x] Documentation (service-tags-metadata-examples.md)
 - [ ] Health check URLs (HTTP/TCP checks)
-- [ ] Load balancing strategies
+- [x] Load balancing strategies
+  - [x] Round-robin load balancing
+  - [x] Select by service name (`/lb/service/:name`)
+  - [x] Select by tags (`/lb/tags`)
+  - [x] Select by metadata (`/lb/metadata`)
+  - [x] Select by combined query (`/lb/query`)
+  - [x] Strategy configuration endpoint (`/lb/strategy`)
+  - [x] Prometheus metrics integration
+  - [x] Comprehensive tests
+  - [x] Documentation (api-tags-metadata-loadbalancing.md)
 - [ ] Service dependencies tracking
 
 ## 6. KV Store Enhancements
@@ -227,3 +244,8 @@
 ✅ Audit Middleware for All Critical Routes
 ✅ SIEM-Ready JSON Audit Logs
 ✅ Audit Metrics & Monitoring
+✅ Service Tags & Metadata Querying
+✅ Service Indexing by Tags/Metadata
+✅ Load Balancing Strategies (Round-Robin)
+✅ Load Balancer API Endpoints
+✅ GraphQL Service Tags/Metadata Integration
