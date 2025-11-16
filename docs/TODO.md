@@ -81,9 +81,26 @@
   - [ ] Testing suite (Vitest + React Testing Library)
 
 ## 5. Advanced Service Discovery
-- [ ] Service tags and metadata
+- [x] Service tags and metadata
+  - [x] Tag-based service queries (`/services/query/tags`)
+  - [x] Metadata-based service queries (`/services/query/metadata`)
+  - [x] Combined tag+metadata queries (`/services/query`)
+  - [x] Service indexing by tags and metadata
+  - [x] Validation for tags and metadata
+  - [x] Comprehensive tests (index, query, validation)
+  - [x] GraphQL integration for tags/metadata queries
+  - [x] Documentation (service-tags-metadata-examples.md)
 - [ ] Health check URLs (HTTP/TCP checks)
-- [ ] Load balancing strategies
+- [x] Load balancing strategies
+  - [x] Round-robin load balancing
+  - [x] Select by service name (`/lb/service/:name`)
+  - [x] Select by tags (`/lb/tags`)
+  - [x] Select by metadata (`/lb/metadata`)
+  - [x] Select by combined query (`/lb/query`)
+  - [x] Strategy configuration endpoint (`/lb/strategy`)
+  - [x] Prometheus metrics integration
+  - [x] Comprehensive tests
+  - [x] Documentation (api-tags-metadata-loadbalancing.md)
 - [ ] Service dependencies tracking
 
 ## 6. KV Store Enhancements
@@ -107,7 +124,18 @@
 ## 7. API Improvements
 - [x] GraphQL interface
 - [x] WebSocket support for real-time updates (KV watch)
-- [ ] Batch operations API
+- [x] Batch operations API
+  - [x] Batch KV Get (`POST /batch/kv/get`)
+  - [x] Batch KV Set (`POST /batch/kv/set`)
+  - [x] Batch KV Delete (`POST /batch/kv/delete`)
+  - [x] Batch Service Get (`POST /batch/services/get`)
+  - [x] Batch Service Register (`POST /batch/services/register`)
+  - [x] Batch Service Deregister (`POST /batch/services/deregister`)
+  - [x] Request validation and size limits
+  - [x] Audit logging integration
+  - [x] Prometheus metrics
+  - [x] Comprehensive unit tests (14 tests)
+  - [x] Full API documentation (batch-operations-api.md)
 - [ ] API versioning (v1, v2)
 
 ## 8. Developer Experience
@@ -144,8 +172,19 @@
 - [ ] **Events System** - Distributed event broadcasting
 
 ## 10. Enterprise-Grade Features
-- [ ] **Audit Logging** - Track all operations and changes
-- [ ] **RBAC** - Role-based access control
+- [x] **Audit Logging** - Track all operations and changes
+  - [x] Core audit package with async event manager
+  - [x] File and stdout sinks with buffering
+  - [x] HTTP middleware with action mappers
+  - [x] Environment variable configuration
+  - [x] Prometheus metrics (events, drops, flush duration)
+  - [x] Applied to all critical routes (KV, service, ACL, backup, admin)
+  - [x] Comprehensive documentation and examples
+  - [x] Unit and integration tests (19 tests)
+  - [x] Production-ready with graceful shutdown
+  - [x] SIEM-ready JSON format
+  - [x] Compliance support (SOC 2, HIPAA, PCI DSS, GDPR)
+- [ ] **RBAC** - Role-based access control (enhanced beyond current ACL)
 - [ ] **Multi-tenancy** - Namespace isolation with quotas
 - [ ] **Disaster Recovery** - Cross-cluster replication
 - [ ] **Network Segments** - Service isolation within clusters
@@ -210,3 +249,17 @@
 ✅ konsulctl kv watch CLI Command
 ✅ Watch Documentation & Examples (JavaScript, Go, curl)
 ✅ Admin UI Static File Serving Integration with Fiber
+✅ Audit Logging System (Enterprise-Grade)
+✅ Audit Event Capture with Async Buffering
+✅ File & Stdout Audit Sinks
+✅ Audit Middleware for All Critical Routes
+✅ SIEM-Ready JSON Audit Logs
+✅ Audit Metrics & Monitoring
+✅ Service Tags & Metadata Querying
+✅ Service Indexing by Tags/Metadata
+✅ Load Balancing Strategies (Round-Robin)
+✅ Load Balancer API Endpoints
+✅ GraphQL Service Tags/Metadata Integration
+✅ Batch Operations API (KV & Services)
+✅ Batch KV Get/Set/Delete Operations
+✅ Batch Service Register/Deregister/Get Operations

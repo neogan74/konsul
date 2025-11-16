@@ -250,6 +250,7 @@ func main() {
 	healthHandler := handlers.NewHealthHandler(kv, svcStore, version)
 	healthCheckHandler := handlers.NewHealthCheckHandler(svcStore)
 	backupHandler := handlers.NewBackupHandler(engine, appLogger)
+	batchHandler := handlers.NewBatchHandler(kv, svcStore)
 
 	// Initialize store metrics
 	metrics.KVStoreSize.Set(float64(len(kv.List())))
@@ -490,6 +491,31 @@ func main() {
 	app.Get("/lb/query", loadBalancerHandler.SelectServiceByQuery)
 	app.Get("/lb/strategy", loadBalancerHandler.GetStrategy)
 	app.Put("/lb/strategy", loadBalancerHandler.UpdateStrategy)
+
+	// Batch operations endpoints with audit logging
+	batchRoutes := app.Group("/batch")
+	if auditManager.Enabled() {
+		batchRoutes.Use(middleware.AuditMiddleware(middleware.AuditConfig{
+			Manager:      auditManager,
+			ResourceType: "batch",
+		}))
+	}
+	// KV batch operations
+	batchRoutes.Post("/kv/get", batchHandler.BatchKVGet)
+	batchRoutes.Post("/kv/set", batchHandler.BatchKVSet)
+	batchRoutes.Post("/kv/delete", batchHandler.BatchKVDelete)
+	// Service batch operations
+	batchRoutes.Post("/services/get", batchHandler.BatchServiceGet)
+	batchRoutes.Post("/services/register", batchHandler.BatchServiceRegister)
+	batchRoutes.Post("/services/deregister", batchHandler.BatchServiceDeregister)
+
+	appLogger.Info("Batch operations endpoints registered",
+		logger.String("kv_get", "POST /batch/kv/get"),
+		logger.String("kv_set", "POST /batch/kv/set"),
+		logger.String("kv_delete", "POST /batch/kv/delete"),
+		logger.String("service_get", "POST /batch/services/get"),
+		logger.String("service_register", "POST /batch/services/register"),
+		logger.String("service_deregister", "POST /batch/services/deregister"))
 
 	// Health check endpoints
 	app.Get("/health", healthHandler.Check)
