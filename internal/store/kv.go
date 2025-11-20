@@ -1,7 +1,10 @@
 package store
 
 import (
+	"encoding/json"
+	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/neogan74/konsul/internal/logger"
@@ -9,9 +12,18 @@ import (
 	"github.com/neogan74/konsul/internal/watch"
 )
 
+// KVEntry represents a key-value entry with version tracking for CAS operations
+type KVEntry struct {
+	Value       string `json:"value"`
+	ModifyIndex uint64 `json:"modify_index"`
+	CreateIndex uint64 `json:"create_index"`
+	Flags       uint64 `json:"flags,omitempty"`
+}
+
 type KVStore struct {
-	Data         map[string]string
+	Data         map[string]KVEntry
 	Mutex        sync.RWMutex
+	globalIndex  uint64 // Monotonically increasing global index
 	engine       persistence.Engine
 	log          logger.Logger
 	watchManager *watch.Manager
@@ -20,17 +32,19 @@ type KVStore struct {
 // NewKVStore creates a KV store with optional persistence
 func NewKVStore() *KVStore {
 	return &KVStore{
-		Data: make(map[string]string),
-		log:  logger.GetDefault(),
+		Data:        make(map[string]KVEntry),
+		globalIndex: 0,
+		log:         logger.GetDefault(),
 	}
 }
 
 // NewKVStoreWithPersistence creates a KV store with persistence engine
 func NewKVStoreWithPersistence(engine persistence.Engine, log logger.Logger) (*KVStore, error) {
 	store := &KVStore{
-		Data:   make(map[string]string),
-		engine: engine,
-		log:    log,
+		Data:        make(map[string]KVEntry),
+		globalIndex: 0,
+		engine:      engine,
+		log:         log,
 	}
 
 	// Load existing data from persistence if available
@@ -58,6 +72,7 @@ func (kv *KVStore) loadFromPersistence() error {
 		return err
 	}
 
+	var maxIndex uint64
 	for _, key := range keys {
 		value, err := kv.engine.Get(key)
 		if err != nil {
@@ -66,30 +81,80 @@ func (kv *KVStore) loadFromPersistence() error {
 				logger.Error(err))
 			continue
 		}
-		kv.Data[key] = string(value)
+		// Try to unmarshal as KVEntry first (new format)
+		var entry KVEntry
+		if err := json.Unmarshal(value, &entry); err != nil {
+			// Fallback to old format (plain string value)
+			entry = KVEntry{
+				Value:       string(value),
+				ModifyIndex: 1,
+				CreateIndex: 1,
+			}
+		}
+		kv.Data[key] = entry
+		if entry.ModifyIndex > maxIndex {
+			maxIndex = entry.ModifyIndex
+		}
 	}
 
+	// Set global index to max found index
+	kv.globalIndex = maxIndex
+
 	kv.log.Info("Loaded KV data from persistence",
-		logger.Int("keys", len(keys)))
+		logger.Int("keys", len(keys)),
+		logger.String("max_index", fmt.Sprintf("%d", maxIndex)))
 	return nil
 }
 
 func (kv *KVStore) Get(key string) (string, bool) {
 	kv.Mutex.RLock()
 	defer kv.Mutex.RUnlock()
-	value, ok := kv.Data[key]
-	return value, ok
+	entry, ok := kv.Data[key]
+	if !ok {
+		return "", false
+	}
+	return entry.Value, true
+}
+
+// GetEntry returns the full KVEntry with version information
+func (kv *KVStore) GetEntry(key string) (KVEntry, bool) {
+	kv.Mutex.RLock()
+	defer kv.Mutex.RUnlock()
+	entry, ok := kv.Data[key]
+	return entry, ok
+}
+
+// nextIndex atomically increments and returns the next global index
+func (kv *KVStore) nextIndex() uint64 {
+	return atomic.AddUint64(&kv.globalIndex, 1)
 }
 
 func (kv *KVStore) Set(key, value string) {
 	kv.Mutex.Lock()
-	oldValue, existed := kv.Data[key]
-	kv.Data[key] = value
+	oldEntry, existed := kv.Data[key]
+
+	newIndex := kv.nextIndex()
+	entry := KVEntry{
+		Value:       value,
+		ModifyIndex: newIndex,
+	}
+	if existed {
+		entry.CreateIndex = oldEntry.CreateIndex
+		entry.Flags = oldEntry.Flags
+	} else {
+		entry.CreateIndex = newIndex
+	}
+	kv.Data[key] = entry
 	kv.Mutex.Unlock()
 
 	// Persist to storage if engine is available
 	if kv.engine != nil {
-		if err := kv.engine.Set(key, []byte(value)); err != nil {
+		data, err := json.Marshal(entry)
+		if err != nil {
+			kv.log.Error("Failed to marshal KV entry",
+				logger.String("key", key),
+				logger.Error(err))
+		} else if err := kv.engine.Set(key, data); err != nil {
 			kv.log.Error("Failed to persist key",
 				logger.String("key", key),
 				logger.Error(err))
@@ -105,7 +170,138 @@ func (kv *KVStore) Set(key, value string) {
 			Timestamp: time.Now().Unix(),
 		}
 		if existed {
-			event.OldValue = oldValue
+			event.OldValue = oldEntry.Value
+		}
+		kv.watchManager.Notify(event)
+	}
+}
+
+// SetCAS performs a Compare-And-Swap operation
+// It will only update the value if the current ModifyIndex matches the expected index
+// If expectedIndex is 0, it means "create only if not exists"
+// Returns the new ModifyIndex on success, or error on conflict
+func (kv *KVStore) SetCAS(key, value string, expectedIndex uint64) (uint64, error) {
+	kv.Mutex.Lock()
+	defer kv.Mutex.Unlock()
+
+	oldEntry, existed := kv.Data[key]
+
+	// Check CAS condition
+	if expectedIndex == 0 {
+		// Create only if not exists
+		if existed {
+			return 0, &CASConflictError{
+				Key:           key,
+				ExpectedIndex: 0,
+				CurrentIndex:  oldEntry.ModifyIndex,
+				OperationType: "key",
+			}
+		}
+	} else {
+		// Update only if index matches
+		if !existed {
+			return 0, &NotFoundError{Type: "key", Key: key}
+		}
+		if oldEntry.ModifyIndex != expectedIndex {
+			return 0, &CASConflictError{
+				Key:           key,
+				ExpectedIndex: expectedIndex,
+				CurrentIndex:  oldEntry.ModifyIndex,
+				OperationType: "key",
+			}
+		}
+	}
+
+	newIndex := kv.nextIndex()
+	entry := KVEntry{
+		Value:       value,
+		ModifyIndex: newIndex,
+	}
+	if existed {
+		entry.CreateIndex = oldEntry.CreateIndex
+		entry.Flags = oldEntry.Flags
+	} else {
+		entry.CreateIndex = newIndex
+	}
+	kv.Data[key] = entry
+
+	// Persist to storage if engine is available
+	if kv.engine != nil {
+		data, err := json.Marshal(entry)
+		if err != nil {
+			kv.log.Error("Failed to marshal KV entry",
+				logger.String("key", key),
+				logger.Error(err))
+			return newIndex, err
+		}
+		if err := kv.engine.Set(key, data); err != nil {
+			kv.log.Error("Failed to persist key",
+				logger.String("key", key),
+				logger.Error(err))
+			return newIndex, err
+		}
+	}
+
+	// Notify watchers
+	if kv.watchManager != nil {
+		event := watch.WatchEvent{
+			Type:      watch.EventTypeSet,
+			Key:       key,
+			Value:     value,
+			Timestamp: time.Now().Unix(),
+		}
+		if existed {
+			event.OldValue = oldEntry.Value
+		}
+		kv.watchManager.Notify(event)
+	}
+
+	return newIndex, nil
+}
+
+// SetWithFlags sets a value with custom flags
+func (kv *KVStore) SetWithFlags(key, value string, flags uint64) {
+	kv.Mutex.Lock()
+	oldEntry, existed := kv.Data[key]
+
+	newIndex := kv.nextIndex()
+	entry := KVEntry{
+		Value:       value,
+		ModifyIndex: newIndex,
+		Flags:       flags,
+	}
+	if existed {
+		entry.CreateIndex = oldEntry.CreateIndex
+	} else {
+		entry.CreateIndex = newIndex
+	}
+	kv.Data[key] = entry
+	kv.Mutex.Unlock()
+
+	// Persist to storage if engine is available
+	if kv.engine != nil {
+		data, err := json.Marshal(entry)
+		if err != nil {
+			kv.log.Error("Failed to marshal KV entry",
+				logger.String("key", key),
+				logger.Error(err))
+		} else if err := kv.engine.Set(key, data); err != nil {
+			kv.log.Error("Failed to persist key",
+				logger.String("key", key),
+				logger.Error(err))
+		}
+	}
+
+	// Notify watchers
+	if kv.watchManager != nil {
+		event := watch.WatchEvent{
+			Type:      watch.EventTypeSet,
+			Key:       key,
+			Value:     value,
+			Timestamp: time.Now().Unix(),
+		}
+		if existed {
+			event.OldValue = oldEntry.Value
 		}
 		kv.watchManager.Notify(event)
 	}
@@ -113,7 +309,7 @@ func (kv *KVStore) Set(key, value string) {
 
 func (kv *KVStore) Delete(key string) {
 	kv.Mutex.Lock()
-	oldValue, existed := kv.Data[key]
+	oldEntry, existed := kv.Data[key]
 	delete(kv.Data, key)
 	kv.Mutex.Unlock()
 
@@ -131,11 +327,58 @@ func (kv *KVStore) Delete(key string) {
 		event := watch.WatchEvent{
 			Type:      watch.EventTypeDelete,
 			Key:       key,
-			OldValue:  oldValue,
+			OldValue:  oldEntry.Value,
 			Timestamp: time.Now().Unix(),
 		}
 		kv.watchManager.Notify(event)
 	}
+}
+
+// DeleteCAS performs a Compare-And-Swap delete operation
+// It will only delete the value if the current ModifyIndex matches the expected index
+// Returns error on conflict
+func (kv *KVStore) DeleteCAS(key string, expectedIndex uint64) error {
+	kv.Mutex.Lock()
+	defer kv.Mutex.Unlock()
+
+	oldEntry, existed := kv.Data[key]
+	if !existed {
+		return &NotFoundError{Type: "key", Key: key}
+	}
+
+	if oldEntry.ModifyIndex != expectedIndex {
+		return &CASConflictError{
+			Key:           key,
+			ExpectedIndex: expectedIndex,
+			CurrentIndex:  oldEntry.ModifyIndex,
+			OperationType: "key",
+		}
+	}
+
+	delete(kv.Data, key)
+
+	// Delete from persistence if engine is available
+	if kv.engine != nil {
+		if err := kv.engine.Delete(key); err != nil {
+			kv.log.Error("Failed to delete key from persistence",
+				logger.String("key", key),
+				logger.Error(err))
+			return err
+		}
+	}
+
+	// Notify watchers
+	if kv.watchManager != nil {
+		event := watch.WatchEvent{
+			Type:      watch.EventTypeDelete,
+			Key:       key,
+			OldValue:  oldEntry.Value,
+			Timestamp: time.Now().Unix(),
+		}
+		kv.watchManager.Notify(event)
+	}
+
+	return nil
 }
 
 func (kv *KVStore) List() []string {
@@ -148,6 +391,17 @@ func (kv *KVStore) List() []string {
 	return keys
 }
 
+// ListEntries returns all key-value entries with their metadata
+func (kv *KVStore) ListEntries() map[string]KVEntry {
+	kv.Mutex.RLock()
+	defer kv.Mutex.RUnlock()
+	result := make(map[string]KVEntry, len(kv.Data))
+	for key, entry := range kv.Data {
+		result[key] = entry
+	}
+	return result
+}
+
 // BatchGet retrieves multiple keys at once
 // Returns a map of key to value, and a slice of keys that were not found
 func (kv *KVStore) BatchGet(keys []string) (map[string]string, []string) {
@@ -158,8 +412,27 @@ func (kv *KVStore) BatchGet(keys []string) (map[string]string, []string) {
 	notFound := make([]string, 0)
 
 	for _, key := range keys {
-		if value, ok := kv.Data[key]; ok {
-			found[key] = value
+		if entry, ok := kv.Data[key]; ok {
+			found[key] = entry.Value
+		} else {
+			notFound = append(notFound, key)
+		}
+	}
+
+	return found, notFound
+}
+
+// BatchGetEntries retrieves multiple entries with their metadata
+func (kv *KVStore) BatchGetEntries(keys []string) (map[string]KVEntry, []string) {
+	kv.Mutex.RLock()
+	defer kv.Mutex.RUnlock()
+
+	found := make(map[string]KVEntry)
+	notFound := make([]string, 0)
+
+	for _, key := range keys {
+		if entry, ok := kv.Data[key]; ok {
+			found[key] = entry
 		} else {
 			notFound = append(notFound, key)
 		}
@@ -173,20 +446,40 @@ func (kv *KVStore) BatchSet(items map[string]string) error {
 	kv.Mutex.Lock()
 
 	// Track old values for watch events
-	oldValues := make(map[string]string)
+	oldEntries := make(map[string]KVEntry)
+	newEntries := make(map[string]KVEntry)
+
 	for key, value := range items {
-		if oldVal, existed := kv.Data[key]; existed {
-			oldValues[key] = oldVal
+		oldEntry, existed := kv.Data[key]
+		if existed {
+			oldEntries[key] = oldEntry
 		}
-		kv.Data[key] = value
+
+		newIndex := kv.nextIndex()
+		entry := KVEntry{
+			Value:       value,
+			ModifyIndex: newIndex,
+		}
+		if existed {
+			entry.CreateIndex = oldEntry.CreateIndex
+			entry.Flags = oldEntry.Flags
+		} else {
+			entry.CreateIndex = newIndex
+		}
+		kv.Data[key] = entry
+		newEntries[key] = entry
 	}
 	kv.Mutex.Unlock()
 
 	// Persist if engine is available
 	if kv.engine != nil {
 		byteItems := make(map[string][]byte)
-		for key, value := range items {
-			byteItems[key] = []byte(value)
+		for key, entry := range newEntries {
+			data, err := json.Marshal(entry)
+			if err != nil {
+				return err
+			}
+			byteItems[key] = data
 		}
 		if err := kv.engine.BatchSet(byteItems); err != nil {
 			return err
@@ -203,8 +496,8 @@ func (kv *KVStore) BatchSet(items map[string]string) error {
 				Value:     value,
 				Timestamp: timestamp,
 			}
-			if oldVal, existed := oldValues[key]; existed {
-				event.OldValue = oldVal
+			if oldEntry, existed := oldEntries[key]; existed {
+				event.OldValue = oldEntry.Value
 			}
 			kv.watchManager.Notify(event)
 		}
@@ -213,15 +506,113 @@ func (kv *KVStore) BatchSet(items map[string]string) error {
 	return nil
 }
 
+// BatchSetCAS performs atomic batch set with CAS checks
+// Each item must have a matching expectedIndex, or 0 for create-only
+// Returns map of new indices on success, or error on first conflict
+func (kv *KVStore) BatchSetCAS(items map[string]string, expectedIndices map[string]uint64) (map[string]uint64, error) {
+	kv.Mutex.Lock()
+	defer kv.Mutex.Unlock()
+
+	// First pass: validate all CAS conditions
+	for key := range items {
+		expectedIndex := expectedIndices[key]
+		oldEntry, existed := kv.Data[key]
+
+		if expectedIndex == 0 {
+			if existed {
+				return nil, &CASConflictError{
+					Key:           key,
+					ExpectedIndex: 0,
+					CurrentIndex:  oldEntry.ModifyIndex,
+					OperationType: "key",
+				}
+			}
+		} else {
+			if !existed {
+				return nil, &NotFoundError{Type: "key", Key: key}
+			}
+			if oldEntry.ModifyIndex != expectedIndex {
+				return nil, &CASConflictError{
+					Key:           key,
+					ExpectedIndex: expectedIndex,
+					CurrentIndex:  oldEntry.ModifyIndex,
+					OperationType: "key",
+				}
+			}
+		}
+	}
+
+	// Second pass: apply all updates
+	oldEntries := make(map[string]KVEntry)
+	newEntries := make(map[string]KVEntry)
+	newIndices := make(map[string]uint64)
+
+	for key, value := range items {
+		oldEntry, existed := kv.Data[key]
+		if existed {
+			oldEntries[key] = oldEntry
+		}
+
+		newIndex := kv.nextIndex()
+		entry := KVEntry{
+			Value:       value,
+			ModifyIndex: newIndex,
+		}
+		if existed {
+			entry.CreateIndex = oldEntry.CreateIndex
+			entry.Flags = oldEntry.Flags
+		} else {
+			entry.CreateIndex = newIndex
+		}
+		kv.Data[key] = entry
+		newEntries[key] = entry
+		newIndices[key] = newIndex
+	}
+
+	// Persist if engine is available
+	if kv.engine != nil {
+		byteItems := make(map[string][]byte)
+		for key, entry := range newEntries {
+			data, err := json.Marshal(entry)
+			if err != nil {
+				return newIndices, err
+			}
+			byteItems[key] = data
+		}
+		if err := kv.engine.BatchSet(byteItems); err != nil {
+			return newIndices, err
+		}
+	}
+
+	// Notify watchers
+	if kv.watchManager != nil {
+		timestamp := time.Now().Unix()
+		for key, value := range items {
+			event := watch.WatchEvent{
+				Type:      watch.EventTypeSet,
+				Key:       key,
+				Value:     value,
+				Timestamp: timestamp,
+			}
+			if oldEntry, existed := oldEntries[key]; existed {
+				event.OldValue = oldEntry.Value
+			}
+			kv.watchManager.Notify(event)
+		}
+	}
+
+	return newIndices, nil
+}
+
 // BatchDelete deletes multiple keys atomically
 func (kv *KVStore) BatchDelete(keys []string) error {
 	kv.Mutex.Lock()
 
 	// Track old values for watch events
-	oldValues := make(map[string]string)
+	oldEntries := make(map[string]KVEntry)
 	for _, key := range keys {
-		if oldVal, existed := kv.Data[key]; existed {
-			oldValues[key] = oldVal
+		if oldEntry, existed := kv.Data[key]; existed {
+			oldEntries[key] = oldEntry
 		}
 		delete(kv.Data, key)
 	}
@@ -237,11 +628,67 @@ func (kv *KVStore) BatchDelete(keys []string) error {
 	// Notify watchers for deleted keys
 	if kv.watchManager != nil {
 		timestamp := time.Now().Unix()
-		for key, oldVal := range oldValues {
+		for key, oldEntry := range oldEntries {
 			event := watch.WatchEvent{
 				Type:      watch.EventTypeDelete,
 				Key:       key,
-				OldValue:  oldVal,
+				OldValue:  oldEntry.Value,
+				Timestamp: timestamp,
+			}
+			kv.watchManager.Notify(event)
+		}
+	}
+
+	return nil
+}
+
+// BatchDeleteCAS performs atomic batch delete with CAS checks
+// Each key must have a matching expectedIndex
+// Returns error on first conflict
+func (kv *KVStore) BatchDeleteCAS(keys []string, expectedIndices map[string]uint64) error {
+	kv.Mutex.Lock()
+	defer kv.Mutex.Unlock()
+
+	// First pass: validate all CAS conditions
+	for _, key := range keys {
+		expectedIndex := expectedIndices[key]
+		oldEntry, existed := kv.Data[key]
+
+		if !existed {
+			return &NotFoundError{Type: "key", Key: key}
+		}
+		if oldEntry.ModifyIndex != expectedIndex {
+			return &CASConflictError{
+				Key:           key,
+				ExpectedIndex: expectedIndex,
+				CurrentIndex:  oldEntry.ModifyIndex,
+				OperationType: "key",
+			}
+		}
+	}
+
+	// Second pass: delete all keys
+	oldEntries := make(map[string]KVEntry)
+	for _, key := range keys {
+		oldEntries[key] = kv.Data[key]
+		delete(kv.Data, key)
+	}
+
+	// Delete from persistence if engine is available
+	if kv.engine != nil {
+		if err := kv.engine.BatchDelete(keys); err != nil {
+			return err
+		}
+	}
+
+	// Notify watchers for deleted keys
+	if kv.watchManager != nil {
+		timestamp := time.Now().Unix()
+		for key, oldEntry := range oldEntries {
+			event := watch.WatchEvent{
+				Type:      watch.EventTypeDelete,
+				Key:       key,
+				OldValue:  oldEntry.Value,
 				Timestamp: timestamp,
 			}
 			kv.watchManager.Notify(event)
