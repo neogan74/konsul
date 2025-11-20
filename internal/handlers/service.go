@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"fmt"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/metrics"
@@ -18,12 +20,18 @@ func NewServiceHandler(serviceStore *store.ServiceStore) *ServiceHandler {
 
 func (h *ServiceHandler) Register(c *fiber.Ctx) error {
 	log := middleware.GetLogger(c)
-	var svc store.Service
 
-	if err := c.BodyParser(&svc); err != nil {
+	body := struct {
+		store.Service
+		CAS *uint64 `json:"cas,omitempty"` // Optional CAS index
+	}{}
+
+	if err := c.BodyParser(&body); err != nil {
 		log.Error("Failed to parse service registration body", logger.Error(err))
 		return middleware.BadRequest(c, "Invalid JSON body")
 	}
+
+	svc := body.Service
 
 	log.Info("Registering service",
 		logger.String("service_name", svc.Name),
@@ -32,7 +40,47 @@ func (h *ServiceHandler) Register(c *fiber.Ctx) error {
 		logger.Int("tags", len(svc.Tags)),
 		logger.Int("metadata_keys", len(svc.Meta)))
 
-	// Register service (validation happens inside)
+	// Use CAS if provided
+	if body.CAS != nil {
+		newIndex, err := h.store.RegisterCAS(svc, *body.CAS)
+		if err != nil {
+			if store.IsCASConflict(err) {
+				log.Warn("CAS conflict", logger.String("service", svc.Name), logger.Error(err))
+				metrics.ServiceOperationsTotal.WithLabelValues("register", "cas_conflict").Inc()
+				return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+					"error":   "CAS conflict",
+					"message": err.Error(),
+				})
+			}
+			if store.IsNotFound(err) {
+				log.Warn("Service not found for CAS update", logger.String("service", svc.Name))
+				metrics.ServiceOperationsTotal.WithLabelValues("register", "not_found").Inc()
+				return middleware.NotFound(c, "Service not found")
+			}
+			log.Error("Failed to register service with CAS",
+				logger.String("service", svc.Name),
+				logger.Error(err))
+			metrics.ServiceOperationsTotal.WithLabelValues("register", "error").Inc()
+			return middleware.BadRequest(c, err.Error())
+		}
+
+		log.Info("Service registered successfully with CAS",
+			logger.String("service_name", svc.Name))
+
+		// Record service registration metrics
+		metrics.ServiceOperationsTotal.WithLabelValues("register", "success").Inc()
+		metrics.RegisteredServicesTotal.Set(float64(len(h.store.List())))
+		metrics.ServiceTagsPerService.Observe(float64(len(svc.Tags)))
+		metrics.ServiceMetadataKeysPerService.Observe(float64(len(svc.Meta)))
+
+		return c.JSON(fiber.Map{
+			"message":      "service registered",
+			"service":      svc,
+			"modify_index": newIndex,
+		})
+	}
+
+	// Regular registration (validation happens inside)
 	if err := h.store.Register(svc); err != nil {
 		log.Error("Failed to register service",
 			logger.String("service", svc.Name),
@@ -52,7 +100,13 @@ func (h *ServiceHandler) Register(c *fiber.Ctx) error {
 	metrics.ServiceTagsPerService.Observe(float64(len(svc.Tags)))
 	metrics.ServiceMetadataKeysPerService.Observe(float64(len(svc.Meta)))
 
-	return c.JSON(fiber.Map{"message": "service registered", "service": svc})
+	// Return with index
+	entry, _ := h.store.GetEntry(svc.Name)
+	return c.JSON(fiber.Map{
+		"message":      "service registered",
+		"service":      svc,
+		"modify_index": entry.ModifyIndex,
+	})
 }
 
 func (h *ServiceHandler) List(c *fiber.Ctx) error {
@@ -68,6 +122,26 @@ func (h *ServiceHandler) Get(c *fiber.Ctx) error {
 	log := middleware.GetLogger(c)
 
 	log.Debug("Getting service", logger.String("service_name", name))
+
+	// Check if client wants full entry with indices
+	includeMetadata := c.Query("metadata", "false") == "true"
+
+	if includeMetadata {
+		entry, ok := h.store.GetEntry(name)
+		if !ok {
+			log.Warn("Service not found", logger.String("service_name", name))
+			metrics.ServiceOperationsTotal.WithLabelValues("get", "not_found").Inc()
+			return middleware.NotFound(c, "Service not found")
+		}
+		log.Info("Service retrieved successfully with metadata", logger.String("service_name", name))
+		metrics.ServiceOperationsTotal.WithLabelValues("get", "success").Inc()
+		return c.JSON(fiber.Map{
+			"service":      entry.Service,
+			"expires_at":   entry.ExpiresAt,
+			"modify_index": entry.ModifyIndex,
+			"create_index": entry.CreateIndex,
+		})
+	}
 
 	svc, ok := h.store.Get(name)
 	if !ok {
@@ -86,6 +160,41 @@ func (h *ServiceHandler) Deregister(c *fiber.Ctx) error {
 	log := middleware.GetLogger(c)
 
 	log.Info("Deregistering service", logger.String("service_name", name))
+
+	// Check if CAS is requested via query parameter
+	casParam := c.Query("cas")
+	if casParam != "" {
+		var expectedIndex uint64
+		if _, err := fmt.Sscanf(casParam, "%d", &expectedIndex); err != nil {
+			log.Error("Invalid CAS parameter", logger.String("cas", casParam), logger.Error(err))
+			return middleware.BadRequest(c, "Invalid CAS parameter")
+		}
+
+		err := h.store.DeregisterCAS(name, expectedIndex)
+		if err != nil {
+			if store.IsCASConflict(err) {
+				log.Warn("CAS conflict on deregister", logger.String("service", name), logger.Error(err))
+				metrics.ServiceOperationsTotal.WithLabelValues("deregister", "cas_conflict").Inc()
+				return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+					"error":   "CAS conflict",
+					"message": err.Error(),
+				})
+			}
+			if store.IsNotFound(err) {
+				log.Warn("Service not found for CAS deregister", logger.String("service", name))
+				metrics.ServiceOperationsTotal.WithLabelValues("deregister", "not_found").Inc()
+				return middleware.NotFound(c, "Service not found")
+			}
+			log.Error("CAS deregister failed", logger.String("service", name), logger.Error(err))
+			metrics.ServiceOperationsTotal.WithLabelValues("deregister", "error").Inc()
+			return middleware.InternalError(c, "Failed to deregister service")
+		}
+
+		log.Info("Service deregistered successfully with CAS", logger.String("service_name", name))
+		metrics.ServiceOperationsTotal.WithLabelValues("deregister", "success").Inc()
+		metrics.RegisteredServicesTotal.Set(float64(len(h.store.List())))
+		return c.JSON(fiber.Map{"message": "service deregistered", "name": name})
+	}
 
 	h.store.Deregister(name)
 
