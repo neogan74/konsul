@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/neogan74/konsul/internal/healthcheck"
@@ -21,8 +22,10 @@ type Service struct {
 }
 
 type ServiceEntry struct {
-	Service   Service   `json:"service"`
-	ExpiresAt time.Time `json:"expires_at"`
+	Service     Service   `json:"service"`
+	ExpiresAt   time.Time `json:"expires_at"`
+	ModifyIndex uint64    `json:"modify_index"`
+	CreateIndex uint64    `json:"create_index"`
 }
 
 type ServiceStore struct {
@@ -30,6 +33,7 @@ type ServiceStore struct {
 	TagIndex      map[string]map[string]bool     // Tag → {ServiceName: true} - for fast tag queries
 	MetaIndex     map[string]map[string][]string // MetaKey → {MetaValue: [ServiceNames]} - for fast metadata queries
 	Mutex         sync.RWMutex
+	globalIndex   uint64 // Monotonically increasing global index
 	TTL           time.Duration
 	engine        persistence.Engine
 	log           logger.Logger
@@ -41,6 +45,7 @@ func NewServiceStore() *ServiceStore {
 		Data:          make(map[string]ServiceEntry),
 		TagIndex:      make(map[string]map[string]bool),
 		MetaIndex:     make(map[string]map[string][]string),
+		globalIndex:   0,
 		TTL:           30 * time.Second, // default TTL
 		log:           logger.GetDefault(),
 		healthManager: healthcheck.NewManager(logger.GetDefault()),
@@ -52,6 +57,7 @@ func NewServiceStoreWithTTL(ttl time.Duration) *ServiceStore {
 		Data:          make(map[string]ServiceEntry),
 		TagIndex:      make(map[string]map[string]bool),
 		MetaIndex:     make(map[string]map[string][]string),
+		globalIndex:   0,
 		TTL:           ttl,
 		log:           logger.GetDefault(),
 		healthManager: healthcheck.NewManager(logger.GetDefault()),
@@ -64,6 +70,7 @@ func NewServiceStoreWithPersistence(ttl time.Duration, engine persistence.Engine
 		Data:          make(map[string]ServiceEntry),
 		TagIndex:      make(map[string]map[string]bool),
 		MetaIndex:     make(map[string]map[string][]string),
+		globalIndex:   0,
 		TTL:           ttl,
 		engine:        engine,
 		log:           log,
@@ -80,6 +87,11 @@ func NewServiceStoreWithPersistence(ttl time.Duration, engine persistence.Engine
 	return store, nil
 }
 
+// nextIndex atomically increments and returns the next global index
+func (s *ServiceStore) nextIndex() uint64 {
+	return atomic.AddUint64(&s.globalIndex, 1)
+}
+
 func (s *ServiceStore) loadFromPersistence() error {
 	if s.engine == nil {
 		return nil
@@ -91,6 +103,7 @@ func (s *ServiceStore) loadFromPersistence() error {
 	}
 
 	loaded := 0
+	var maxIndex uint64
 	for _, name := range services {
 		data, err := s.engine.GetService(name)
 		if err != nil {
@@ -108,18 +121,31 @@ func (s *ServiceStore) loadFromPersistence() error {
 			continue
 		}
 
+		// Migrate old entries without indices
+		if entry.ModifyIndex == 0 {
+			entry.ModifyIndex = 1
+			entry.CreateIndex = 1
+		}
+
 		// Only load non-expired services
 		if entry.ExpiresAt.After(time.Now()) {
 			s.Data[name] = entry
 			// Rebuild indexes for loaded services
 			s.addToTagIndex(name, entry.Service.Tags)
 			s.addToMetaIndex(name, entry.Service.Meta)
+			if entry.ModifyIndex > maxIndex {
+				maxIndex = entry.ModifyIndex
+			}
 			loaded++
 		}
 	}
 
+	// Set global index to max found index
+	s.globalIndex = maxIndex
+
 	s.log.Info("Loaded service data from persistence",
-		logger.Int("services", loaded))
+		logger.Int("services", loaded),
+		logger.String("max_index", fmt.Sprintf("%d", maxIndex)))
 	return nil
 }
 
@@ -136,14 +162,22 @@ func (s *ServiceStore) Register(service Service) error {
 	defer s.Mutex.Unlock()
 
 	// Remove old indexes if service exists (for re-registration)
-	if oldEntry, exists := s.Data[service.Name]; exists {
+	oldEntry, existed := s.Data[service.Name]
+	if existed {
 		s.removeFromTagIndex(service.Name, oldEntry.Service.Tags)
 		s.removeFromMetaIndex(service.Name, oldEntry.Service.Meta)
 	}
 
+	newIndex := s.nextIndex()
 	entry := ServiceEntry{
-		Service:   service,
-		ExpiresAt: time.Now().Add(s.TTL),
+		Service:     service,
+		ExpiresAt:   time.Now().Add(s.TTL),
+		ModifyIndex: newIndex,
+	}
+	if existed {
+		entry.CreateIndex = oldEntry.CreateIndex
+	} else {
+		entry.CreateIndex = newIndex
 	}
 	s.Data[service.Name] = entry
 
@@ -198,6 +232,119 @@ func (s *ServiceStore) Register(service Service) error {
 	return nil
 }
 
+// RegisterCAS performs a Compare-And-Swap registration operation
+// It will only register the service if the current ModifyIndex matches the expected index
+// If expectedIndex is 0, it means "create only if not exists"
+// Returns the new ModifyIndex on success, or error on conflict
+func (s *ServiceStore) RegisterCAS(service Service, expectedIndex uint64) (uint64, error) {
+	// Validate service including tags and metadata
+	if err := ValidateService(&service); err != nil {
+		s.log.Error("Service validation failed",
+			logger.String("service", service.Name),
+			logger.Error(err))
+		return 0, err
+	}
+
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	oldEntry, existed := s.Data[service.Name]
+
+	// Check CAS condition
+	if expectedIndex == 0 {
+		// Create only if not exists
+		if existed {
+			return 0, &CASConflictError{
+				Key:           service.Name,
+				ExpectedIndex: 0,
+				CurrentIndex:  oldEntry.ModifyIndex,
+				OperationType: "service",
+			}
+		}
+	} else {
+		// Update only if index matches
+		if !existed {
+			return 0, &NotFoundError{Type: "service", Key: service.Name}
+		}
+		if oldEntry.ModifyIndex != expectedIndex {
+			return 0, &CASConflictError{
+				Key:           service.Name,
+				ExpectedIndex: expectedIndex,
+				CurrentIndex:  oldEntry.ModifyIndex,
+				OperationType: "service",
+			}
+		}
+	}
+
+	// Remove old indexes if service exists
+	if existed {
+		s.removeFromTagIndex(service.Name, oldEntry.Service.Tags)
+		s.removeFromMetaIndex(service.Name, oldEntry.Service.Meta)
+	}
+
+	newIndex := s.nextIndex()
+	entry := ServiceEntry{
+		Service:     service,
+		ExpiresAt:   time.Now().Add(s.TTL),
+		ModifyIndex: newIndex,
+	}
+	if existed {
+		entry.CreateIndex = oldEntry.CreateIndex
+	} else {
+		entry.CreateIndex = newIndex
+	}
+	s.Data[service.Name] = entry
+
+	// Add to tag and metadata indexes
+	s.addToTagIndex(service.Name, service.Tags)
+	s.addToMetaIndex(service.Name, service.Meta)
+
+	// Register health checks
+	for _, checkDef := range service.Checks {
+		// Set service ID for the check
+		if checkDef.ServiceID == "" {
+			checkDef.ServiceID = service.Name
+		}
+
+		// Set check name if not provided
+		if checkDef.Name == "" {
+			checkDef.Name = fmt.Sprintf("%s-health", service.Name)
+		}
+
+		_, err := s.healthManager.AddCheck(checkDef)
+		if err != nil {
+			s.log.Error("Failed to add health check",
+				logger.String("service", service.Name),
+				logger.String("check", checkDef.Name),
+				logger.Error(err))
+		}
+	}
+
+	// Persist to storage if engine is available
+	if s.engine != nil {
+		data, err := json.Marshal(entry)
+		if err != nil {
+			s.log.Error("Failed to marshal service entry",
+				logger.String("service", service.Name),
+				logger.Error(err))
+			return newIndex, err
+		}
+
+		if err := s.engine.SetService(service.Name, data, s.TTL); err != nil {
+			s.log.Error("Failed to persist service",
+				logger.String("service", service.Name),
+				logger.Error(err))
+			return newIndex, err
+		}
+	}
+
+	s.log.Info("Service registered with CAS",
+		logger.String("service", service.Name),
+		logger.String("new_index", fmt.Sprintf("%d", newIndex)))
+
+	return newIndex, nil
+}
+
 func (s *ServiceStore) List() []Service {
 	s.Mutex.RLock()
 	defer s.Mutex.RUnlock()
@@ -234,6 +381,18 @@ func (s *ServiceStore) Get(name string) (Service, bool) {
 	return entry.Service, true
 }
 
+// GetEntry returns the full ServiceEntry with version information
+func (s *ServiceStore) GetEntry(name string) (ServiceEntry, bool) {
+	s.Mutex.RLock()
+	defer s.Mutex.RUnlock()
+
+	entry, ok := s.Data[name]
+	if !ok || entry.ExpiresAt.Before(time.Now()) {
+		return ServiceEntry{}, false
+	}
+	return entry, true
+}
+
 func (s *ServiceStore) Heartbeat(name string) bool {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
@@ -243,7 +402,9 @@ func (s *ServiceStore) Heartbeat(name string) bool {
 		return false
 	}
 
+	// Update TTL but preserve indices
 	entry.ExpiresAt = time.Now().Add(s.TTL)
+	// Heartbeat is not a modification, so don't update ModifyIndex
 	s.Data[name] = entry
 
 	// Update in persistence if engine is available
@@ -286,6 +447,50 @@ func (s *ServiceStore) Deregister(name string) {
 				logger.Error(err))
 		}
 	}
+}
+
+// DeregisterCAS performs a Compare-And-Swap deregistration operation
+// It will only deregister the service if the current ModifyIndex matches the expected index
+// Returns error on conflict
+func (s *ServiceStore) DeregisterCAS(name string, expectedIndex uint64) error {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	entry, existed := s.Data[name]
+	if !existed {
+		return &NotFoundError{Type: "service", Key: name}
+	}
+
+	if entry.ModifyIndex != expectedIndex {
+		return &CASConflictError{
+			Key:           name,
+			ExpectedIndex: expectedIndex,
+			CurrentIndex:  entry.ModifyIndex,
+			OperationType: "service",
+		}
+	}
+
+	// Remove from indexes before deleting
+	s.removeFromTagIndex(name, entry.Service.Tags)
+	s.removeFromMetaIndex(name, entry.Service.Meta)
+
+	delete(s.Data, name)
+
+	// Delete from persistence if engine is available
+	if s.engine != nil {
+		if err := s.engine.DeleteService(name); err != nil {
+			s.log.Error("Failed to delete service from persistence",
+				logger.String("service", name),
+				logger.Error(err))
+			return err
+		}
+	}
+
+	s.log.Info("Service deregistered with CAS",
+		logger.String("service", name),
+		logger.String("index", fmt.Sprintf("%d", expectedIndex)))
+
+	return nil
 }
 
 func (s *ServiceStore) CleanupExpired() int {
