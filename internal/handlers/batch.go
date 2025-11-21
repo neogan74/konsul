@@ -59,6 +59,32 @@ type BatchKVDeleteResponse struct {
 	Count   int      `json:"count"`
 }
 
+// BatchKVSetCASRequest represents a request to set multiple keys with CAS
+type BatchKVSetCASRequest struct {
+	Items           map[string]string  `json:"items"`
+	ExpectedIndices map[string]uint64  `json:"expected_indices"`
+}
+
+// BatchKVSetCASResponse represents the response for batch CAS set
+type BatchKVSetCASResponse struct {
+	Message    string            `json:"message"`
+	NewIndices map[string]uint64 `json:"new_indices"`
+	Count      int               `json:"count"`
+}
+
+// BatchKVDeleteCASRequest represents a request to delete multiple keys with CAS
+type BatchKVDeleteCASRequest struct {
+	Keys            []string          `json:"keys"`
+	ExpectedIndices map[string]uint64 `json:"expected_indices"`
+}
+
+// BatchKVDeleteCASResponse represents the response for batch CAS delete
+type BatchKVDeleteCASResponse struct {
+	Message string   `json:"message"`
+	Keys    []string `json:"keys"`
+	Count   int      `json:"count"`
+}
+
 // BatchKVGet retrieves multiple keys at once
 // POST /batch/kv/get
 func (h *BatchHandler) BatchKVGet(c *fiber.Ctx) error {
@@ -167,6 +193,124 @@ func (h *BatchHandler) BatchKVDelete(c *fiber.Ctx) error {
 
 	return c.JSON(BatchKVDeleteResponse{
 		Message: fmt.Sprintf("Successfully deleted %d keys", len(req.Keys)),
+		Keys:    req.Keys,
+		Count:   len(req.Keys),
+	})
+}
+
+// BatchKVSetCAS sets multiple key-value pairs with CAS checks
+// POST /batch/kv/set-cas
+func (h *BatchHandler) BatchKVSetCAS(c *fiber.Ctx) error {
+	log := middleware.GetLogger(c)
+
+	var req BatchKVSetCASRequest
+	if err := c.BodyParser(&req); err != nil {
+		log.Error("Failed to parse batch KV set CAS request", logger.Error(err))
+		return middleware.BadRequest(c, "Invalid JSON body")
+	}
+
+	if len(req.Items) == 0 {
+		return middleware.BadRequest(c, "Items map cannot be empty")
+	}
+
+	if len(req.Items) > 1000 {
+		return middleware.BadRequest(c, "Maximum 1000 items per batch request")
+	}
+
+	// Validate that expected indices are provided for all items
+	for key := range req.Items {
+		if _, hasIndex := req.ExpectedIndices[key]; !hasIndex {
+			return middleware.BadRequest(c, fmt.Sprintf("Missing expected index for key: %s", key))
+		}
+	}
+
+	log.Debug("Batch setting keys with CAS", logger.Int("count", len(req.Items)))
+
+	newIndices, err := h.kvStore.BatchSetCAS(req.Items, req.ExpectedIndices)
+	if err != nil {
+		if store.IsCASConflict(err) {
+			log.Warn("CAS conflict in batch set", logger.Error(err))
+			metrics.KVOperationsTotal.WithLabelValues("batch_set_cas", "cas_conflict").Inc()
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"error":   "CAS conflict",
+				"message": err.Error(),
+			})
+		}
+		if store.IsNotFound(err) {
+			log.Warn("Key not found in batch CAS set", logger.Error(err))
+			metrics.KVOperationsTotal.WithLabelValues("batch_set_cas", "not_found").Inc()
+			return middleware.NotFound(c, err.Error())
+		}
+		log.Error("Failed to batch set keys with CAS", logger.Error(err))
+		metrics.KVOperationsTotal.WithLabelValues("batch_set_cas", "error").Inc()
+		return middleware.InternalError(c, "Failed to set keys")
+	}
+
+	log.Info("Batch set with CAS completed", logger.Int("count", len(req.Items)))
+	metrics.KVOperationsTotal.WithLabelValues("batch_set_cas", "success").Inc()
+	metrics.KVStoreSize.Set(float64(len(h.kvStore.List())))
+
+	return c.JSON(BatchKVSetCASResponse{
+		Message:    fmt.Sprintf("Successfully set %d keys with CAS", len(req.Items)),
+		NewIndices: newIndices,
+		Count:      len(req.Items),
+	})
+}
+
+// BatchKVDeleteCAS deletes multiple keys with CAS checks
+// POST /batch/kv/delete-cas
+func (h *BatchHandler) BatchKVDeleteCAS(c *fiber.Ctx) error {
+	log := middleware.GetLogger(c)
+
+	var req BatchKVDeleteCASRequest
+	if err := c.BodyParser(&req); err != nil {
+		log.Error("Failed to parse batch KV delete CAS request", logger.Error(err))
+		return middleware.BadRequest(c, "Invalid JSON body")
+	}
+
+	if len(req.Keys) == 0 {
+		return middleware.BadRequest(c, "Keys array cannot be empty")
+	}
+
+	if len(req.Keys) > 1000 {
+		return middleware.BadRequest(c, "Maximum 1000 keys per batch request")
+	}
+
+	// Validate that expected indices are provided for all keys
+	for _, key := range req.Keys {
+		if _, hasIndex := req.ExpectedIndices[key]; !hasIndex {
+			return middleware.BadRequest(c, fmt.Sprintf("Missing expected index for key: %s", key))
+		}
+	}
+
+	log.Debug("Batch deleting keys with CAS", logger.Int("count", len(req.Keys)))
+
+	err := h.kvStore.BatchDeleteCAS(req.Keys, req.ExpectedIndices)
+	if err != nil {
+		if store.IsCASConflict(err) {
+			log.Warn("CAS conflict in batch delete", logger.Error(err))
+			metrics.KVOperationsTotal.WithLabelValues("batch_delete_cas", "cas_conflict").Inc()
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"error":   "CAS conflict",
+				"message": err.Error(),
+			})
+		}
+		if store.IsNotFound(err) {
+			log.Warn("Key not found in batch CAS delete", logger.Error(err))
+			metrics.KVOperationsTotal.WithLabelValues("batch_delete_cas", "not_found").Inc()
+			return middleware.NotFound(c, err.Error())
+		}
+		log.Error("Failed to batch delete keys with CAS", logger.Error(err))
+		metrics.KVOperationsTotal.WithLabelValues("batch_delete_cas", "error").Inc()
+		return middleware.InternalError(c, "Failed to delete keys")
+	}
+
+	log.Info("Batch delete with CAS completed", logger.Int("count", len(req.Keys)))
+	metrics.KVOperationsTotal.WithLabelValues("batch_delete_cas", "success").Inc()
+	metrics.KVStoreSize.Set(float64(len(h.kvStore.List())))
+
+	return c.JSON(BatchKVDeleteCASResponse{
+		Message: fmt.Sprintf("Successfully deleted %d keys with CAS", len(req.Keys)),
 		Keys:    req.Keys,
 		Count:   len(req.Keys),
 	})
