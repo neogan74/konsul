@@ -8,7 +8,9 @@ The Batch Operations API allows you to perform multiple KV store and service ope
 
 **Features**:
 - Batch KV operations (get, set, delete)
+- Batch KV operations with CAS (set-cas, delete-cas)
 - Batch service operations (get, register, deregister)
+- Atomic operations with Compare-And-Swap (CAS)
 - Request validation and size limits
 - Partial success handling for service operations
 - Audit logging integration
@@ -135,6 +137,178 @@ POST /batch/kv/delete
 curl -X POST http://localhost:8500/batch/kv/delete \
   -H "Content-Type: application/json" \
   -d '{"keys": ["cache/user/123", "cache/user/456", "cache/session/expired"]}'
+```
+
+---
+
+#### Batch Set Keys with CAS
+Set multiple key-value pairs with Compare-And-Swap (CAS) checks for atomic conditional updates.
+
+```
+POST /batch/kv/set-cas
+```
+
+**Request Body**:
+```json
+{
+  "items": {
+    "config/database/host": "new-db-host",
+    "config/database/port": "5433",
+    "feature/new_ui": "true"
+  },
+  "expected_indices": {
+    "config/database/host": 42,
+    "config/database/port": 43,
+    "feature/new_ui": 0
+  }
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "message": "Successfully set 3 keys with CAS",
+  "new_indices": {
+    "config/database/host": 45,
+    "config/database/port": 46,
+    "feature/new_ui": 1
+  },
+  "count": 3
+}
+```
+
+**Response** (409 Conflict) - CAS mismatch:
+```json
+{
+  "error": "CAS conflict",
+  "message": "CAS conflict for key 'config/database/host': expected ModifyIndex 42, but current is 45"
+}
+```
+
+**Response** (404 Not Found) - Key doesn't exist when expected:
+```json
+{
+  "error": "Not Found",
+  "message": "Key 'config/database/host' not found (expected for CAS update)"
+}
+```
+
+**CAS Semantics**:
+- `expected_indices: 0` - Create-only (key must not exist)
+- `expected_indices: N` - Update-only (key must exist with ModifyIndex = N)
+- All operations are atomic - if any key fails CAS check, entire batch is rolled back
+
+**Limits**:
+- Maximum 1000 items per request
+- Items map cannot be empty
+- Expected index must be provided for every key in items
+
+**Example - Create-only batch**:
+```bash
+curl -X POST http://localhost:8500/batch/kv/set-cas \
+  -H "Content-Type: application/json" \
+  -d '{
+    "items": {
+      "config/new_feature": "enabled",
+      "config/new_setting": "value"
+    },
+    "expected_indices": {
+      "config/new_feature": 0,
+      "config/new_setting": 0
+    }
+  }'
+```
+
+**Example - Conditional update batch**:
+```bash
+# First, get current indices
+curl -X GET http://localhost:8500/kv/config/database/host
+
+# Then update with CAS
+curl -X POST http://localhost:8500/batch/kv/set-cas \
+  -H "Content-Type: application/json" \
+  -d '{
+    "items": {
+      "config/database/host": "new-host",
+      "config/database/port": "5433"
+    },
+    "expected_indices": {
+      "config/database/host": 42,
+      "config/database/port": 43
+    }
+  }'
+```
+
+---
+
+#### Batch Delete Keys with CAS
+Delete multiple keys with Compare-And-Swap (CAS) checks for atomic conditional deletes.
+
+```
+POST /batch/kv/delete-cas
+```
+
+**Request Body**:
+```json
+{
+  "keys": ["temp/cache1", "temp/cache2", "temp/old_config"],
+  "expected_indices": {
+    "temp/cache1": 10,
+    "temp/cache2": 11,
+    "temp/old_config": 12
+  }
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "message": "Successfully deleted 3 keys with CAS",
+  "keys": ["temp/cache1", "temp/cache2", "temp/old_config"],
+  "count": 3
+}
+```
+
+**Response** (409 Conflict) - CAS mismatch:
+```json
+{
+  "error": "CAS conflict",
+  "message": "CAS conflict for key 'temp/cache1': expected ModifyIndex 10, but current is 15"
+}
+```
+
+**Response** (404 Not Found) - Key doesn't exist:
+```json
+{
+  "error": "Not Found",
+  "message": "Key 'temp/cache1' not found"
+}
+```
+
+**CAS Semantics**:
+- All operations are atomic - if any key fails CAS check, entire batch is rolled back
+- Expected index must match current ModifyIndex for each key
+
+**Limits**:
+- Maximum 1000 keys per request
+- Keys array cannot be empty
+- Expected index must be provided for every key in the array
+
+**Example**:
+```bash
+# First, get current indices for keys to delete
+curl -X GET http://localhost:8500/kv/cache/user/123
+
+# Then delete with CAS
+curl -X POST http://localhost:8500/batch/kv/delete-cas \
+  -H "Content-Type: application/json" \
+  -d '{
+    "keys": ["cache/user/123", "cache/user/456"],
+    "expected_indices": {
+      "cache/user/123": 20,
+      "cache/user/456": 21
+    }
+  }'
 ```
 
 ---
@@ -345,6 +519,30 @@ curl -X POST http://localhost:8500/batch/services/deregister \
 }
 ```
 
+**400 Bad Request** - Missing CAS index:
+```json
+{
+  "error": "Bad Request",
+  "message": "Missing expected index for key: config/database"
+}
+```
+
+**409 Conflict** - CAS check failed:
+```json
+{
+  "error": "CAS conflict",
+  "message": "CAS conflict for key 'config/app': expected ModifyIndex 10, but current is 15"
+}
+```
+
+**404 Not Found** - Key not found for CAS update:
+```json
+{
+  "error": "Not Found",
+  "message": "Key 'config/missing' not found (expected for CAS update)"
+}
+```
+
 **500 Internal Server Error** - Storage failure:
 ```json
 {
@@ -360,9 +558,10 @@ curl -X POST http://localhost:8500/batch/services/deregister \
 ### Benefits of Batch Operations
 
 1. **Reduced Network Overhead**: Single HTTP request instead of multiple
-2. **Atomic Operations**: KV batch set/delete are atomic
+2. **Atomic Operations**: KV batch set/delete are atomic (including CAS operations)
 3. **Better Throughput**: Process thousands of items efficiently
 4. **Lower Latency**: Eliminate round-trip delays
+5. **Strong Consistency**: CAS operations ensure no lost updates in concurrent environments
 
 ### Best Practices
 
@@ -394,6 +593,8 @@ curl -X POST http://localhost:8500/batch/services/deregister \
 | KV Batch Get | 1000 keys | Memory efficiency |
 | KV Batch Set | 1000 items | Atomic transaction size |
 | KV Batch Delete | 1000 keys | Atomic transaction size |
+| KV Batch Set CAS | 1000 items | Atomic transaction size |
+| KV Batch Delete CAS | 1000 keys | Atomic transaction size |
 | Service Batch Get | 100 services | Response size |
 | Service Batch Register | 100 services | Validation overhead |
 | Service Batch Deregister | 100 services | Cleanup overhead |
@@ -462,6 +663,12 @@ Monitor batch operation performance with Prometheus metrics:
 konsul_kv_operations_total{operation="batch_get"}
 konsul_kv_operations_total{operation="batch_set"}
 konsul_kv_operations_total{operation="batch_delete"}
+
+# Batch KV CAS operations
+konsul_kv_operations_total{operation="batch_set_cas",status="success"}
+konsul_kv_operations_total{operation="batch_set_cas",status="cas_conflict"}
+konsul_kv_operations_total{operation="batch_delete_cas",status="success"}
+konsul_kv_operations_total{operation="batch_delete_cas",status="cas_conflict"}
 
 # Batch service operations
 konsul_service_operations_total{operation="batch_get"}
@@ -535,6 +742,100 @@ curl -X POST http://localhost:8500/batch/services/get \
   }'
 ```
 
+### 5. Distributed Counter with CAS
+
+Safely update multiple counters without race conditions:
+
+```bash
+# Get current values and indices
+curl -X GET http://localhost:8500/kv/counter/page_views
+curl -X GET http://localhost:8500/kv/counter/api_calls
+
+# Atomically update both counters with CAS
+curl -X POST http://localhost:8500/batch/kv/set-cas \
+  -H "Content-Type: application/json" \
+  -d '{
+    "items": {
+      "counter/page_views": "15042",
+      "counter/api_calls": "8521"
+    },
+    "expected_indices": {
+      "counter/page_views": 120,
+      "counter/api_calls": 95
+    }
+  }'
+```
+
+### 6. Leader Election / Distributed Lock
+
+Implement distributed locking with create-only CAS:
+
+```bash
+# Try to acquire multiple locks atomically
+curl -X POST http://localhost:8500/batch/kv/set-cas \
+  -H "Content-Type: application/json" \
+  -d '{
+    "items": {
+      "locks/resource-1": "node-123",
+      "locks/resource-2": "node-123",
+      "locks/resource-3": "node-123"
+    },
+    "expected_indices": {
+      "locks/resource-1": 0,
+      "locks/resource-2": 0,
+      "locks/resource-3": 0
+    }
+  }'
+
+# Release locks with CAS (only if you still hold them)
+curl -X POST http://localhost:8500/batch/kv/delete-cas \
+  -H "Content-Type: application/json" \
+  -d '{
+    "keys": ["locks/resource-1", "locks/resource-2", "locks/resource-3"],
+    "expected_indices": {
+      "locks/resource-1": 1,
+      "locks/resource-2": 1,
+      "locks/resource-3": 1
+    }
+  }'
+```
+
+### 7. Atomic Configuration Migration
+
+Migrate configuration keys safely with CAS to ensure no concurrent modifications:
+
+```bash
+# Read old config and get indices
+curl -X GET http://localhost:8500/kv/old/config/db
+curl -X GET http://localhost:8500/kv/old/config/cache
+
+# Atomically create new config and delete old config
+# First, create new config with CAS
+curl -X POST http://localhost:8500/batch/kv/set-cas \
+  -H "Content-Type: application/json" \
+  -d '{
+    "items": {
+      "config/v2/database": "postgres://new-host:5432/db",
+      "config/v2/cache": "redis://new-cache:6379"
+    },
+    "expected_indices": {
+      "config/v2/database": 0,
+      "config/v2/cache": 0
+    }
+  }'
+
+# Then, delete old config with CAS (ensures no changes during migration)
+curl -X POST http://localhost:8500/batch/kv/delete-cas \
+  -H "Content-Type: application/json" \
+  -d '{
+    "keys": ["old/config/db", "old/config/cache"],
+    "expected_indices": {
+      "old/config/db": 42,
+      "old/config/cache": 38
+    }
+  }'
+```
+
 ---
 
 ## Client Libraries
@@ -581,6 +882,36 @@ func main() {
         panic(err)
     }
 }
+
+// Batch Set with CAS
+type BatchKVSetCASRequest struct {
+    Items           map[string]string  `json:"items"`
+    ExpectedIndices map[string]uint64  `json:"expected_indices"`
+}
+
+func BatchSetKVWithCAS(items map[string]string, indices map[string]uint64) error {
+    req := BatchKVSetCASRequest{
+        Items:           items,
+        ExpectedIndices: indices,
+    }
+    body, _ := json.Marshal(req)
+
+    resp, err := http.Post(
+        "http://localhost:8500/batch/kv/set-cas",
+        "application/json",
+        bytes.NewReader(body),
+    )
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode == 409 {
+        return fmt.Errorf("CAS conflict: concurrent modification detected")
+    }
+
+    return nil
+}
 ```
 
 ### JavaScript
@@ -608,6 +939,44 @@ const result = await batchSetKV({
   'config/db': 'postgres://localhost:5432',
 });
 console.log(`Set ${result.count} keys`);
+
+// Batch Set with CAS
+async function batchSetKVWithCAS(items, expectedIndices) {
+  const response = await fetch('http://localhost:8500/batch/kv/set-cas', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ items, expected_indices: expectedIndices }),
+  });
+
+  if (response.status === 409) {
+    throw new Error('CAS conflict: concurrent modification detected');
+  }
+
+  if (!response.ok) {
+    throw new Error(`Batch set CAS failed: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+// Usage with CAS (create-only)
+try {
+  const result = await batchSetKVWithCAS(
+    {
+      'locks/resource-1': 'node-123',
+      'locks/resource-2': 'node-123',
+    },
+    {
+      'locks/resource-1': 0,  // Create only
+      'locks/resource-2': 0,  // Create only
+    }
+  );
+  console.log(`Acquired ${result.count} locks`);
+} catch (error) {
+  console.error('Failed to acquire locks:', error.message);
+}
 ```
 
 ### Python
@@ -629,6 +998,38 @@ result = batch_set_kv({
     'config/db': 'postgres://localhost:5432',
 })
 print(f"Set {result['count']} keys")
+
+# Batch Set with CAS
+def batch_set_kv_cas(items: dict, expected_indices: dict) -> dict:
+    response = requests.post(
+        'http://localhost:8500/batch/kv/set-cas',
+        json={
+            'items': items,
+            'expected_indices': expected_indices
+        }
+    )
+
+    if response.status_code == 409:
+        raise Exception('CAS conflict: concurrent modification detected')
+
+    response.raise_for_status()
+    return response.json()
+
+# Usage with CAS (conditional update)
+try:
+    result = batch_set_kv_cas(
+        items={
+            'config/database/host': 'new-host',
+            'config/database/port': '5433'
+        },
+        expected_indices={
+            'config/database/host': 42,
+            'config/database/port': 43
+        }
+    )
+    print(f"Updated {result['count']} keys with CAS")
+except Exception as e:
+    print(f"CAS update failed: {e}")
 ```
 
 ---
@@ -638,17 +1039,29 @@ print(f"Set {result['count']} keys")
 Run batch operations tests:
 
 ```bash
-# Run all batch tests
+# Run all batch tests (20 tests total)
 go test -v ./internal/handlers -run TestBatch
 
 # Run specific test
 go test -v ./internal/handlers -run TestBatchKVSet_Success
+
+# Run CAS-specific tests
+go test -v ./internal/handlers -run TestBatchKV.*CAS
 ```
+
+**Test Coverage**:
+- Batch KV Get: 3 tests
+- Batch KV Set: 2 tests
+- Batch KV Delete: 2 tests
+- Batch KV Set CAS: 4 tests (create-only, conditional update, conflict, missing indices)
+- Batch KV Delete CAS: 3 tests (success, conflict, missing indices)
+- Batch Service operations: 6 tests
 
 ---
 
 ## See Also
 
+- [CAS Operations Guide](./CAS.md) - Complete guide to Compare-And-Swap operations
 - [KV Store API](./kv-store-api.md) - Single KV operations
 - [Service Discovery API](./service-discovery-api.md) - Single service operations
 - [Audit Logging](./audit-logging.md) - Audit events for batch operations
