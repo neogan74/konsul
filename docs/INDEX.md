@@ -17,6 +17,8 @@ Start here if you're new to Konsul:
 
 ### Key-Value Store
 - **Operations**: See [Main README](../README.md#kv-storage)
+- **Batch Operations**: [Batch Operations API](batch-operations-api.md) - Atomic batch KV and CAS operations
+- **CAS Operations**: [CAS Guide](CAS.md) - Compare-And-Swap for atomic updates
 - **Persistence**: [Persistence API](persistence-api.md) | [BadgerDB Implementation](persistence-badger.md) | [Architecture](persistence-implementation.md)
 
 ### Service Discovery
@@ -141,6 +143,7 @@ Quick starts and tutorials for end users:
 ### API References
 Complete API documentation:
 - [Authentication API](authentication-api.md)
+- [Batch Operations API](batch-operations-api.md)
 - [DNS API](dns-api.md)
 - [Persistence API](persistence-api.md)
 - [Template Engine API](template-engine-api.md)
@@ -195,6 +198,7 @@ All environment variables and configuration options:
 Quick reference for all API endpoints:
 - [KV Store Endpoints](../README.md#kv-storage)
 - [Service Discovery Endpoints](../README.md#service-discovery)
+- [Batch Operations Endpoints](batch-operations-api.md)
 - [Authentication Endpoints](../README.md#authentication-endpoints)
 - [Health Endpoints](../README.md#monitoring--health-checks)
 - [Metrics Endpoint](../README.md#metrics-prometheus)
@@ -217,6 +221,7 @@ Quick reference for konsulctl:
 |------|---------------|
 | **Deploy Konsul** | [Deployment Guide](deployment.md) |
 | **Use the CLI** | [konsulctl Documentation](konsulctl.md) |
+| **Use batch operations** | [Batch Operations API](batch-operations-api.md) |
 | **Set up authentication** | [Authentication Guide](authentication.md) |
 | **Enable DNS** | [DNS Service Discovery](dns-service-discovery.md) |
 | **Create templates** | [Template Engine User Guide](template-engine.md) |
