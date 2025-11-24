@@ -396,3 +396,17 @@ func (s *Service) UpdateConfig(requestsPerSec *float64, burst *int) bool {
 
 	return changed
 }
+
+// Violation represents a rate limit violation event
+type Violation struct {
+	Timestamp time.Time `json:"timestamp"`
+	Endpoint  string    `json:"endpoint"`
+	Remaining float64   `json:"remaining"` // Tokens remaining at time of violation
+}
+
+// CustomConfig represents a temporary custom rate limit configuration
+type CustomConfig struct {
+	Rate      float64   `json:"rate"`
+	Burst     int       `json:"burst"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
