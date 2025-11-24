@@ -11,7 +11,16 @@ type Limiter struct {
 	burst      int       // maximum burst size
 	tokens     float64   // current tokens
 	lastUpdate time.Time // last token update time
-	mu         sync.Mutex
+
+	// Observability fields
+	requestsAllowed uint64      // Total allowed requests
+	requestsDenied  uint64      // Total denied requests
+	firstSeen       time.Time   // First request timestamp
+	lastRequest     time.Time   // Most recent request timestamp
+	violations      []Violation // Recent violations (max 100)
+	customConfig    *CustomConfig
+
+	mu sync.Mutex
 }
 
 // NewLimiter creates a new rate limiter with the given rate and burst
