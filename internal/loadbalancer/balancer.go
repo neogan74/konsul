@@ -250,3 +250,47 @@ func (b *Balancer) GetStrategy() Strategy {
 func (b *Balancer) SetStrategy(strategy Strategy) {
 	b.strategy = strategy
 }
+
+// SelectServiceWithOptions selects a service instance using advanced options
+// Supports IP hash, ring hash, and latency-based strategies
+func (b *Balancer) SelectServiceWithOptions(serviceTag string, opts SelectOptions) (store.Service, bool) {
+	// Get all instances with the specified tag
+	instances := b.store.QueryByTags([]string{serviceTag})
+
+	if len(instances) == 0 {
+		return store.Service{}, false
+	}
+
+	// Select based on strategy and options
+	switch b.strategy {
+	case StrategyIPHash:
+		return b.selectIPHash(instances, opts.ClientIP), true
+	case StrategyRingHash:
+		return b.selectRingHash(serviceTag, instances, opts.SessionKey), true
+	case StrategyLatencyBased:
+		return b.selectLatencyBased(instances, opts.ClientRegion), true
+	default:
+		return b.SelectService(serviceTag)
+	}
+}
+
+// SelectServiceByTagsWithOptions selects a service instance matching tags with advanced options
+func (b *Balancer) SelectServiceByTagsWithOptions(tags []string, opts SelectOptions) (store.Service, bool) {
+	services := b.store.QueryByTags(tags)
+	if len(services) == 0 {
+		return store.Service{}, false
+	}
+
+	// Apply strategy with options
+	switch b.strategy {
+	case StrategyIPHash:
+		return b.selectIPHash(services, opts.ClientIP), true
+	case StrategyRingHash:
+		serviceName := services[0].Name
+		return b.selectRingHash(serviceName, services, opts.SessionKey), true
+	case StrategyLatencyBased:
+		return b.selectLatencyBased(services, opts.ClientRegion), true
+	default:
+		return b.SelectServiceByTags(tags)
+	}
+}
