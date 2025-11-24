@@ -11,16 +11,31 @@ type Limiter struct {
 	burst      int       // maximum burst size
 	tokens     float64   // current tokens
 	lastUpdate time.Time // last token update time
-	mu         sync.Mutex
+
+	// Observability fields
+	requestsAllowed uint64      // Total allowed requests
+	requestsDenied  uint64      // Total denied requests
+	firstSeen       time.Time   // First request timestamp
+	lastRequest     time.Time   // Most recent request timestamp
+	violations      []Violation // Recent violations (max 100)
+	customConfig    *CustomConfig
+
+	mu sync.Mutex
 }
 
 // NewLimiter creates a new rate limiter with the given rate and burst
 func NewLimiter(rate float64, burst int) *Limiter {
+	now := time.Now()
 	return &Limiter{
-		rate:       rate,
-		burst:      burst,
-		tokens:     float64(burst),
-		lastUpdate: time.Now(),
+		rate:            rate,
+		burst:           burst,
+		tokens:          float64(burst),
+		lastUpdate:      now,
+		firstSeen:       now,
+		lastRequest:     now,
+		requestsAllowed: 0,
+		requestsDenied:  0,
+		violations:      make([]Violation, 0, 100),
 	}
 }
 
@@ -29,13 +44,32 @@ func (l *Limiter) Allow() bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	return l.allowWithEndpoint("")
+}
+
+// AllowWithEndpoint checks if a request is allowed and tracks the endpoint
+func (l *Limiter) AllowWithEndpoint(endpoint string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	return l.allowWithEndpoint(endpoint)
+}
+
+// allowWithEndpoint is the internal implementation (must be called with lock held)
+func (l *Limiter) allowWithEndpoint(endpoint string) bool {
 	now := time.Now()
+	l.lastRequest = now
+
+	// Get effective rate and burst (considering custom config)
+	rate, burst := l.getEffectiveConfig()
+
+	// Calculate elapsed time since last update
 	elapsed := now.Sub(l.lastUpdate).Seconds()
 
 	// Add tokens based on elapsed time
-	l.tokens += elapsed * l.rate
-	if l.tokens > float64(l.burst) {
-		l.tokens = float64(l.burst)
+	l.tokens += elapsed * rate
+	if l.tokens > float64(burst) {
+		l.tokens = float64(burst)
 	}
 
 	l.lastUpdate = now
@@ -43,8 +77,17 @@ func (l *Limiter) Allow() bool {
 	// Check if we have at least one token
 	if l.tokens >= 1.0 {
 		l.tokens -= 1.0
+		l.requestsAllowed++
 		return true
 	}
+
+	// Rate limit exceeded - record violation
+	l.requestsDenied++
+	l.recordViolation(Violation{
+		Timestamp: now,
+		Endpoint:  endpoint,
+		Remaining: l.tokens,
+	})
 
 	return false
 }
@@ -304,6 +347,16 @@ func (s *Service) GetConfig() Config {
 	return s.config
 }
 
+// GetIPStore returns the IP-based store (can be nil)
+func (s *Service) GetIPStore() *Store {
+	return s.ipStore
+}
+
+// GetAPIKeyStore returns the API key-based store (can be nil)
+func (s *Service) GetAPIKeyStore() *Store {
+	return s.keyStore
+}
+
 // ResetAllIP resets all IP-based rate limiters
 func (s *Service) ResetAllIP() {
 	if s.ipStore != nil {
@@ -386,4 +439,124 @@ func (s *Service) UpdateConfig(requestsPerSec *float64, burst *int) bool {
 	// To apply to all, would need to reset all limiters
 
 	return changed
+}
+
+// getEffectiveConfig returns the current effective rate and burst
+// considering custom config with expiry (must be called with lock held)
+func (l *Limiter) getEffectiveConfig() (rate float64, burst int) {
+	// Check if custom config exists and hasn't expired
+	if l.customConfig != nil && time.Now().Before(l.customConfig.ExpiresAt) {
+		return l.customConfig.Rate, l.customConfig.Burst
+	}
+
+	// Clear expired custom config
+	if l.customConfig != nil && time.Now().After(l.customConfig.ExpiresAt) {
+		l.customConfig = nil
+	}
+
+	return l.rate, l.burst
+}
+
+// recordViolation adds a violation to the history (must be called with lock held)
+// Keeps only the most recent 100 violations
+func (l *Limiter) recordViolation(v Violation) {
+	const maxViolations = 100
+
+	l.violations = append(l.violations, v)
+
+	// Trim if exceeds max
+	if len(l.violations) > maxViolations {
+		// Keep only the most recent maxViolations
+		l.violations = l.violations[len(l.violations)-maxViolations:]
+	}
+}
+
+// SetCustomConfig sets a temporary custom rate limit configuration
+func (l *Limiter) SetCustomConfig(rate float64, burst int, duration time.Duration) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	l.customConfig = &CustomConfig{
+		Rate:      rate,
+		Burst:     burst,
+		ExpiresAt: time.Now().Add(duration),
+	}
+
+	// Adjust tokens if new burst is lower
+	if l.tokens > float64(burst) {
+		l.tokens = float64(burst)
+	}
+}
+
+// ClearCustomConfig removes any custom configuration
+func (l *Limiter) ClearCustomConfig() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.customConfig = nil
+}
+
+// GetStats returns statistics about this limiter
+func (l *Limiter) GetStats() (allowed, denied uint64, violations []Violation) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	// Make a copy of violations to avoid race conditions
+	violationsCopy := make([]Violation, len(l.violations))
+	copy(violationsCopy, l.violations)
+
+	return l.requestsAllowed, l.requestsDenied, violationsCopy
+}
+
+// GetTimestamps returns first seen and last request timestamps
+func (l *Limiter) GetTimestamps() (firstSeen, lastRequest time.Time) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.firstSeen, l.lastRequest
+}
+
+// GetHeaders returns RFC 6585 compliant rate limit headers
+// Returns: limit (max burst), remaining tokens, reset timestamp (Unix)
+func (l *Limiter) GetHeaders() (limit int, remaining int, resetAt int64) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	// Get effective config
+	rate, burst := l.getEffectiveConfig()
+
+	// Limit is the burst size
+	limit = burst
+
+	// Remaining is current tokens (floor to 0)
+	remaining = int(l.tokens)
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	// Calculate reset time (when bucket will have at least 1 token)
+	now := time.Now()
+	if l.tokens < 1.0 {
+		// Calculate seconds needed to reach 1 token
+		tokensNeeded := 1.0 - l.tokens
+		secondsToWait := tokensNeeded / rate
+		resetAt = now.Add(time.Duration(secondsToWait * float64(time.Second))).Unix()
+	} else {
+		// Already have tokens, reset time is now
+		resetAt = now.Unix()
+	}
+
+	return
+}
+
+// Violation represents a rate limit violation event
+type Violation struct {
+	Timestamp time.Time `json:"timestamp"`
+	Endpoint  string    `json:"endpoint"`
+	Remaining float64   `json:"remaining"` // Tokens remaining at time of violation
+}
+
+// CustomConfig represents a temporary custom rate limit configuration
+type CustomConfig struct {
+	Rate      float64   `json:"rate"`
+	Burst     int       `json:"burst"`
+	ExpiresAt time.Time `json:"expires_at"`
 }
