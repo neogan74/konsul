@@ -44,13 +44,32 @@ func (l *Limiter) Allow() bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	return l.allowWithEndpoint("")
+}
+
+// AllowWithEndpoint checks if a request is allowed and tracks the endpoint
+func (l *Limiter) AllowWithEndpoint(endpoint string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	return l.allowWithEndpoint(endpoint)
+}
+
+// allowWithEndpoint is the internal implementation (must be called with lock held)
+func (l *Limiter) allowWithEndpoint(endpoint string) bool {
 	now := time.Now()
+	l.lastRequest = now
+
+	// Get effective rate and burst (considering custom config)
+	rate, burst := l.getEffectiveConfig()
+
+	// Calculate elapsed time since last update
 	elapsed := now.Sub(l.lastUpdate).Seconds()
 
 	// Add tokens based on elapsed time
-	l.tokens += elapsed * l.rate
-	if l.tokens > float64(l.burst) {
-		l.tokens = float64(l.burst)
+	l.tokens += elapsed * rate
+	if l.tokens > float64(burst) {
+		l.tokens = float64(burst)
 	}
 
 	l.lastUpdate = now
@@ -58,8 +77,17 @@ func (l *Limiter) Allow() bool {
 	// Check if we have at least one token
 	if l.tokens >= 1.0 {
 		l.tokens -= 1.0
+		l.requestsAllowed++
 		return true
 	}
+
+	// Rate limit exceeded - record violation
+	l.requestsDenied++
+	l.recordViolation(Violation{
+		Timestamp: now,
+		Endpoint:  endpoint,
+		Remaining: l.tokens,
+	})
 
 	return false
 }
