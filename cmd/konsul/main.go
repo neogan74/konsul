@@ -504,6 +504,8 @@ func main() {
 	batchRoutes.Post("/kv/get", batchHandler.BatchKVGet)
 	batchRoutes.Post("/kv/set", batchHandler.BatchKVSet)
 	batchRoutes.Post("/kv/delete", batchHandler.BatchKVDelete)
+	batchRoutes.Post("/kv/set-cas", batchHandler.BatchKVSetCAS)
+	batchRoutes.Post("/kv/delete-cas", batchHandler.BatchKVDeleteCAS)
 	// Service batch operations
 	batchRoutes.Post("/services/get", batchHandler.BatchServiceGet)
 	batchRoutes.Post("/services/register", batchHandler.BatchServiceRegister)

@@ -552,3 +552,343 @@ func TestBatchKVGet_InvalidJSON(t *testing.T) {
 		t.Errorf("Expected status 400, got %d", resp.StatusCode)
 	}
 }
+
+func TestBatchKVSetCAS_CreateOnly_Success(t *testing.T) {
+	app, handler := setupBatchTestApp()
+	app.Post("/batch/kv/set-cas", handler.BatchKVSetCAS)
+
+	// Create-only with CAS=0 for all keys
+	reqBody := BatchKVSetCASRequest{
+		Items: map[string]string{
+			"new_key1": "value1",
+			"new_key2": "value2",
+			"new_key3": "value3",
+		},
+		ExpectedIndices: map[string]uint64{
+			"new_key1": 0,
+			"new_key2": 0,
+			"new_key3": 0,
+		},
+	}
+	body, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest("POST", "/batch/kv/set-cas", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	var result BatchKVSetCASResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if result.Count != 3 {
+		t.Errorf("Expected count 3, got %d", result.Count)
+	}
+	if len(result.NewIndices) != 3 {
+		t.Errorf("Expected 3 new indices, got %d", len(result.NewIndices))
+	}
+
+	// Verify keys were created
+	val1, ok1 := handler.kvStore.Get("new_key1")
+	val2, ok2 := handler.kvStore.Get("new_key2")
+	val3, ok3 := handler.kvStore.Get("new_key3")
+
+	if !ok1 || val1 != "value1" {
+		t.Error("new_key1 should exist with value1")
+	}
+	if !ok2 || val2 != "value2" {
+		t.Error("new_key2 should exist with value2")
+	}
+	if !ok3 || val3 != "value3" {
+		t.Error("new_key3 should exist with value3")
+	}
+}
+
+func TestBatchKVSetCAS_ConditionalUpdate_Success(t *testing.T) {
+	app, handler := setupBatchTestApp()
+	app.Post("/batch/kv/set-cas", handler.BatchKVSetCAS)
+
+	// Create initial keys
+	handler.kvStore.Set("key1", "old_value1")
+	handler.kvStore.Set("key2", "old_value2")
+
+	// Get current indices
+	entry1, _ := handler.kvStore.GetEntry("key1")
+	entry2, _ := handler.kvStore.GetEntry("key2")
+
+	// Update with correct indices
+	reqBody := BatchKVSetCASRequest{
+		Items: map[string]string{
+			"key1": "new_value1",
+			"key2": "new_value2",
+		},
+		ExpectedIndices: map[string]uint64{
+			"key1": entry1.ModifyIndex,
+			"key2": entry2.ModifyIndex,
+		},
+	}
+	body, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest("POST", "/batch/kv/set-cas", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	// Verify values were updated
+	val1, _ := handler.kvStore.Get("key1")
+	val2, _ := handler.kvStore.Get("key2")
+
+	if val1 != "new_value1" {
+		t.Errorf("Expected key1=new_value1, got %s", val1)
+	}
+	if val2 != "new_value2" {
+		t.Errorf("Expected key2=new_value2, got %s", val2)
+	}
+}
+
+func TestBatchKVSetCAS_Conflict(t *testing.T) {
+	app, handler := setupBatchTestApp()
+	app.Post("/batch/kv/set-cas", handler.BatchKVSetCAS)
+
+	// Create initial key
+	handler.kvStore.Set("key1", "value1")
+	entry1, _ := handler.kvStore.GetEntry("key1")
+
+	// Modify the key to change its index
+	handler.kvStore.Set("key1", "value1_modified")
+
+	// Try to update with old index - should fail
+	reqBody := BatchKVSetCASRequest{
+		Items: map[string]string{
+			"key1": "value1_new",
+			"key2": "value2",
+		},
+		ExpectedIndices: map[string]uint64{
+			"key1": entry1.ModifyIndex, // Old index - will conflict
+			"key2": 0,                   // Create-only
+		},
+	}
+	body, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest("POST", "/batch/kv/set-cas", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 409 {
+		t.Errorf("Expected status 409 (conflict), got %d", resp.StatusCode)
+	}
+
+	// Verify NO keys were modified (atomicity)
+	val1, _ := handler.kvStore.Get("key1")
+	_, ok2 := handler.kvStore.Get("key2")
+
+	if val1 != "value1_modified" {
+		t.Errorf("key1 should not have been modified due to conflict")
+	}
+	if ok2 {
+		t.Error("key2 should not have been created due to conflict")
+	}
+}
+
+func TestBatchKVSetCAS_MissingIndices(t *testing.T) {
+	app, handler := setupBatchTestApp()
+	app.Post("/batch/kv/set-cas", handler.BatchKVSetCAS)
+
+	// Missing expected index for key2
+	reqBody := BatchKVSetCASRequest{
+		Items: map[string]string{
+			"key1": "value1",
+			"key2": "value2",
+		},
+		ExpectedIndices: map[string]uint64{
+			"key1": 0,
+			// Missing key2
+		},
+	}
+	body, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest("POST", "/batch/kv/set-cas", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 400 {
+		t.Errorf("Expected status 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestBatchKVDeleteCAS_Success(t *testing.T) {
+	app, handler := setupBatchTestApp()
+	app.Post("/batch/kv/delete-cas", handler.BatchKVDeleteCAS)
+
+	// Create some keys
+	handler.kvStore.Set("del1", "value1")
+	handler.kvStore.Set("del2", "value2")
+	handler.kvStore.Set("del3", "value3")
+	handler.kvStore.Set("keep", "keep_value")
+
+	// Get current indices
+	entry1, _ := handler.kvStore.GetEntry("del1")
+	entry2, _ := handler.kvStore.GetEntry("del2")
+	entry3, _ := handler.kvStore.GetEntry("del3")
+
+	// Delete with correct indices
+	reqBody := BatchKVDeleteCASRequest{
+		Keys: []string{"del1", "del2", "del3"},
+		ExpectedIndices: map[string]uint64{
+			"del1": entry1.ModifyIndex,
+			"del2": entry2.ModifyIndex,
+			"del3": entry3.ModifyIndex,
+		},
+	}
+	body, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest("POST", "/batch/kv/delete-cas", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	var result BatchKVDeleteCASResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if result.Count != 3 {
+		t.Errorf("Expected count 3, got %d", result.Count)
+	}
+
+	// Verify keys were deleted
+	_, ok1 := handler.kvStore.Get("del1")
+	_, ok2 := handler.kvStore.Get("del2")
+	_, ok3 := handler.kvStore.Get("del3")
+	_, okKeep := handler.kvStore.Get("keep")
+
+	if ok1 {
+		t.Error("del1 should have been deleted")
+	}
+	if ok2 {
+		t.Error("del2 should have been deleted")
+	}
+	if ok3 {
+		t.Error("del3 should have been deleted")
+	}
+	if !okKeep {
+		t.Error("keep should not have been deleted")
+	}
+}
+
+func TestBatchKVDeleteCAS_Conflict(t *testing.T) {
+	app, handler := setupBatchTestApp()
+	app.Post("/batch/kv/delete-cas", handler.BatchKVDeleteCAS)
+
+	// Create keys
+	handler.kvStore.Set("key1", "value1")
+	handler.kvStore.Set("key2", "value2")
+
+	entry1, _ := handler.kvStore.GetEntry("key1")
+	entry2, _ := handler.kvStore.GetEntry("key2")
+
+	// Modify key1 to change its index
+	handler.kvStore.Set("key1", "value1_modified")
+
+	// Try to delete with old index for key1
+	reqBody := BatchKVDeleteCASRequest{
+		Keys: []string{"key1", "key2"},
+		ExpectedIndices: map[string]uint64{
+			"key1": entry1.ModifyIndex, // Old index - will conflict
+			"key2": entry2.ModifyIndex,
+		},
+	}
+	body, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest("POST", "/batch/kv/delete-cas", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 409 {
+		t.Errorf("Expected status 409 (conflict), got %d", resp.StatusCode)
+	}
+
+	// Verify NO keys were deleted (atomicity)
+	_, ok1 := handler.kvStore.Get("key1")
+	_, ok2 := handler.kvStore.Get("key2")
+
+	if !ok1 {
+		t.Error("key1 should not have been deleted due to conflict")
+	}
+	if !ok2 {
+		t.Error("key2 should not have been deleted due to conflict")
+	}
+}
+
+func TestBatchKVDeleteCAS_MissingIndices(t *testing.T) {
+	app, handler := setupBatchTestApp()
+	app.Post("/batch/kv/delete-cas", handler.BatchKVDeleteCAS)
+
+	handler.kvStore.Set("key1", "value1")
+	handler.kvStore.Set("key2", "value2")
+
+	entry1, _ := handler.kvStore.GetEntry("key1")
+
+	// Missing expected index for key2
+	reqBody := BatchKVDeleteCASRequest{
+		Keys: []string{"key1", "key2"},
+		ExpectedIndices: map[string]uint64{
+			"key1": entry1.ModifyIndex,
+			// Missing key2
+		},
+	}
+	body, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest("POST", "/batch/kv/delete-cas", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 400 {
+		t.Errorf("Expected status 400, got %d", resp.StatusCode)
+	}
+}
