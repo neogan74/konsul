@@ -431,6 +431,79 @@ func (s *Service) UpdateConfig(requestsPerSec *float64, burst *int) bool {
 	return changed
 }
 
+// getEffectiveConfig returns the current effective rate and burst
+// considering custom config with expiry (must be called with lock held)
+func (l *Limiter) getEffectiveConfig() (rate float64, burst int) {
+	// Check if custom config exists and hasn't expired
+	if l.customConfig != nil && time.Now().Before(l.customConfig.ExpiresAt) {
+		return l.customConfig.Rate, l.customConfig.Burst
+	}
+
+	// Clear expired custom config
+	if l.customConfig != nil && time.Now().After(l.customConfig.ExpiresAt) {
+		l.customConfig = nil
+	}
+
+	return l.rate, l.burst
+}
+
+// recordViolation adds a violation to the history (must be called with lock held)
+// Keeps only the most recent 100 violations
+func (l *Limiter) recordViolation(v Violation) {
+	const maxViolations = 100
+
+	l.violations = append(l.violations, v)
+
+	// Trim if exceeds max
+	if len(l.violations) > maxViolations {
+		// Keep only the most recent maxViolations
+		l.violations = l.violations[len(l.violations)-maxViolations:]
+	}
+}
+
+// SetCustomConfig sets a temporary custom rate limit configuration
+func (l *Limiter) SetCustomConfig(rate float64, burst int, duration time.Duration) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	l.customConfig = &CustomConfig{
+		Rate:      rate,
+		Burst:     burst,
+		ExpiresAt: time.Now().Add(duration),
+	}
+
+	// Adjust tokens if new burst is lower
+	if l.tokens > float64(burst) {
+		l.tokens = float64(burst)
+	}
+}
+
+// ClearCustomConfig removes any custom configuration
+func (l *Limiter) ClearCustomConfig() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.customConfig = nil
+}
+
+// GetStats returns statistics about this limiter
+func (l *Limiter) GetStats() (allowed, denied uint64, violations []Violation) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	// Make a copy of violations to avoid race conditions
+	violationsCopy := make([]Violation, len(l.violations))
+	copy(violationsCopy, l.violations)
+
+	return l.requestsAllowed, l.requestsDenied, violationsCopy
+}
+
+// GetTimestamps returns first seen and last request timestamps
+func (l *Limiter) GetTimestamps() (firstSeen, lastRequest time.Time) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.firstSeen, l.lastRequest
+}
+
 // Violation represents a rate limit violation event
 type Violation struct {
 	Timestamp time.Time `json:"timestamp"`
