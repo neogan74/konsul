@@ -15,19 +15,34 @@ const (
 	// StrategyRoundRobin distributes requests evenly across all services
 	StrategyRoundRobin Strategy = "round-robin"
 
+	// StrategyWeightedRoundRobin distributes requests based on instance weights
+	StrategyWeightedRoundRobin Strategy = "weighted-round-robin"
+
 	// StrategyRandom selects a random service for each request
 	StrategyRandom Strategy = "random"
 
+	// StrategyWeightedRandom selects a random service with weight consideration
+	StrategyWeightedRandom Strategy = "weighted-random"
+
 	// StrategyLeastConnections selects the service with the fewest active connections
 	StrategyLeastConnections Strategy = "least-connections"
+
+	// StrategyIPHash provides sticky sessions based on client IP
+	StrategyIPHash Strategy = "ip-hash"
+
+	// StrategyRingHash provides consistent hashing for distributed systems
+	StrategyRingHash Strategy = "ring-hash"
+
+	// StrategyLatencyBased routes to geographically nearest instance
+	StrategyLatencyBased Strategy = "latency-based"
 )
 
 // Balancer provides load balancing capabilities for service discovery
 type Balancer struct {
 	store       *store.ServiceStore
 	strategy    Strategy
-	counters    map[string]*uint64      // Round-robin counters per service name
-	connections map[string]*int32       // Active connection counters per service instance
+	counters    map[string]*uint64 // Round-robin counters per service name
+	connections map[string]*int32  // Active connection counters per service instance
 	mutex       sync.RWMutex
 }
 
