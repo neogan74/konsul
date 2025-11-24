@@ -1,4 +1,4 @@
-# ADR-0011: KV Store Watch/Subscribe System
+# ADR-0021: KV Store Watch/Subscribe System
 
 **Date**: 2025-11-05
 
