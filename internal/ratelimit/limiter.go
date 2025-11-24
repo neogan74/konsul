@@ -347,6 +347,16 @@ func (s *Service) GetConfig() Config {
 	return s.config
 }
 
+// GetIPStore returns the IP-based store (can be nil)
+func (s *Service) GetIPStore() *Store {
+	return s.ipStore
+}
+
+// GetAPIKeyStore returns the API key-based store (can be nil)
+func (s *Service) GetAPIKeyStore() *Store {
+	return s.keyStore
+}
+
 // ResetAllIP resets all IP-based rate limiters
 func (s *Service) ResetAllIP() {
 	if s.ipStore != nil {
