@@ -2,9 +2,11 @@
 
 **Date**: 2025-10-28
 
-**Status**: Proposed
+**Status**: Accepted
 
 **Deciders**: Konsul Core Team
+
+**Implementation Date**: 2025-11-24
 
 **Tags**: service-discovery, filtering, metadata, search
 
