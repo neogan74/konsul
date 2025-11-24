@@ -1,6 +1,29 @@
-# Konsul service
+# Konsul
 
-In development now :> [!WARNING]
+> [!WARNING]
+> In active development
+
+**Konsul** is a lightweight, cloud-native service mesh and discovery platform built in Go. It provides essential infrastructure services for distributed systems including service registration and discovery, distributed key-value storage, health monitoring, and DNS-based service resolution.
+
+## Overview
+
+Konsul helps microservices find and communicate with each other in dynamic cloud environments. It offers:
+
+- **Service Discovery** - Register services and discover them via REST API or DNS
+- **Health Checking** - Automatic health monitoring with configurable TTL
+- **KV Store** - Distributed configuration storage with RESTful API
+- **DNS Interface** - Service discovery via standard DNS queries
+- **Authentication** - JWT and API key-based authentication
+- **Access Control** - Fine-grained ACL system for authorization
+- **GraphQL API** - Flexible querying alongside REST endpoints
+- **Admin UI** - Modern React-based web interface
+- **Metrics & Monitoring** - Prometheus integration with health endpoints
+- **Rate Limiting** - Token bucket algorithm for API protection
+- **TLS Support** - Encrypted communication with mutual TLS
+- **Persistence** - BadgerDB backend for data durability
+- **Backup & Restore** - Built-in backup management
+
+Konsul is designed to be simple to deploy, easy to operate, and production-ready out of the box.
 
 ## KV storage (map with mutex)
 
