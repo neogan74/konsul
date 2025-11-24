@@ -33,7 +33,7 @@ Each ADR follows a standard format (see [template.md](template.md)) with the fol
 | [ADR-0012](0012-cli-tool-konsulctl.md) | Command-Line Interface Tool (konsulctl) | Accepted |
 | [ADR-0013](0013-token-bucket-rate-limiting.md) | Token Bucket Rate Limiting | Accepted |
 | [ADR-0014](0014-rate-limiting-management-api.md) | Rate Limiting Management API and Observability | Proposed |
-| [ADR-0015](0015-template-engine.md) | Template Engine for Configuration Management | Proposed |
+| [ADR-0015](0015-template-engine.md) | Template Engine for Configuration Management | Accepted |
 | [ADR-0016](0016-graphql-api-interface.md) | GraphQL API Interface | Proposed |
 | [ADR-0017](0017-service-tags-metadata.md) | Service Tags and Metadata | Accepted |
 | [ADR-0018](0018-load-balancing-strategies.md) | Load Balancing Strategies | Accepted |
