@@ -36,7 +36,7 @@ Each ADR follows a standard format (see [template.md](template.md)) with the fol
 | [ADR-0015](0015-template-engine.md) | Template Engine for Configuration Management | Proposed |
 | [ADR-0016](0016-graphql-api-interface.md) | GraphQL API Interface | Proposed |
 | [ADR-0017](0017-service-tags-metadata.md) | Service Tags and Metadata | Accepted |
-| [ADR-0018](0018-load-balancing-strategies.md) | Load Balancing Strategies | Proposed |
+| [ADR-0018](0018-load-balancing-strategies.md) | Load Balancing Strategies | Accepted |
 | [ADR-0019](0019-audit-logging.md) | Audit Logging for Operational Changes | Accepted |
 | [ADR-0020](0020-compare-and-swap-operations.md) | Compare-And-Swap (CAS) Operations | Accepted |
 | [ADR-0021](0021-kv-watch-subscribe.md) | KV Store Watch/Subscribe System | Proposed |

@@ -15,19 +15,34 @@ const (
 	// StrategyRoundRobin distributes requests evenly across all services
 	StrategyRoundRobin Strategy = "round-robin"
 
+	// StrategyWeightedRoundRobin distributes requests based on instance weights
+	StrategyWeightedRoundRobin Strategy = "weighted-round-robin"
+
 	// StrategyRandom selects a random service for each request
 	StrategyRandom Strategy = "random"
 
+	// StrategyWeightedRandom selects a random service with weight consideration
+	StrategyWeightedRandom Strategy = "weighted-random"
+
 	// StrategyLeastConnections selects the service with the fewest active connections
 	StrategyLeastConnections Strategy = "least-connections"
+
+	// StrategyIPHash provides sticky sessions based on client IP
+	StrategyIPHash Strategy = "ip-hash"
+
+	// StrategyRingHash provides consistent hashing for distributed systems
+	StrategyRingHash Strategy = "ring-hash"
+
+	// StrategyLatencyBased routes to geographically nearest instance
+	StrategyLatencyBased Strategy = "latency-based"
 )
 
 // Balancer provides load balancing capabilities for service discovery
 type Balancer struct {
 	store       *store.ServiceStore
 	strategy    Strategy
-	counters    map[string]*uint64      // Round-robin counters per service name
-	connections map[string]*int32       // Active connection counters per service instance
+	counters    map[string]*uint64 // Round-robin counters per service name
+	connections map[string]*int32  // Active connection counters per service instance
 	mutex       sync.RWMutex
 }
 
@@ -57,8 +72,12 @@ func (b *Balancer) SelectService(serviceTag string) (store.Service, bool) {
 	switch b.strategy {
 	case StrategyRandom:
 		return b.selectRandom(instances), true
+	case StrategyWeightedRandom:
+		return b.selectWeightedRandom(instances), true
 	case StrategyLeastConnections:
 		return b.selectLeastConnections(instances), true
+	case StrategyWeightedRoundRobin:
+		return b.selectWeightedRoundRobin(serviceTag, instances), true
 	case StrategyRoundRobin:
 		fallthrough
 	default:
@@ -230,4 +249,48 @@ func (b *Balancer) GetStrategy() Strategy {
 // SetStrategy updates the load balancing strategy
 func (b *Balancer) SetStrategy(strategy Strategy) {
 	b.strategy = strategy
+}
+
+// SelectServiceWithOptions selects a service instance using advanced options
+// Supports IP hash, ring hash, and latency-based strategies
+func (b *Balancer) SelectServiceWithOptions(serviceTag string, opts SelectOptions) (store.Service, bool) {
+	// Get all instances with the specified tag
+	instances := b.store.QueryByTags([]string{serviceTag})
+
+	if len(instances) == 0 {
+		return store.Service{}, false
+	}
+
+	// Select based on strategy and options
+	switch b.strategy {
+	case StrategyIPHash:
+		return b.selectIPHash(instances, opts.ClientIP), true
+	case StrategyRingHash:
+		return b.selectRingHash(serviceTag, instances, opts.SessionKey), true
+	case StrategyLatencyBased:
+		return b.selectLatencyBased(instances, opts.ClientRegion), true
+	default:
+		return b.SelectService(serviceTag)
+	}
+}
+
+// SelectServiceByTagsWithOptions selects a service instance matching tags with advanced options
+func (b *Balancer) SelectServiceByTagsWithOptions(tags []string, opts SelectOptions) (store.Service, bool) {
+	services := b.store.QueryByTags(tags)
+	if len(services) == 0 {
+		return store.Service{}, false
+	}
+
+	// Apply strategy with options
+	switch b.strategy {
+	case StrategyIPHash:
+		return b.selectIPHash(services, opts.ClientIP), true
+	case StrategyRingHash:
+		serviceName := services[0].Name
+		return b.selectRingHash(serviceName, services, opts.SessionKey), true
+	case StrategyLatencyBased:
+		return b.selectLatencyBased(services, opts.ClientRegion), true
+	default:
+		return b.SelectServiceByTags(tags)
+	}
 }
