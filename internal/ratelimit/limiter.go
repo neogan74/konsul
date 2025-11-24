@@ -25,11 +25,17 @@ type Limiter struct {
 
 // NewLimiter creates a new rate limiter with the given rate and burst
 func NewLimiter(rate float64, burst int) *Limiter {
+	now := time.Now()
 	return &Limiter{
-		rate:       rate,
-		burst:      burst,
-		tokens:     float64(burst),
-		lastUpdate: time.Now(),
+		rate:            rate,
+		burst:           burst,
+		tokens:          float64(burst),
+		lastUpdate:      now,
+		firstSeen:       now,
+		lastRequest:     now,
+		requestsAllowed: 0,
+		requestsDenied:  0,
+		violations:      make([]Violation, 0, 100),
 	}
 }
 
