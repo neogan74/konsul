@@ -72,8 +72,12 @@ func (b *Balancer) SelectService(serviceTag string) (store.Service, bool) {
 	switch b.strategy {
 	case StrategyRandom:
 		return b.selectRandom(instances), true
+	case StrategyWeightedRandom:
+		return b.selectWeightedRandom(instances), true
 	case StrategyLeastConnections:
 		return b.selectLeastConnections(instances), true
+	case StrategyWeightedRoundRobin:
+		return b.selectWeightedRoundRobin(serviceTag, instances), true
 	case StrategyRoundRobin:
 		fallthrough
 	default:
