@@ -38,9 +38,15 @@ func TestRateLimitMiddleware_IPBased_Allowed(t *testing.T) {
 		t.Errorf("expected status 200, got %d", resp.StatusCode)
 	}
 
-	// Check rate limit header
-	if resp.Header.Get("X-RateLimit-Limit") != "ok" {
-		t.Errorf("expected X-RateLimit-Limit header 'ok', got %q", resp.Header.Get("X-RateLimit-Limit"))
+	// Check RFC 6585 rate limit headers
+	if resp.Header.Get("X-RateLimit-Limit") != "5" {
+		t.Errorf("expected X-RateLimit-Limit header '5', got %q", resp.Header.Get("X-RateLimit-Limit"))
+	}
+	if resp.Header.Get("X-RateLimit-Remaining") == "" {
+		t.Error("expected X-RateLimit-Remaining header to be set")
+	}
+	if resp.Header.Get("X-RateLimit-Reset") == "" {
+		t.Error("expected X-RateLimit-Reset header to be set")
 	}
 }
 
