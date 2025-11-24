@@ -504,6 +504,39 @@ func (l *Limiter) GetTimestamps() (firstSeen, lastRequest time.Time) {
 	return l.firstSeen, l.lastRequest
 }
 
+// GetHeaders returns RFC 6585 compliant rate limit headers
+// Returns: limit (max burst), remaining tokens, reset timestamp (Unix)
+func (l *Limiter) GetHeaders() (limit int, remaining int, resetAt int64) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	// Get effective config
+	rate, burst := l.getEffectiveConfig()
+
+	// Limit is the burst size
+	limit = burst
+
+	// Remaining is current tokens (floor to 0)
+	remaining = int(l.tokens)
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	// Calculate reset time (when bucket will have at least 1 token)
+	now := time.Now()
+	if l.tokens < 1.0 {
+		// Calculate seconds needed to reach 1 token
+		tokensNeeded := 1.0 - l.tokens
+		secondsToWait := tokensNeeded / rate
+		resetAt = now.Add(time.Duration(secondsToWait * float64(time.Second))).Unix()
+	} else {
+		// Already have tokens, reset time is now
+		resetAt = now.Unix()
+	}
+
+	return
+}
+
 // Violation represents a rate limit violation event
 type Violation struct {
 	Timestamp time.Time `json:"timestamp"`
