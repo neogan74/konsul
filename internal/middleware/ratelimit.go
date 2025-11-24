@@ -23,18 +23,40 @@ func RateLimitMiddleware(service *ratelimit.Service) fiber.Handler {
 
 		var allowed bool
 		var identifier string
+		var limiter *ratelimit.Limiter
+		var store *ratelimit.Store
 
 		// Check API key rate limit first if available
 		var limiterType string
 		if apiKeyID != "" {
-			allowed = service.AllowAPIKey(apiKeyID)
+			store = service.GetAPIKeyStore()
+			if store != nil {
+				limiter = store.GetLimiter(apiKeyID)
+				allowed = limiter.AllowWithEndpoint(c.Path())
+			} else {
+				allowed = true
+			}
 			identifier = fmt.Sprintf("apikey:%s", apiKeyID)
 			limiterType = "apikey"
 		} else {
 			// Fall back to IP-based rate limiting
-			allowed = service.AllowIP(clientIP)
+			store = service.GetIPStore()
+			if store != nil {
+				limiter = store.GetLimiter(clientIP)
+				allowed = limiter.AllowWithEndpoint(c.Path())
+			} else {
+				allowed = true
+			}
 			identifier = fmt.Sprintf("ip:%s", clientIP)
 			limiterType = "ip"
+		}
+
+		// Get RFC 6585 compliant headers
+		if limiter != nil {
+			limit, remaining, resetAt := limiter.GetHeaders()
+			c.Set("X-RateLimit-Limit", fmt.Sprintf("%d", limit))
+			c.Set("X-RateLimit-Remaining", fmt.Sprintf("%d", remaining))
+			c.Set("X-RateLimit-Reset", fmt.Sprintf("%d", resetAt))
 		}
 
 		if !allowed {
@@ -42,12 +64,27 @@ func RateLimitMiddleware(service *ratelimit.Service) fiber.Handler {
 			metrics.RateLimitExceeded.WithLabelValues(limiterType).Inc()
 			metrics.RateLimitRequestsTotal.WithLabelValues(limiterType, "exceeded").Inc()
 
-			// Rate limit exceeded
-			c.Set("X-RateLimit-Limit", "exceeded")
-			c.Set("X-RateLimit-Reset", fmt.Sprintf("%d", time.Now().Add(time.Second).Unix()))
+			// Calculate Retry-After in seconds
+			if limiter != nil {
+				_, _, resetAt := limiter.GetHeaders()
+				retryAfter := int(time.Unix(resetAt, 0).Sub(time.Now()).Seconds())
+				if retryAfter < 1 {
+					retryAfter = 1
+				}
+				c.Set("Retry-After", fmt.Sprintf("%d", retryAfter))
 
+				return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+					"error":       "rate_limit_exceeded",
+					"message":     fmt.Sprintf("Rate limit exceeded. Please retry after %d seconds.", retryAfter),
+					"identifier":  identifier,
+					"retry_after": retryAfter,
+					"reset_at":    time.Unix(resetAt, 0).Format(time.RFC3339),
+				})
+			}
+
+			// Fallback if limiter is nil (shouldn't happen)
 			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
-				"error":      "rate limit exceeded",
+				"error":      "rate_limit_exceeded",
 				"message":    "Too many requests. Please try again later.",
 				"identifier": identifier,
 			})
@@ -55,9 +92,6 @@ func RateLimitMiddleware(service *ratelimit.Service) fiber.Handler {
 
 		// Record successful rate limit check
 		metrics.RateLimitRequestsTotal.WithLabelValues(limiterType, "allowed").Inc()
-
-		// Set rate limit headers (informational)
-		c.Set("X-RateLimit-Limit", "ok")
 
 		return c.Next()
 	}
