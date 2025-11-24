@@ -2,7 +2,9 @@
 
 **Date**: 2025-10-10
 
-**Status**: Proposed
+**Status**: Accepted
+
+**Implementation Date**: 2025-10-16
 
 **Deciders**: Konsul Core Team
 
