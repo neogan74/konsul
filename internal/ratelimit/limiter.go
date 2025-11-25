@@ -273,9 +273,10 @@ type Config struct {
 
 // Service manages rate limiting with different strategies
 type Service struct {
-	config   Config
-	ipStore  *Store
-	keyStore *Store
+	config     Config
+	ipStore    *Store
+	keyStore   *Store
+	accessList *AccessList
 }
 
 // NewService creates a new rate limiting service
@@ -291,9 +292,10 @@ func NewService(config Config) *Service {
 	}
 
 	return &Service{
-		config:   config,
-		ipStore:  ipStore,
-		keyStore: keyStore,
+		config:     config,
+		ipStore:    ipStore,
+		keyStore:   keyStore,
+		accessList: NewAccessList(),
 	}
 }
 
