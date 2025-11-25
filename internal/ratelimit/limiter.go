@@ -273,9 +273,10 @@ type Config struct {
 
 // Service manages rate limiting with different strategies
 type Service struct {
-	config   Config
-	ipStore  *Store
-	keyStore *Store
+	config     Config
+	ipStore    *Store
+	keyStore   *Store
+	accessList *AccessList
 }
 
 // NewService creates a new rate limiting service
@@ -291,9 +292,10 @@ func NewService(config Config) *Service {
 	}
 
 	return &Service{
-		config:   config,
-		ipStore:  ipStore,
-		keyStore: keyStore,
+		config:     config,
+		ipStore:    ipStore,
+		keyStore:   keyStore,
+		accessList: NewAccessList(),
 	}
 }
 
@@ -439,6 +441,21 @@ func (s *Service) UpdateConfig(requestsPerSec *float64, burst *int) bool {
 	// To apply to all, would need to reset all limiters
 
 	return changed
+}
+
+// GetAccessList returns the access list manager
+func (s *Service) GetAccessList() *AccessList {
+	return s.accessList
+}
+
+// IsWhitelisted checks if an identifier is whitelisted
+func (s *Service) IsWhitelisted(identifier string) bool {
+	return s.accessList.IsWhitelisted(identifier)
+}
+
+// IsBlacklisted checks if an identifier is blacklisted
+func (s *Service) IsBlacklisted(identifier string) bool {
+	return s.accessList.IsBlacklisted(identifier)
 }
 
 // getEffectiveConfig returns the current effective rate and burst
