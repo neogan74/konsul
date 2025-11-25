@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/ratelimit"
@@ -312,7 +315,7 @@ func (h *RateLimitHandler) AdjustClientLimit(c *fiber.Ctx) error {
 	h.log.Info("Client rate limit adjusted",
 		logger.String("type", clientType),
 		logger.String("identifier", identifier),
-		logger.Float64("rate", adj.Rate),
+		logger.String("rate", fmt.Sprintf("%.2f", adj.Rate)),
 		logger.Int("burst", adj.Burst),
 		logger.String("duration", adj.Duration),
 		logger.String("admin_user", getAdminUser(c)))
