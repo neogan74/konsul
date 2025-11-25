@@ -39,9 +39,15 @@ func (r *RateLimitCommands) Handle(args []string) {
 		r.Reset(subArgs)
 	case "update":
 		r.Update(subArgs)
+	case "adjust":
+		r.Adjust(subArgs)
+	case "whitelist":
+		r.Whitelist(subArgs)
+	case "blacklist":
+		r.Blacklist(subArgs)
 	default:
 		r.cli.Errorf("Unknown rate limit subcommand: %s\n", subcommand)
-		r.cli.Errorln("Available: stats, config, clients, client, reset, update")
+		r.cli.Errorln("Available: stats, config, clients, client, reset, update, adjust, whitelist, blacklist")
 		r.cli.Exit(1)
 	}
 }
