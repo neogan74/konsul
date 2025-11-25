@@ -863,6 +863,232 @@ func (c *KonsulClient) UpdateRateLimitConfig(requestsPerSec *float64, burst *int
 	return &updateResp, nil
 }
 
+// AdjustClientLimit temporarily adjusts rate limit for a specific client
+func (c *KonsulClient) AdjustClientLimit(clientType, identifier string, rate float64, burst int, duration string) (*RateLimitAdjustResponse, error) {
+	url := fmt.Sprintf("%s/admin/ratelimit/client/%s/%s", c.BaseURL, clientType, identifier)
+
+	adjust := map[string]interface{}{
+		"rate":     rate,
+		"burst":    burst,
+		"duration": duration,
+	}
+
+	body, err := json.Marshal(adjust)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to adjust client limit: %s", string(respBody))
+	}
+
+	var adjustResp RateLimitAdjustResponse
+	if err := json.NewDecoder(resp.Body).Decode(&adjustResp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &adjustResp, nil
+}
+
+// GetWhitelist returns all whitelisted entries
+func (c *KonsulClient) GetWhitelist() (*RateLimitWhitelistResponse, error) {
+	url := fmt.Sprintf("%s/admin/ratelimit/whitelist", c.BaseURL)
+
+	resp, err := c.HTTPClient.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get whitelist: %s", string(body))
+	}
+
+	var whitelist RateLimitWhitelistResponse
+	if err := json.NewDecoder(resp.Body).Decode(&whitelist); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &whitelist, nil
+}
+
+// AddToWhitelist adds an identifier to the whitelist
+func (c *KonsulClient) AddToWhitelist(identifier, clientType, reason, duration string) (*RateLimitGenericResponse, error) {
+	url := fmt.Sprintf("%s/admin/ratelimit/whitelist", c.BaseURL)
+
+	req := map[string]interface{}{
+		"identifier": identifier,
+		"type":       clientType,
+		"reason":     reason,
+	}
+	if duration != "" {
+		req["duration"] = duration
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to add to whitelist: %s", string(respBody))
+	}
+
+	var result RateLimitGenericResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// RemoveFromWhitelist removes an identifier from the whitelist
+func (c *KonsulClient) RemoveFromWhitelist(identifier string) (*RateLimitGenericResponse, error) {
+	url := fmt.Sprintf("%s/admin/ratelimit/whitelist/%s", c.BaseURL, identifier)
+
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to remove from whitelist: %s", string(body))
+	}
+
+	var result RateLimitGenericResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetBlacklist returns all blacklisted entries
+func (c *KonsulClient) GetBlacklist() (*RateLimitBlacklistResponse, error) {
+	url := fmt.Sprintf("%s/admin/ratelimit/blacklist", c.BaseURL)
+
+	resp, err := c.HTTPClient.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get blacklist: %s", string(body))
+	}
+
+	var blacklist RateLimitBlacklistResponse
+	if err := json.NewDecoder(resp.Body).Decode(&blacklist); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &blacklist, nil
+}
+
+// AddToBlacklist adds an identifier to the blacklist
+func (c *KonsulClient) AddToBlacklist(identifier, clientType, reason, duration string) (*RateLimitGenericResponse, error) {
+	url := fmt.Sprintf("%s/admin/ratelimit/blacklist", c.BaseURL)
+
+	req := map[string]interface{}{
+		"identifier": identifier,
+		"type":       clientType,
+		"reason":     reason,
+		"duration":   duration,
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to add to blacklist: %s", string(respBody))
+	}
+
+	var result RateLimitGenericResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// RemoveFromBlacklist removes an identifier from the blacklist
+func (c *KonsulClient) RemoveFromBlacklist(identifier string) (*RateLimitGenericResponse, error) {
+	url := fmt.Sprintf("%s/admin/ratelimit/blacklist/%s", c.BaseURL, identifier)
+
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to remove from blacklist: %s", string(body))
+	}
+
+	var result RateLimitGenericResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &result, nil
+}
+
 // ACL Policy Methods
 
 // ListACLPolicies lists all ACL policies
