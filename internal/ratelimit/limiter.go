@@ -443,6 +443,21 @@ func (s *Service) UpdateConfig(requestsPerSec *float64, burst *int) bool {
 	return changed
 }
 
+// GetAccessList returns the access list manager
+func (s *Service) GetAccessList() *AccessList {
+	return s.accessList
+}
+
+// IsWhitelisted checks if an identifier is whitelisted
+func (s *Service) IsWhitelisted(identifier string) bool {
+	return s.accessList.IsWhitelisted(identifier)
+}
+
+// IsBlacklisted checks if an identifier is blacklisted
+func (s *Service) IsBlacklisted(identifier string) bool {
+	return s.accessList.IsBlacklisted(identifier)
+}
+
 // getEffectiveConfig returns the current effective rate and burst
 // considering custom config with expiry (must be called with lock held)
 func (l *Limiter) getEffectiveConfig() (rate float64, burst int) {
