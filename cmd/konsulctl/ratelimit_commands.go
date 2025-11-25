@@ -260,3 +260,302 @@ func (r *RateLimitCommands) Update(args []string) {
 		r.cli.Println("To apply to existing clients, run: konsulctl ratelimit reset all")
 	}
 }
+
+// Adjust temporarily adjusts rate limit for a specific client
+func (r *RateLimitCommands) Adjust(args []string) {
+	var clientType, identifier string
+	var rate float64
+	var burst int
+	var duration string
+
+	flagSet := flag.NewFlagSet("adjust", flag.ContinueOnError)
+	flagSet.SetOutput(r.cli.Error)
+	flagSet.StringVar(&clientType, "type", "", "Client type: ip or apikey (required)")
+	flagSet.StringVar(&identifier, "id", "", "Client identifier (required)")
+	flagSet.Float64Var(&rate, "rate", 0, "Requests per second (required)")
+	flagSet.IntVar(&burst, "burst", 0, "Burst size (required)")
+	flagSet.StringVar(&duration, "duration", "1h", "Duration (e.g., 1h, 30m, 24h)")
+
+	config, remaining, err := r.cli.ParseGlobalFlags(args, "adjust")
+	if err == flag.ErrHelp {
+		r.cli.Println("Usage: konsulctl ratelimit adjust --type <ip|apikey> --id <id> --rate <n> --burst <n> [--duration <dur>] [options]")
+		return
+	}
+	r.cli.HandleError(err, "parsing flags")
+
+	err = flagSet.Parse(remaining)
+	r.cli.HandleError(err, "parsing adjust flags")
+
+	// Validate required flags
+	if clientType == "" || identifier == "" || rate == 0 || burst == 0 {
+		r.cli.Errorln("Usage: konsulctl ratelimit adjust --type <ip|apikey> --id <id> --rate <n> --burst <n> [--duration <dur>]")
+		r.cli.Errorln("  All flags except --duration are required")
+		r.cli.Exit(1)
+		return
+	}
+
+	if clientType != "ip" && clientType != "apikey" {
+		r.cli.Errorln("Error: --type must be 'ip' or 'apikey'")
+		r.cli.Exit(1)
+		return
+	}
+
+	client := r.cli.CreateClient(config)
+	resp, err := client.AdjustClientLimit(clientType, identifier, rate, burst, duration)
+	r.cli.HandleError(err, "adjusting client rate limit")
+
+	r.cli.Println("Successfully adjusted rate limit:")
+	r.cli.Printf("  Type: %s\n", clientType)
+	r.cli.Printf("  Identifier: %s\n", identifier)
+	r.cli.Printf("  Rate: %.1f req/s\n", rate)
+	r.cli.Printf("  Burst: %d\n", burst)
+	r.cli.Printf("  Duration: %s\n", duration)
+	r.cli.Println()
+	r.cli.Println(resp.Message)
+}
+
+// Whitelist handles whitelist management commands
+func (r *RateLimitCommands) Whitelist(args []string) {
+	if len(args) == 0 {
+		r.cli.Errorln("Whitelist action required: list, add, remove")
+		r.cli.Errorln("Usage: konsulctl ratelimit whitelist <list|add|remove> [options]")
+		r.cli.Exit(1)
+		return
+	}
+
+	action := args[0]
+	subArgs := args[1:]
+
+	switch action {
+	case "list":
+		r.WhitelistList(subArgs)
+	case "add":
+		r.WhitelistAdd(subArgs)
+	case "remove":
+		r.WhitelistRemove(subArgs)
+	default:
+		r.cli.Errorf("Unknown whitelist action: %s\n", action)
+		r.cli.Errorln("Available: list, add, remove")
+		r.cli.Exit(1)
+	}
+}
+
+// WhitelistList lists all whitelisted entries
+func (r *RateLimitCommands) WhitelistList(args []string) {
+	config, remaining, err := r.cli.ParseGlobalFlags(args, "list")
+	if err == flag.ErrHelp {
+		r.cli.Println("Usage: konsulctl ratelimit whitelist list [options]")
+		return
+	}
+	r.cli.HandleError(err, "parsing flags")
+	r.cli.ValidateExactArgs(remaining, 0, "Usage: konsulctl ratelimit whitelist list")
+
+	client := r.cli.CreateClient(config)
+	resp, err := client.GetWhitelist()
+	r.cli.HandleError(err, "getting whitelist")
+
+	if resp.Count == 0 {
+		r.cli.Println("No whitelisted entries")
+		return
+	}
+
+	r.cli.Printf("Whitelisted Entries (%d):\n", resp.Count)
+	r.cli.Println()
+	for _, entry := range resp.Entries {
+		r.cli.Printf("  Identifier: %s (%s)\n", entry.Identifier, entry.Type)
+		r.cli.Printf("  Reason: %s\n", entry.Reason)
+		r.cli.Printf("  Added by: %s\n", entry.AddedBy)
+		r.cli.Printf("  Added at: %s\n", entry.AddedAt)
+		if entry.ExpiresAt != nil {
+			r.cli.Printf("  Expires: %s\n", *entry.ExpiresAt)
+		} else {
+			r.cli.Println("  Expires: Never")
+		}
+		r.cli.Println()
+	}
+}
+
+// WhitelistAdd adds an identifier to the whitelist
+func (r *RateLimitCommands) WhitelistAdd(args []string) {
+	var identifier, clientType, reason, duration string
+
+	flagSet := flag.NewFlagSet("add", flag.ContinueOnError)
+	flagSet.SetOutput(r.cli.Error)
+	flagSet.StringVar(&identifier, "id", "", "Identifier to whitelist (required)")
+	flagSet.StringVar(&clientType, "type", "", "Type: ip or apikey (required)")
+	flagSet.StringVar(&reason, "reason", "", "Reason for whitelisting (required)")
+	flagSet.StringVar(&duration, "duration", "", "Expiry duration (optional, e.g., 24h, 7d)")
+
+	config, remaining, err := r.cli.ParseGlobalFlags(args, "add")
+	if err == flag.ErrHelp {
+		r.cli.Println("Usage: konsulctl ratelimit whitelist add --id <id> --type <ip|apikey> --reason <text> [--duration <dur>] [options]")
+		return
+	}
+	r.cli.HandleError(err, "parsing flags")
+
+	err = flagSet.Parse(remaining)
+	r.cli.HandleError(err, "parsing whitelist add flags")
+
+	if identifier == "" || clientType == "" || reason == "" {
+		r.cli.Errorln("Usage: konsulctl ratelimit whitelist add --id <id> --type <ip|apikey> --reason <text> [--duration <dur>]")
+		r.cli.Errorln("  --id, --type, and --reason are required")
+		r.cli.Exit(1)
+		return
+	}
+
+	if clientType != "ip" && clientType != "apikey" {
+		r.cli.Errorln("Error: --type must be 'ip' or 'apikey'")
+		r.cli.Exit(1)
+		return
+	}
+
+	client := r.cli.CreateClient(config)
+	resp, err := client.AddToWhitelist(identifier, clientType, reason, duration)
+	r.cli.HandleError(err, "adding to whitelist")
+
+	r.cli.Println(resp.Message)
+	r.cli.Printf("  Identifier: %s (%s)\n", identifier, clientType)
+	r.cli.Printf("  Reason: %s\n", reason)
+	if duration != "" {
+		r.cli.Printf("  Expires in: %s\n", duration)
+	} else {
+		r.cli.Println("  Expires: Never")
+	}
+}
+
+// WhitelistRemove removes an identifier from the whitelist
+func (r *RateLimitCommands) WhitelistRemove(args []string) {
+	config, remaining, err := r.cli.ParseGlobalFlags(args, "remove")
+	if err == flag.ErrHelp {
+		r.cli.Println("Usage: konsulctl ratelimit whitelist remove <identifier> [options]")
+		return
+	}
+	r.cli.HandleError(err, "parsing flags")
+	r.cli.ValidateExactArgs(remaining, 1, "Usage: konsulctl ratelimit whitelist remove <identifier>")
+
+	identifier := remaining[0]
+	client := r.cli.CreateClient(config)
+	resp, err := client.RemoveFromWhitelist(identifier)
+	r.cli.HandleError(err, "removing from whitelist")
+
+	r.cli.Printf("%s: %s\n", resp.Message, identifier)
+}
+
+// Blacklist handles blacklist management commands
+func (r *RateLimitCommands) Blacklist(args []string) {
+	if len(args) == 0 {
+		r.cli.Errorln("Blacklist action required: list, add, remove")
+		r.cli.Errorln("Usage: konsulctl ratelimit blacklist <list|add|remove> [options]")
+		r.cli.Exit(1)
+		return
+	}
+
+	action := args[0]
+	subArgs := args[1:]
+
+	switch action {
+	case "list":
+		r.BlacklistList(subArgs)
+	case "add":
+		r.BlacklistAdd(subArgs)
+	case "remove":
+		r.BlacklistRemove(subArgs)
+	default:
+		r.cli.Errorf("Unknown blacklist action: %s\n", action)
+		r.cli.Errorln("Available: list, add, remove")
+		r.cli.Exit(1)
+	}
+}
+
+// BlacklistList lists all blacklisted entries
+func (r *RateLimitCommands) BlacklistList(args []string) {
+	config, remaining, err := r.cli.ParseGlobalFlags(args, "list")
+	if err == flag.ErrHelp {
+		r.cli.Println("Usage: konsulctl ratelimit blacklist list [options]")
+		return
+	}
+	r.cli.HandleError(err, "parsing flags")
+	r.cli.ValidateExactArgs(remaining, 0, "Usage: konsulctl ratelimit blacklist list")
+
+	client := r.cli.CreateClient(config)
+	resp, err := client.GetBlacklist()
+	r.cli.HandleError(err, "getting blacklist")
+
+	if resp.Count == 0 {
+		r.cli.Println("No blacklisted entries")
+		return
+	}
+
+	r.cli.Printf("Blacklisted Entries (%d):\n", resp.Count)
+	r.cli.Println()
+	for _, entry := range resp.Entries {
+		r.cli.Printf("  Identifier: %s (%s)\n", entry.Identifier, entry.Type)
+		r.cli.Printf("  Reason: %s\n", entry.Reason)
+		r.cli.Printf("  Added by: %s\n", entry.AddedBy)
+		r.cli.Printf("  Added at: %s\n", entry.AddedAt)
+		r.cli.Printf("  Expires: %s\n", entry.ExpiresAt)
+		r.cli.Println()
+	}
+}
+
+// BlacklistAdd adds an identifier to the blacklist
+func (r *RateLimitCommands) BlacklistAdd(args []string) {
+	var identifier, clientType, reason, duration string
+
+	flagSet := flag.NewFlagSet("add", flag.ContinueOnError)
+	flagSet.SetOutput(r.cli.Error)
+	flagSet.StringVar(&identifier, "id", "", "Identifier to blacklist (required)")
+	flagSet.StringVar(&clientType, "type", "", "Type: ip or apikey (required)")
+	flagSet.StringVar(&reason, "reason", "", "Reason for blacklisting (required)")
+	flagSet.StringVar(&duration, "duration", "24h", "Duration (required, e.g., 24h, 7d)")
+
+	config, remaining, err := r.cli.ParseGlobalFlags(args, "add")
+	if err == flag.ErrHelp {
+		r.cli.Println("Usage: konsulctl ratelimit blacklist add --id <id> --type <ip|apikey> --reason <text> --duration <dur> [options]")
+		return
+	}
+	r.cli.HandleError(err, "parsing flags")
+
+	err = flagSet.Parse(remaining)
+	r.cli.HandleError(err, "parsing blacklist add flags")
+
+	if identifier == "" || clientType == "" || reason == "" || duration == "" {
+		r.cli.Errorln("Usage: konsulctl ratelimit blacklist add --id <id> --type <ip|apikey> --reason <text> --duration <dur>")
+		r.cli.Errorln("  All flags are required")
+		r.cli.Exit(1)
+		return
+	}
+
+	if clientType != "ip" && clientType != "apikey" {
+		r.cli.Errorln("Error: --type must be 'ip' or 'apikey'")
+		r.cli.Exit(1)
+		return
+	}
+
+	client := r.cli.CreateClient(config)
+	resp, err := client.AddToBlacklist(identifier, clientType, reason, duration)
+	r.cli.HandleError(err, "adding to blacklist")
+
+	r.cli.Println(resp.Message)
+	r.cli.Printf("  Identifier: %s (%s)\n", identifier, clientType)
+	r.cli.Printf("  Reason: %s\n", reason)
+	r.cli.Printf("  Duration: %s\n", duration)
+}
+
+// BlacklistRemove removes an identifier from the blacklist
+func (r *RateLimitCommands) BlacklistRemove(args []string) {
+	config, remaining, err := r.cli.ParseGlobalFlags(args, "remove")
+	if err == flag.ErrHelp {
+		r.cli.Println("Usage: konsulctl ratelimit blacklist remove <identifier> [options]")
+		return
+	}
+	r.cli.HandleError(err, "parsing flags")
+	r.cli.ValidateExactArgs(remaining, 1, "Usage: konsulctl ratelimit blacklist remove <identifier>")
+
+	identifier := remaining[0]
+	client := r.cli.CreateClient(config)
+	resp, err := client.RemoveFromBlacklist(identifier)
+	r.cli.HandleError(err, "removing from blacklist")
+
+	r.cli.Printf("%s: %s\n", resp.Message, identifier)
+}
