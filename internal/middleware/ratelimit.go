@@ -26,8 +26,37 @@ func RateLimitMiddleware(service *ratelimit.Service) fiber.Handler {
 		var limiter *ratelimit.Limiter
 		var store *ratelimit.Store
 
-		// Check API key rate limit first if available
+		// Determine identifier type
 		var limiterType string
+		var rawIdentifier string
+		if apiKeyID != "" {
+			rawIdentifier = apiKeyID
+			limiterType = "apikey"
+		} else {
+			rawIdentifier = clientIP
+			limiterType = "ip"
+		}
+		identifier = fmt.Sprintf("%s:%s", limiterType, rawIdentifier)
+
+		// Check blacklist first - highest priority
+		if service.IsBlacklisted(rawIdentifier) {
+			metrics.RateLimitExceeded.WithLabelValues(limiterType).Inc()
+			metrics.RateLimitRequestsTotal.WithLabelValues(limiterType, "blacklisted").Inc()
+
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error":      "access_denied",
+				"message":    "Your access has been blocked",
+				"identifier": identifier,
+			})
+		}
+
+		// Check whitelist - bypasses rate limiting
+		if service.IsWhitelisted(rawIdentifier) {
+			metrics.RateLimitRequestsTotal.WithLabelValues(limiterType, "whitelisted").Inc()
+			return c.Next()
+		}
+
+		// Apply normal rate limiting
 		if apiKeyID != "" {
 			store = service.GetAPIKeyStore()
 			if store != nil {
@@ -36,8 +65,6 @@ func RateLimitMiddleware(service *ratelimit.Service) fiber.Handler {
 			} else {
 				allowed = true
 			}
-			identifier = fmt.Sprintf("apikey:%s", apiKeyID)
-			limiterType = "apikey"
 		} else {
 			// Fall back to IP-based rate limiting
 			store = service.GetIPStore()
@@ -47,8 +74,6 @@ func RateLimitMiddleware(service *ratelimit.Service) fiber.Handler {
 			} else {
 				allowed = true
 			}
-			identifier = fmt.Sprintf("ip:%s", clientIP)
-			limiterType = "ip"
 		}
 
 		// Get RFC 6585 compliant headers
