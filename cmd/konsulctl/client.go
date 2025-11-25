@@ -141,6 +141,46 @@ type RateLimitConfigUpdateResponse struct {
 	} `json:"config,omitempty"`
 }
 
+type RateLimitAdjustResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+type RateLimitGenericResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+type RateLimitWhitelistEntry struct {
+	Identifier string  `json:"identifier"`
+	Type       string  `json:"type"`
+	Reason     string  `json:"reason"`
+	AddedBy    string  `json:"added_by"`
+	AddedAt    string  `json:"added_at"`
+	ExpiresAt  *string `json:"expires_at"`
+}
+
+type RateLimitWhitelistResponse struct {
+	Success bool                       `json:"success"`
+	Count   int                        `json:"count"`
+	Entries []*RateLimitWhitelistEntry `json:"entries"`
+}
+
+type RateLimitBlacklistEntry struct {
+	Identifier string `json:"identifier"`
+	Type       string `json:"type"`
+	Reason     string `json:"reason"`
+	AddedBy    string `json:"added_by"`
+	AddedAt    string `json:"added_at"`
+	ExpiresAt  string `json:"expires_at"`
+}
+
+type RateLimitBlacklistResponse struct {
+	Success bool                       `json:"success"`
+	Count   int                        `json:"count"`
+	Entries []*RateLimitBlacklistEntry `json:"entries"`
+}
+
 func NewKonsulClient(baseURL string) *KonsulClient {
 	return NewKonsulClientWithTLS(baseURL, nil)
 }
