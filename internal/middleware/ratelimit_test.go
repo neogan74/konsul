@@ -478,16 +478,3 @@ func TestRateLimitWithConfig_BurstAllowance(t *testing.T) {
 		t.Errorf("expected status 429 after burst, got %d", resp.StatusCode)
 	}
 }
-
-// Helper function for string contains check
-func contains(s, substr string) bool {
-	return len(s) > 0 && len(substr) > 0 && s != substr && len(s) >= len(substr) &&
-		func() bool {
-			for i := 0; i <= len(s)-len(substr); i++ {
-				if s[i:i+len(substr)] == substr {
-					return true
-				}
-			}
-			return false
-		}()
-}
