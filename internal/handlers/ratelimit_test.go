@@ -782,3 +782,218 @@ func TestRemoveFromBlacklistNotFound(t *testing.T) {
 	assert.False(t, result["success"].(bool))
 	assert.Equal(t, "Identifier not found in blacklist", result["error"])
 }
+
+func TestAdjustClientLimit(t *testing.T) {
+	app, service, handler := setupRateLimitTestApp()
+	app.Put("/admin/ratelimit/client/:type/:id", handler.AdjustClientLimit)
+
+	// Create a client first
+	testIP := "192.168.1.150"
+	service.AllowIP(testIP)
+
+	adjustData := map[string]interface{}{
+		"rate":     50.0,
+		"burst":    10,
+		"duration": "1h",
+	}
+	body, _ := json.Marshal(adjustData)
+
+	req := httptest.NewRequest("PUT", "/admin/ratelimit/client/ip/"+testIP, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	assert.True(t, result["success"].(bool))
+	assert.Equal(t, "Rate limit adjusted successfully", result["message"])
+	assert.Equal(t, "ip", result["type"])
+	assert.Equal(t, testIP, result["identifier"])
+
+	config := result["config"].(map[string]interface{})
+	assert.Equal(t, 50.0, config["rate"])
+	assert.Equal(t, float64(10), config["burst"])
+	assert.Equal(t, "1h", config["duration"])
+}
+
+func TestAdjustClientLimitAPIKey(t *testing.T) {
+	app, service, handler := setupRateLimitTestApp()
+	app.Put("/admin/ratelimit/client/:type/:id", handler.AdjustClientLimit)
+
+	// Create an API key client first
+	testKey := "key789"
+	service.AllowAPIKey(testKey)
+
+	adjustData := map[string]interface{}{
+		"rate":     100.0,
+		"burst":    25,
+		"duration": "30m",
+	}
+	body, _ := json.Marshal(adjustData)
+
+	req := httptest.NewRequest("PUT", "/admin/ratelimit/client/apikey/"+testKey, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	assert.True(t, result["success"].(bool))
+	assert.Equal(t, "apikey", result["type"])
+	assert.Equal(t, testKey, result["identifier"])
+}
+
+func TestAdjustClientLimitInvalidType(t *testing.T) {
+	app, _, handler := setupRateLimitTestApp()
+	app.Put("/admin/ratelimit/client/:type/:id", handler.AdjustClientLimit)
+
+	adjustData := map[string]interface{}{
+		"rate":     50.0,
+		"burst":    10,
+		"duration": "1h",
+	}
+	body, _ := json.Marshal(adjustData)
+
+	req := httptest.NewRequest("PUT", "/admin/ratelimit/client/invalid/test", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	assert.False(t, result["success"].(bool))
+	assert.Contains(t, result["error"].(string), "Invalid type")
+}
+
+func TestAdjustClientLimitInvalidRate(t *testing.T) {
+	app, service, handler := setupRateLimitTestApp()
+	app.Put("/admin/ratelimit/client/:type/:id", handler.AdjustClientLimit)
+
+	testIP := "192.168.1.151"
+	service.AllowIP(testIP)
+
+	adjustData := map[string]interface{}{
+		"rate":     0.0, // Invalid
+		"burst":    10,
+		"duration": "1h",
+	}
+	body, _ := json.Marshal(adjustData)
+
+	req := httptest.NewRequest("PUT", "/admin/ratelimit/client/ip/"+testIP, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	assert.False(t, result["success"].(bool))
+	assert.Contains(t, result["error"].(string), "rate must be greater than 0")
+}
+
+func TestAdjustClientLimitInvalidBurst(t *testing.T) {
+	app, service, handler := setupRateLimitTestApp()
+	app.Put("/admin/ratelimit/client/:type/:id", handler.AdjustClientLimit)
+
+	testIP := "192.168.1.152"
+	service.AllowIP(testIP)
+
+	adjustData := map[string]interface{}{
+		"rate":     50.0,
+		"burst":    -5, // Invalid
+		"duration": "1h",
+	}
+	body, _ := json.Marshal(adjustData)
+
+	req := httptest.NewRequest("PUT", "/admin/ratelimit/client/ip/"+testIP, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	assert.False(t, result["success"].(bool))
+	assert.Contains(t, result["error"].(string), "burst must be greater than 0")
+}
+
+func TestAdjustClientLimitInvalidDuration(t *testing.T) {
+	app, service, handler := setupRateLimitTestApp()
+	app.Put("/admin/ratelimit/client/:type/:id", handler.AdjustClientLimit)
+
+	testIP := "192.168.1.153"
+	service.AllowIP(testIP)
+
+	adjustData := map[string]interface{}{
+		"rate":     50.0,
+		"burst":    10,
+		"duration": "invalid", // Invalid
+	}
+	body, _ := json.Marshal(adjustData)
+
+	req := httptest.NewRequest("PUT", "/admin/ratelimit/client/ip/"+testIP, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	assert.False(t, result["success"].(bool))
+	assert.Contains(t, result["error"].(string), "Invalid duration format")
+}
+
+func TestAdjustClientLimitStoreNotEnabled(t *testing.T) {
+	app, _, handler := setupRateLimitTestApp()
+	app.Put("/admin/ratelimit/client/:type/:id", handler.AdjustClientLimit)
+
+	// Try to adjust a client for a disabled store type
+	// We need a service with only IP enabled
+	serviceIPOnly := ratelimit.NewService(ratelimit.Config{
+		Enabled:         true,
+		RequestsPerSec:  100.0,
+		Burst:           20,
+		ByIP:            true,
+		ByAPIKey:        false, // API key not enabled
+		CleanupInterval: 1 * time.Minute,
+	})
+	handlerIPOnly := NewRateLimitHandler(serviceIPOnly, logger.NewFromConfig("error", "text"))
+
+	appIPOnly := fiber.New()
+	appIPOnly.Put("/admin/ratelimit/client/:type/:id", handlerIPOnly.AdjustClientLimit)
+
+	adjustData := map[string]interface{}{
+		"rate":     50.0,
+		"burst":    10,
+		"duration": "1h",
+	}
+	body, _ := json.Marshal(adjustData)
+
+	req := httptest.NewRequest("PUT", "/admin/ratelimit/client/apikey/test", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := appIPOnly.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	assert.False(t, result["success"].(bool))
+	assert.Contains(t, result["error"].(string), "not enabled")
+}
