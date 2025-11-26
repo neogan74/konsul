@@ -344,3 +344,214 @@ func BenchmarkStore_AllowParallel(b *testing.B) {
 		}
 	})
 }
+
+func TestService_IsWhitelisted(t *testing.T) {
+	service := NewService(Config{
+		Enabled:         true,
+		RequestsPerSec:  10.0,
+		Burst:           2,
+		ByIP:            true,
+		ByAPIKey:        false,
+		CleanupInterval: 0,
+	})
+
+	// Add to whitelist
+	service.GetAccessList().AddToWhitelist(WhitelistEntry{
+		Identifier: "192.168.1.10",
+		Type:       "ip",
+		Reason:     "Test",
+		AddedBy:    "admin",
+	})
+
+	if !service.IsWhitelisted("192.168.1.10") {
+		t.Error("Expected IP to be whitelisted")
+	}
+
+	if service.IsWhitelisted("192.168.1.11") {
+		t.Error("Expected different IP not to be whitelisted")
+	}
+}
+
+func TestService_IsBlacklisted(t *testing.T) {
+	service := NewService(Config{
+		Enabled:         true,
+		RequestsPerSec:  10.0,
+		Burst:           2,
+		ByIP:            true,
+		ByAPIKey:        false,
+		CleanupInterval: 0,
+	})
+
+	// Add to blacklist
+	service.GetAccessList().AddToBlacklist(BlacklistEntry{
+		Identifier: "192.168.1.20",
+		Type:       "ip",
+		Reason:     "Abuse",
+		AddedBy:    "admin",
+		ExpiresAt:  time.Now().Add(1 * time.Hour),
+	})
+
+	if !service.IsBlacklisted("192.168.1.20") {
+		t.Error("Expected IP to be blacklisted")
+	}
+
+	if service.IsBlacklisted("192.168.1.21") {
+		t.Error("Expected different IP not to be blacklisted")
+	}
+}
+
+func TestService_GetActiveClients(t *testing.T) {
+	service := NewService(Config{
+		Enabled:         true,
+		RequestsPerSec:  10.0,
+		Burst:           5,
+		ByIP:            true,
+		ByAPIKey:        true,
+		CleanupInterval: 0,
+	})
+
+	// Create some clients
+	service.AllowIP("192.168.1.1")
+	service.AllowIP("192.168.1.2")
+	service.AllowAPIKey("key1")
+	service.AllowAPIKey("key2")
+
+	// Test get all
+	allClients := service.GetActiveClients("all")
+	if len(allClients) != 4 {
+		t.Errorf("Expected 4 total clients, got %d", len(allClients))
+	}
+
+	// Test get IP only
+	ipClients := service.GetActiveClients("ip")
+	if len(ipClients) != 2 {
+		t.Errorf("Expected 2 IP clients, got %d", len(ipClients))
+	}
+
+	// Test get API key only
+	keyClients := service.GetActiveClients("apikey")
+	if len(keyClients) != 2 {
+		t.Errorf("Expected 2 API key clients, got %d", len(keyClients))
+	}
+}
+
+func TestService_GetClientStatus(t *testing.T) {
+	service := NewService(Config{
+		Enabled:         true,
+		RequestsPerSec:  10.0,
+		Burst:           5,
+		ByIP:            true,
+		ByAPIKey:        true,
+		CleanupInterval: 0,
+	})
+
+	// Create a client
+	testIP := "192.168.1.100"
+	service.AllowIP(testIP)
+
+	// Get status
+	status := service.GetClientStatus(testIP)
+	if status == nil {
+		t.Fatal("Expected client status to be found")
+	}
+
+	if status.Identifier != testIP {
+		t.Errorf("Expected identifier %s, got %s", testIP, status.Identifier)
+	}
+
+	if status.Type != "ip" {
+		t.Errorf("Expected type 'ip', got %s", status.Type)
+	}
+
+	// Non-existent client
+	notFound := service.GetClientStatus("nonexistent")
+	if notFound != nil {
+		t.Error("Expected nil for non-existent client")
+	}
+}
+
+func TestService_UpdateConfig(t *testing.T) {
+	service := NewService(Config{
+		Enabled:         true,
+		RequestsPerSec:  10.0,
+		Burst:           5,
+		ByIP:            true,
+		ByAPIKey:        false,
+		CleanupInterval: 0,
+	})
+
+	newRate := 20.0
+	newBurst := 10
+
+	// Update config
+	changed := service.UpdateConfig(&newRate, &newBurst)
+	if !changed {
+		t.Error("Expected config to be changed")
+	}
+
+	// Verify changes
+	config := service.GetConfig()
+	if config.RequestsPerSec != 20.0 {
+		t.Errorf("Expected RequestsPerSec 20.0, got %.1f", config.RequestsPerSec)
+	}
+	if config.Burst != 10 {
+		t.Errorf("Expected Burst 10, got %d", config.Burst)
+	}
+
+	// Update with same values (no change)
+	changed = service.UpdateConfig(&newRate, &newBurst)
+	if changed {
+		t.Error("Expected no change when updating with same values")
+	}
+}
+
+func TestStore_GetClients(t *testing.T) {
+	store := NewStore(10.0, 5, 0)
+
+	// Create some clients
+	store.Allow("client1")
+	store.Allow("client2")
+	store.Allow("client3")
+
+	clients := store.GetClients("test-type")
+	if len(clients) != 3 {
+		t.Errorf("Expected 3 clients, got %d", len(clients))
+	}
+
+	// Verify client info structure
+	for _, client := range clients {
+		if client.Type != "test-type" {
+			t.Errorf("Expected type 'test-type', got %s", client.Type)
+		}
+		if client.Rate != 10.0 {
+			t.Errorf("Expected rate 10.0, got %.1f", client.Rate)
+		}
+		if client.MaxTokens != 5 {
+			t.Errorf("Expected max tokens 5, got %d", client.MaxTokens)
+		}
+	}
+}
+
+func TestStore_GetClientStatus(t *testing.T) {
+	store := NewStore(10.0, 5, 0)
+
+	// Create a client
+	identifier := "test-client"
+	store.Allow(identifier)
+
+	// Get status
+	status := store.GetClientStatus(identifier, "test-type")
+	if status == nil {
+		t.Fatal("Expected client status to be found")
+	}
+
+	if status.Identifier != identifier {
+		t.Errorf("Expected identifier %s, got %s", identifier, status.Identifier)
+	}
+
+	// Non-existent client
+	notFound := store.GetClientStatus("nonexistent", "test-type")
+	if notFound != nil {
+		t.Error("Expected nil for non-existent client")
+	}
+}
