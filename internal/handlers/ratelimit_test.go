@@ -395,3 +395,390 @@ func TestUpdateConfigNoChanges(t *testing.T) {
 	assert.True(t, result["success"].(bool))
 	assert.Equal(t, "No changes applied", result["message"])
 }
+
+func TestGetWhitelist(t *testing.T) {
+	app, service, handler := setupRateLimitTestApp()
+	app.Get("/admin/ratelimit/whitelist", handler.GetWhitelist)
+
+	// Add some whitelist entries
+	service.GetAccessList().AddToWhitelist(ratelimit.WhitelistEntry{
+		Identifier: "192.168.1.100",
+		Type:       "ip",
+		Reason:     "Trusted IP",
+		AddedBy:    "admin",
+	})
+	service.GetAccessList().AddToWhitelist(ratelimit.WhitelistEntry{
+		Identifier: "key123",
+		Type:       "apikey",
+		Reason:     "Premium customer",
+		AddedBy:    "admin",
+	})
+
+	req := httptest.NewRequest("GET", "/admin/ratelimit/whitelist", nil)
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	assert.True(t, result["success"].(bool))
+	assert.Equal(t, float64(2), result["count"])
+	assert.NotNil(t, result["entries"])
+
+	entries := result["entries"].([]interface{})
+	assert.Len(t, entries, 2)
+}
+
+func TestAddToWhitelist(t *testing.T) {
+	app, _, handler := setupRateLimitTestApp()
+	app.Post("/admin/ratelimit/whitelist", handler.AddToWhitelist)
+
+	whitelistData := map[string]interface{}{
+		"identifier": "192.168.1.200",
+		"type":       "ip",
+		"reason":     "VIP customer",
+	}
+	body, _ := json.Marshal(whitelistData)
+
+	req := httptest.NewRequest("POST", "/admin/ratelimit/whitelist", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	assert.True(t, result["success"].(bool))
+	assert.Equal(t, "Added to whitelist successfully", result["message"])
+	assert.NotNil(t, result["entry"])
+
+	entry := result["entry"].(map[string]interface{})
+	assert.Equal(t, "192.168.1.200", entry["identifier"])
+	assert.Equal(t, "ip", entry["type"])
+	assert.Equal(t, "VIP customer", entry["reason"])
+}
+
+func TestAddToWhitelistWithDuration(t *testing.T) {
+	app, _, handler := setupRateLimitTestApp()
+	app.Post("/admin/ratelimit/whitelist", handler.AddToWhitelist)
+
+	duration := "24h"
+	whitelistData := map[string]interface{}{
+		"identifier": "key456",
+		"type":       "apikey",
+		"reason":     "Temporary access",
+		"duration":   duration,
+	}
+	body, _ := json.Marshal(whitelistData)
+
+	req := httptest.NewRequest("POST", "/admin/ratelimit/whitelist", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	assert.True(t, result["success"].(bool))
+
+	entry := result["entry"].(map[string]interface{})
+	assert.Equal(t, "key456", entry["identifier"])
+	assert.NotNil(t, entry["expires_at"])
+}
+
+func TestAddToWhitelistInvalidType(t *testing.T) {
+	app, _, handler := setupRateLimitTestApp()
+	app.Post("/admin/ratelimit/whitelist", handler.AddToWhitelist)
+
+	whitelistData := map[string]interface{}{
+		"identifier": "test",
+		"type":       "invalid",
+		"reason":     "Test",
+	}
+	body, _ := json.Marshal(whitelistData)
+
+	req := httptest.NewRequest("POST", "/admin/ratelimit/whitelist", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	assert.False(t, result["success"].(bool))
+	assert.Contains(t, result["error"].(string), "type must be 'ip' or 'apikey'")
+}
+
+func TestAddToWhitelistMissingIdentifier(t *testing.T) {
+	app, _, handler := setupRateLimitTestApp()
+	app.Post("/admin/ratelimit/whitelist", handler.AddToWhitelist)
+
+	whitelistData := map[string]interface{}{
+		"type":   "ip",
+		"reason": "Test",
+	}
+	body, _ := json.Marshal(whitelistData)
+
+	req := httptest.NewRequest("POST", "/admin/ratelimit/whitelist", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	assert.False(t, result["success"].(bool))
+	assert.Contains(t, result["error"].(string), "identifier is required")
+}
+
+func TestAddToWhitelistInvalidDuration(t *testing.T) {
+	app, _, handler := setupRateLimitTestApp()
+	app.Post("/admin/ratelimit/whitelist", handler.AddToWhitelist)
+
+	duration := "invalid"
+	whitelistData := map[string]interface{}{
+		"identifier": "test",
+		"type":       "ip",
+		"reason":     "Test",
+		"duration":   duration,
+	}
+	body, _ := json.Marshal(whitelistData)
+
+	req := httptest.NewRequest("POST", "/admin/ratelimit/whitelist", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	assert.False(t, result["success"].(bool))
+	assert.Contains(t, result["error"].(string), "Invalid duration format")
+}
+
+func TestRemoveFromWhitelist(t *testing.T) {
+	app, service, handler := setupRateLimitTestApp()
+	app.Delete("/admin/ratelimit/whitelist/:identifier", handler.RemoveFromWhitelist)
+
+	// Add entry first
+	identifier := "192.168.1.100"
+	service.GetAccessList().AddToWhitelist(ratelimit.WhitelistEntry{
+		Identifier: identifier,
+		Type:       "ip",
+		Reason:     "Test",
+		AddedBy:    "admin",
+	})
+
+	req := httptest.NewRequest("DELETE", "/admin/ratelimit/whitelist/"+identifier, nil)
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	assert.True(t, result["success"].(bool))
+	assert.Equal(t, "Removed from whitelist successfully", result["message"])
+	assert.Equal(t, identifier, result["identifier"])
+
+	// Verify it's removed
+	assert.False(t, service.IsWhitelisted(identifier))
+}
+
+func TestRemoveFromWhitelistNotFound(t *testing.T) {
+	app, _, handler := setupRateLimitTestApp()
+	app.Delete("/admin/ratelimit/whitelist/:identifier", handler.RemoveFromWhitelist)
+
+	req := httptest.NewRequest("DELETE", "/admin/ratelimit/whitelist/nonexistent", nil)
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	assert.False(t, result["success"].(bool))
+	assert.Equal(t, "Identifier not found in whitelist", result["error"])
+}
+
+func TestGetBlacklist(t *testing.T) {
+	app, service, handler := setupRateLimitTestApp()
+	app.Get("/admin/ratelimit/blacklist", handler.GetBlacklist)
+
+	// Add some blacklist entries
+	service.GetAccessList().AddToBlacklist(ratelimit.BlacklistEntry{
+		Identifier: "192.168.1.50",
+		Type:       "ip",
+		Reason:     "Abuse detected",
+		AddedBy:    "system",
+		ExpiresAt:  time.Now().Add(1 * time.Hour),
+	})
+	service.GetAccessList().AddToBlacklist(ratelimit.BlacklistEntry{
+		Identifier: "badkey",
+		Type:       "apikey",
+		Reason:     "Suspicious activity",
+		AddedBy:    "admin",
+		ExpiresAt:  time.Now().Add(24 * time.Hour),
+	})
+
+	req := httptest.NewRequest("GET", "/admin/ratelimit/blacklist", nil)
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	assert.True(t, result["success"].(bool))
+	assert.Equal(t, float64(2), result["count"])
+	assert.NotNil(t, result["entries"])
+
+	entries := result["entries"].([]interface{})
+	assert.Len(t, entries, 2)
+}
+
+func TestAddToBlacklist(t *testing.T) {
+	app, _, handler := setupRateLimitTestApp()
+	app.Post("/admin/ratelimit/blacklist", handler.AddToBlacklist)
+
+	blacklistData := map[string]interface{}{
+		"identifier": "192.168.1.99",
+		"type":       "ip",
+		"reason":     "Attack detected",
+		"duration":   "2h",
+	}
+	body, _ := json.Marshal(blacklistData)
+
+	req := httptest.NewRequest("POST", "/admin/ratelimit/blacklist", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	assert.True(t, result["success"].(bool))
+	assert.Equal(t, "Added to blacklist successfully", result["message"])
+	assert.NotNil(t, result["entry"])
+
+	entry := result["entry"].(map[string]interface{})
+	assert.Equal(t, "192.168.1.99", entry["identifier"])
+	assert.Equal(t, "ip", entry["type"])
+	assert.Equal(t, "Attack detected", entry["reason"])
+}
+
+func TestAddToBlacklistMissingDuration(t *testing.T) {
+	app, _, handler := setupRateLimitTestApp()
+	app.Post("/admin/ratelimit/blacklist", handler.AddToBlacklist)
+
+	blacklistData := map[string]interface{}{
+		"identifier": "test",
+		"type":       "ip",
+		"reason":     "Test",
+	}
+	body, _ := json.Marshal(blacklistData)
+
+	req := httptest.NewRequest("POST", "/admin/ratelimit/blacklist", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	assert.False(t, result["success"].(bool))
+	assert.Contains(t, result["error"].(string), "duration is required")
+}
+
+func TestAddToBlacklistInvalidType(t *testing.T) {
+	app, _, handler := setupRateLimitTestApp()
+	app.Post("/admin/ratelimit/blacklist", handler.AddToBlacklist)
+
+	blacklistData := map[string]interface{}{
+		"identifier": "test",
+		"type":       "invalid",
+		"reason":     "Test",
+		"duration":   "1h",
+	}
+	body, _ := json.Marshal(blacklistData)
+
+	req := httptest.NewRequest("POST", "/admin/ratelimit/blacklist", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	assert.False(t, result["success"].(bool))
+	assert.Contains(t, result["error"].(string), "type must be 'ip' or 'apikey'")
+}
+
+func TestRemoveFromBlacklist(t *testing.T) {
+	app, service, handler := setupRateLimitTestApp()
+	app.Delete("/admin/ratelimit/blacklist/:identifier", handler.RemoveFromBlacklist)
+
+	// Add entry first
+	identifier := "192.168.1.77"
+	service.GetAccessList().AddToBlacklist(ratelimit.BlacklistEntry{
+		Identifier: identifier,
+		Type:       "ip",
+		Reason:     "Test",
+		AddedBy:    "admin",
+		ExpiresAt:  time.Now().Add(1 * time.Hour),
+	})
+
+	req := httptest.NewRequest("DELETE", "/admin/ratelimit/blacklist/"+identifier, nil)
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	assert.True(t, result["success"].(bool))
+	assert.Equal(t, "Removed from blacklist successfully", result["message"])
+	assert.Equal(t, identifier, result["identifier"])
+
+	// Verify it's removed
+	assert.False(t, service.IsBlacklisted(identifier))
+}
+
+func TestRemoveFromBlacklistNotFound(t *testing.T) {
+	app, _, handler := setupRateLimitTestApp()
+	app.Delete("/admin/ratelimit/blacklist/:identifier", handler.RemoveFromBlacklist)
+
+	req := httptest.NewRequest("DELETE", "/admin/ratelimit/blacklist/nonexistent", nil)
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	assert.False(t, result["success"].(bool))
+	assert.Equal(t, "Identifier not found in blacklist", result["error"])
+}
