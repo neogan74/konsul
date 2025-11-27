@@ -124,7 +124,7 @@ func RateLimitMiddleware(service *ratelimit.Service) fiber.Handler {
 
 // RateLimitWithConfig creates a middleware with custom configuration for specific endpoints
 func RateLimitWithConfig(requestsPerSec float64, burst int) fiber.Handler {
-	limiter := ratelimit.NewStore(requestsPerSec, burst, 5*time.Minute)
+	store := ratelimit.NewStore(requestsPerSec, burst, 5*time.Minute)
 
 	return func(c *fiber.Ctx) error {
 		clientIP := c.IP()
@@ -140,17 +140,32 @@ func RateLimitWithConfig(requestsPerSec float64, burst int) fiber.Handler {
 			identifier = apiKeyID
 		}
 
-		if !limiter.Allow(identifier) {
-			c.Set("X-RateLimit-Limit", "exceeded")
-			c.Set("X-RateLimit-Reset", fmt.Sprintf("%d", time.Now().Add(time.Second).Unix()))
+		// Get the limiter for this client
+		limiter := store.GetLimiter(identifier)
+
+		// Get RFC 6585 compliant headers
+		limit, remaining, resetAt := limiter.GetHeaders()
+		c.Set("X-RateLimit-Limit", fmt.Sprintf("%d", limit))
+		c.Set("X-RateLimit-Remaining", fmt.Sprintf("%d", remaining))
+		c.Set("X-RateLimit-Reset", fmt.Sprintf("%d", resetAt))
+
+		// Check if request is allowed
+		if !limiter.Allow() {
+			// Calculate Retry-After in seconds
+			retryAfter := int(time.Unix(resetAt, 0).Sub(time.Now()).Seconds())
+			if retryAfter < 1 {
+				retryAfter = 1
+			}
+			c.Set("Retry-After", fmt.Sprintf("%d", retryAfter))
 
 			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
-				"error":   "rate limit exceeded",
-				"message": "Too many requests. Please try again later.",
+				"error":       "rate_limit_exceeded",
+				"message":     fmt.Sprintf("Rate limit exceeded. Please retry after %d seconds.", retryAfter),
+				"retry_after": retryAfter,
+				"reset_at":    time.Unix(resetAt, 0).Format(time.RFC3339),
 			})
 		}
 
-		c.Set("X-RateLimit-Limit", "ok")
 		return c.Next()
 	}
 }
