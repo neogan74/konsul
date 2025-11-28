@@ -263,3 +263,4 @@
 ✅ Batch Operations API (KV & Services)
 ✅ Batch KV Get/Set/Delete Operations
 ✅ Batch Service Register/Deregister/Get Operations
+✅ Compare-And-Swap (CAS) Operations (Atomic KV & Service Updates)
