@@ -2,7 +2,7 @@
 
 **Date**: 2025-10-09
 
-**Status**: Proposed
+**Status**: Accepted
 
 **Deciders**: Konsul Core Team
 
@@ -590,29 +590,48 @@ func RateLimitMiddleware(service *ratelimit.Service) fiber.Handler {
 
 ## Implementation Notes
 
-### Phase 1: Headers (1 week)
-- Implement header calculation
-- Add to middleware
-- Test with various scenarios
-- Update documentation
+### Phase 1: Headers ✅ **COMPLETED**
+- ✅ Implement header calculation (`GetHeaders()` method in Limiter)
+- ✅ Add to middleware (both `RateLimitMiddleware` and `RateLimitWithConfig`)
+- ✅ Test with various scenarios (12 middleware tests)
+- ✅ Update documentation
 
-### Phase 2: Admin API (2 weeks)
-- Statistics endpoint
-- Client listing
-- Reset/adjust operations
-- Whitelist/blacklist
+**Implementation**: `internal/ratelimit/limiter.go:536`, `internal/middleware/ratelimit.go`
 
-### Phase 3: CLI Commands (1 week)
-- Basic commands (stats, list, reset)
-- Advanced commands (adjust, whitelist)
-- Watch mode
-- Output formatting
+### Phase 2: Admin API ✅ **COMPLETED**
+- ✅ Statistics endpoint (`GET /admin/ratelimit/stats`)
+- ✅ Client listing (`GET /admin/ratelimit/clients`)
+- ✅ Reset/adjust operations (`POST /admin/ratelimit/reset/*`, `PUT /admin/ratelimit/client/:type/:id`)
+- ✅ Whitelist/blacklist (`GET/POST/DELETE /admin/ratelimit/whitelist`, `/blacklist`)
 
-### Phase 4: Enhanced Metrics (1 week)
-- Grafana dashboard
-- Alert rules
-- Violation tracking
-- Client activity metrics
+**Implementation**: `internal/handlers/ratelimit.go` (35 tests)
+
+### Phase 3: CLI Commands ✅ **COMPLETED**
+- ✅ Basic commands (stats, config, clients, client, reset)
+- ✅ Advanced commands (update, adjust, whitelist, blacklist)
+- ⏳ Watch mode (planned for future)
+- ✅ Output formatting (table/text output)
+
+**Implementation**: `cmd/konsulctl/ratelimit_commands.go` (15 client methods, 9 CLI commands)
+
+**Available Commands:**
+```bash
+konsulctl ratelimit stats                    # View statistics
+konsulctl ratelimit config                   # View configuration
+konsulctl ratelimit clients [--type TYPE]    # List active clients
+konsulctl ratelimit client <identifier>      # Client status
+konsulctl ratelimit reset <ip|apikey|all>    # Reset limits
+konsulctl ratelimit update --rate N --burst N # Update config
+konsulctl ratelimit adjust --type TYPE --id ID --rate N --burst N
+konsulctl ratelimit whitelist <list|add|remove>
+konsulctl ratelimit blacklist <list|add|remove>
+```
+
+### Phase 4: Enhanced Metrics (Future)
+- [ ] Grafana dashboard
+- [ ] Alert rules
+- [ ] Violation tracking
+- [ ] Client activity metrics
 
 ### Configuration
 
@@ -675,3 +694,4 @@ KONSUL_RATE_LIMIT_HEADERS_ENABLED=true
 | Date | Author | Changes |
 |------|--------|---------|
 | 2025-10-09 | Konsul Team | Initial proposal |
+| 2025-11-28 | Konsul Team | Phase 1-3 completed, status changed to Accepted |

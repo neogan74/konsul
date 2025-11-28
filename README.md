@@ -696,6 +696,48 @@ The rate limiting system includes a comprehensive management API for runtime con
 - `POST /admin/ratelimit/blacklist` - Add to blacklist
 - `DELETE /admin/ratelimit/blacklist/:identifier` - Remove from blacklist
 
+### CLI Commands
+
+**konsulctl** provides comprehensive rate limiting management:
+
+```bash
+# View statistics
+konsulctl ratelimit stats
+konsulctl ratelimit config
+
+# List active clients
+konsulctl ratelimit clients
+konsulctl ratelimit clients --type ip
+konsulctl ratelimit clients --type apikey
+
+# Get client status
+konsulctl ratelimit client 192.168.1.100
+
+# Reset rate limits
+konsulctl ratelimit reset ip 192.168.1.100
+konsulctl ratelimit reset apikey key-abc-123
+konsulctl ratelimit reset all --type ip
+
+# Update global configuration
+konsulctl ratelimit update --rate 200 --burst 50
+
+# Adjust client-specific limits (temporary)
+konsulctl ratelimit adjust --type ip --id 192.168.1.100 \
+  --rate 500 --burst 100 --duration 1h
+
+# Whitelist management
+konsulctl ratelimit whitelist list
+konsulctl ratelimit whitelist add --id 10.0.1.10 --type ip \
+  --reason "Internal monitoring" --duration 24h
+konsulctl ratelimit whitelist remove 10.0.1.10
+
+# Blacklist management
+konsulctl ratelimit blacklist list
+konsulctl ratelimit blacklist add --id 203.0.113.50 --type ip \
+  --reason "Malicious activity" --duration 24h
+konsulctl ratelimit blacklist remove 203.0.113.50
+```
+
 **Documentation:**
 - [ADR-0013: Token Bucket Rate Limiting](docs/adr/0013-token-bucket-rate-limiting.md)
 - [ADR-0014: Rate Limiting Management API](docs/adr/0014-rate-limiting-management-api.md)
