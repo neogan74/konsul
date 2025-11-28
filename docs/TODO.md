@@ -105,7 +105,7 @@
 
 ## 6. KV Store Enhancements
 - [ ] Key prefixes/namespaces
-- [ ] Atomic operations (CAS - Compare-And-Swap)
+- [x] Atomic operations (CAS - Compare-And-Swap)
 - [x] Watch/subscribe to key changes
   - [x] WatchManager for managing watchers
   - [x] Pattern matching support (exact, *, **)
@@ -263,3 +263,4 @@
 ✅ Batch Operations API (KV & Services)
 ✅ Batch KV Get/Set/Delete Operations
 ✅ Batch Service Register/Deregister/Get Operations
+✅ Compare-And-Swap (CAS) Operations (Atomic KV & Service Updates)
