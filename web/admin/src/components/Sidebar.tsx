@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Server, Database, Activity, X } from 'lucide-react';
+import { LayoutDashboard, Server, Database, Activity, Key, X } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -11,6 +11,7 @@ const navigation = [
   { name: 'Services', href: '/services', icon: Server },
   { name: 'KV Store', href: '/kv', icon: Database },
   { name: 'Health', href: '/health', icon: Activity },
+  { name: 'API Keys', href: '/apikeys', icon: Key },
 ];
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
