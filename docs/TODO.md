@@ -68,16 +68,20 @@
 - [x] System metrics (memory, goroutines, build info)
 - [x] Dashboard integration (Grafana)
 - [x] Web Admin UI (React + Vite + Tailwind CSS)
-  - [x] Production build created (332KB JS, 20KB CSS)
+  - [x] Production build created (358KB JS, 20KB CSS)
   - [x] Integration with Fiber (serve static files)
-  - [ ] Dashboard view (services overview, metrics)
-  - [ ] Services management (list, register, deregister)
-  - [ ] KV store browser (CRUD operations)
+  - [x] Dashboard view (services overview, metrics)
+  - [x] Services management (list, register, deregister)
+  - [x] KV store browser (CRUD operations)
+  - [x] Health check visualization
+  - [x] Authentication UI (login, API keys, logout)
+  - [x] TypeScript (fully implemented)
+  - [x] Protected routes with JWT authentication
+  - [x] User menu with role display
+  - [x] API Key management page (CRUD, revoke, copy)
+  - [x] Automatic token refresh with axios interceptors
   - [ ] Real-time updates (WebSocket/SSE)
-  - [ ] Authentication UI (login, API keys)
-  - [ ] Health check visualization
-  - [ ] Dark mode support
-  - [ ] TypeScript migration
+  - [ ] Light mode and theme toggle
   - [ ] Testing suite (Vitest + React Testing Library)
 
 ## 5. Advanced Service Discovery
@@ -193,28 +197,28 @@
 - [x] Technology stack selection (React 19 + Vite + Tailwind v4)
 - [x] Initial build setup and production bundle
 - [x] Static file serving integration with Fiber
-- [ ] Core UI features:
-  - [ ] Dashboard with system overview
-  - [ ] Services page (list, filter, search)
-  - [ ] Service details view
-  - [ ] Service registration form
-  - [ ] KV store browser
-  - [ ] KV editor (create, update, delete)
-  - [ ] Settings page
-  - [ ] Authentication flow
+- [x] Core UI features:
+  - [x] Dashboard with system overview (services, KV, health, uptime)
+  - [x] Services page (list, filter, register, deregister, heartbeat)
+  - [x] Service registration form (name, address, port, tags)
+  - [x] KV store browser (list, search, pagination)
+  - [x] KV editor (create, update, delete with JSON validation)
+  - [x] Authentication flow (login, logout, protected routes)
+  - [x] API Keys management page (create, revoke, delete, copy)
+  - [x] Health page (service stats, system metrics, memory usage)
+- [x] TypeScript (fully implemented with strict mode)
+- [x] Mobile responsive design (works on all screen sizes)
+- [ ] Settings page
 - [ ] Advanced features:
   - [ ] Real-time service updates (WebSocket)
   - [ ] Service dependency graph
-  - [ ] Metrics integration (charts)
+  - [ ] Metrics integration (charts/graphs)
   - [ ] Health check history timeline
-  - [ ] Dark/light mode toggle
-  - [ ] Mobile responsive design
+  - [ ] Light/dark mode toggle
 - [ ] Developer improvements:
-  - [ ] TypeScript migration
-  - [ ] Component library/design system
-  - [ ] Testing suite (Vitest)
+  - [ ] Testing suite (Vitest + React Testing Library)
   - [ ] E2E tests (Playwright)
-  - [ ] Accessibility (WCAG compliance)
+  - [ ] Accessibility improvements (WCAG compliance)
 
 ## Completed Features
 ✅ Health Check System with TTL
@@ -264,3 +268,6 @@
 ✅ Batch KV Get/Set/Delete Operations
 ✅ Batch Service Register/Deregister/Get Operations
 ✅ Compare-And-Swap (CAS) Operations (Atomic KV & Service Updates)
+✅ Admin UI Authentication System (Login, Logout, Protected Routes, User Menu)
+✅ Admin UI API Key Management (CRUD, Revoke, Copy to Clipboard)
+✅ Axios Interceptors for Automatic Token Refresh
