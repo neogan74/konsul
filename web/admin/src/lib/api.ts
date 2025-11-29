@@ -7,6 +7,69 @@ const api = axios.create({
   },
 });
 
+// Request interceptor to add auth token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('konsul_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor to handle 401 errors and refresh token
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // If error is 401 and we haven't retried yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        const refreshToken = localStorage.getItem('konsul_refresh_token');
+        const userStr = localStorage.getItem('konsul_user');
+
+        if (!refreshToken || !userStr) {
+          throw new Error('No refresh token available');
+        }
+
+        const user = JSON.parse(userStr);
+
+        // Try to refresh the token
+        const response = await axios.post('/auth/refresh', {
+          refresh_token: refreshToken,
+          username: user.username,
+          roles: user.roles,
+          policies: user.policies,
+        });
+
+        const { token, refresh_token } = response.data;
+
+        // Update stored tokens
+        localStorage.setItem('konsul_token', token);
+        localStorage.setItem('konsul_refresh_token', refresh_token);
+
+        // Retry the original request with new token
+        originalRequest.headers.Authorization = `Bearer ${token}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        // Refresh failed, clear auth and redirect to login
+        localStorage.removeItem('konsul_token');
+        localStorage.removeItem('konsul_refresh_token');
+        localStorage.removeItem('konsul_user');
+        window.location.href = '/admin/login';
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 // Types
 export interface Service {
   id: string;
