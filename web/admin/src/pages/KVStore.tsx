@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Search, Trash2, Edit2, RefreshCw, FolderTree } from 'lucide-react';
 import KVEditor from '../components/KVEditor';
 import { listKVWithValues, setKV, deleteKV } from '../lib/api';
 import type { KVPair } from '../lib/api';
+import { useWebSocket } from '../contexts/WebSocketContext';
 
 export default function KVStore() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -12,12 +13,24 @@ export default function KVStore() {
   const [selectedKV, setSelectedKV] = useState<KVPair | null>(null);
 
   const queryClient = useQueryClient();
+  const { subscribeToKV } = useWebSocket();
 
   const { data: kvPairs, isLoading, refetch } = useQuery({
     queryKey: ['kv-all'],
     queryFn: listKVWithValues,
-    refetchInterval: 5000,
+    // Removed refetchInterval - using WebSocket instead
   });
+
+  // Subscribe to WebSocket updates
+  useEffect(() => {
+    const unsubscribe = subscribeToKV((event) => {
+      console.log('KV event received:', event);
+      // Invalidate and refetch KV store on any change
+      queryClient.invalidateQueries({ queryKey: ['kv-all'] });
+    });
+
+    return () => unsubscribe();
+  }, [subscribeToKV, queryClient]);
 
   const setKVMutation = useMutation({
     mutationFn: ({ key, value }: { key: string; value: string }) => setKV(key, value),
