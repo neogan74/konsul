@@ -54,7 +54,7 @@ export default function Login() {
                 Username
               </label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
                 <input
                   type="text"
                   required
@@ -72,7 +72,7 @@ export default function Login() {
                 User ID (optional)
               </label>
               <div className="relative">
-                <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
+                <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
                 <input
                   type="text"
                   value={userId}
@@ -89,7 +89,7 @@ export default function Login() {
                 Roles (comma-separated)
               </label>
               <div className="relative">
-                <Shield className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
+                <Shield className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
                 <input
                   type="text"
                   required

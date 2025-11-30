@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, X, RefreshCw } from 'lucide-react';
 import ServiceCard from '../components/ServiceCard';
 import { getServices, registerService, deregisterService, sendHeartbeat } from '../lib/api';
 import type { RegisterServiceRequest } from '../lib/api';
+import { useWebSocket } from '../contexts/WebSocketContext';
 
 export default function Services() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -17,12 +18,24 @@ export default function Services() {
   const [tagInput, setTagInput] = useState('');
 
   const queryClient = useQueryClient();
+  const { subscribeToServices } = useWebSocket();
 
   const { data: services, isLoading, refetch } = useQuery({
     queryKey: ['services'],
     queryFn: getServices,
-    refetchInterval: 5000,
+    // Removed refetchInterval - using WebSocket instead
   });
+
+  // Subscribe to WebSocket updates
+  useEffect(() => {
+    const unsubscribe = subscribeToServices((event) => {
+      console.log('Service event received:', event);
+      // Invalidate and refetch services on any service change
+      queryClient.invalidateQueries({ queryKey: ['services'] });
+    });
+
+    return () => unsubscribe();
+  }, [subscribeToServices, queryClient]);
 
   const registerMutation = useMutation({
     mutationFn: registerService,

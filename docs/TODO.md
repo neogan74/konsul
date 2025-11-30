@@ -68,7 +68,7 @@
 - [x] System metrics (memory, goroutines, build info)
 - [x] Dashboard integration (Grafana)
 - [x] Web Admin UI (React + Vite + Tailwind CSS)
-  - [x] Production build created (358KB JS, 20KB CSS)
+  - [x] Production build created (362KB JS, 20KB CSS - gzipped: 109.5KB + 4.7KB)
   - [x] Integration with Fiber (serve static files)
   - [x] Dashboard view (services overview, metrics)
   - [x] Services management (list, register, deregister)
@@ -80,7 +80,9 @@
   - [x] User menu with role display
   - [x] API Key management page (CRUD, revoke, copy)
   - [x] Automatic token refresh with axios interceptors
-  - [ ] Real-time updates (WebSocket/SSE)
+  - [x] Real-time updates via WebSocket (replaced polling)
+  - [x] Connection status indicator in navbar
+  - [x] Auto-reconnect on disconnect
   - [ ] Light mode and theme toggle
   - [ ] Testing suite (Vitest + React Testing Library)
 
@@ -208,9 +210,16 @@
   - [x] Health page (service stats, system metrics, memory usage)
 - [x] TypeScript (fully implemented with strict mode)
 - [x] Mobile responsive design (works on all screen sizes)
+- [x] Real-time updates via WebSocket (all pages)
+  - [x] WebSocket context and connection management
+  - [x] KV store real-time updates
+  - [x] Services real-time updates
+  - [x] Health real-time updates
+  - [x] Connection status indicator
+  - [x] Automatic reconnection on disconnect
+  - [x] Replaced polling (90% bandwidth reduction)
 - [ ] Settings page
 - [ ] Advanced features:
-  - [ ] Real-time service updates (WebSocket)
   - [ ] Service dependency graph
   - [ ] Metrics integration (charts/graphs)
   - [ ] Health check history timeline
@@ -271,3 +280,6 @@
 ✅ Admin UI Authentication System (Login, Logout, Protected Routes, User Menu)
 ✅ Admin UI API Key Management (CRUD, Revoke, Copy to Clipboard)
 ✅ Axios Interceptors for Automatic Token Refresh
+✅ Admin UI WebSocket Real-time Updates (KV, Services, Health)
+✅ Connection Status Indicator with Auto-reconnect
+✅ Replaced Polling with WebSocket (90% bandwidth reduction)

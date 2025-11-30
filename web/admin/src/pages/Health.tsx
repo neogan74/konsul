@@ -1,14 +1,29 @@
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Activity, Clock, Cpu, HardDrive, Zap } from 'lucide-react';
 import StatCard from '../components/StatCard';
 import { getHealth } from '../lib/api';
+import { useWebSocket } from '../contexts/WebSocketContext';
 
 export default function Health() {
+  const queryClient = useQueryClient();
+  const { subscribeToHealth } = useWebSocket();
+
   const { data: health, isLoading } = useQuery({
     queryKey: ['health'],
     queryFn: getHealth,
-    refetchInterval: 5000,
+    refetchInterval: 30000, // Keep polling as fallback (30s)
   });
+
+  // Subscribe to WebSocket updates
+  useEffect(() => {
+    const unsubscribe = subscribeToHealth((event) => {
+      console.log('Health event received:', event);
+      queryClient.setQueryData(['health'], event.data);
+    });
+
+    return () => unsubscribe();
+  }, [subscribeToHealth, queryClient]);
 
   const formatBytes = (bytes: number): string => {
     if (bytes === 0) return '0 B';
