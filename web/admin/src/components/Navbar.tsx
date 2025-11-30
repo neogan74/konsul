@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Menu, User, LogOut, ChevronDown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import ConnectionStatus from './ConnectionStatus';
 
 interface NavbarProps {
   onMenuClick: () => void;
@@ -30,6 +31,7 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
           <h1 className="text-xl font-bold text-white">Konsul Admin</h1>
         </div>
         <div className="flex items-center gap-4">
+          {isAuthenticated && <ConnectionStatus />}
           <div className="text-sm text-slate-400 hidden md:block">
             Service Discovery & Configuration
           </div>
