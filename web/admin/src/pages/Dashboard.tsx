@@ -1,26 +1,52 @@
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Server, Database, Activity, Clock } from 'lucide-react';
 import StatCard from '../components/StatCard';
 import { getServices, listKV, getHealth } from '../lib/api';
+import { useWebSocket } from '../contexts/WebSocketContext';
 
 export default function Dashboard() {
+  const queryClient = useQueryClient();
+  const { subscribeToServices, subscribeToKV, subscribeToHealth } = useWebSocket();
+
   const { data: services, isLoading: servicesLoading } = useQuery({
     queryKey: ['services'],
     queryFn: getServices,
-    refetchInterval: 5000,
+    // Removed refetchInterval - using WebSocket instead
   });
 
   const { data: kvKeys, isLoading: kvLoading } = useQuery({
     queryKey: ['kv-list'],
     queryFn: listKV,
-    refetchInterval: 5000,
+    // Removed refetchInterval - using WebSocket instead
   });
 
   const { data: health, isLoading: healthLoading } = useQuery({
     queryKey: ['health'],
     queryFn: getHealth,
-    refetchInterval: 5000,
+    refetchInterval: 30000, // Keep polling for health as fallback (30s)
   });
+
+  // Subscribe to WebSocket updates
+  useEffect(() => {
+    const unsubServices = subscribeToServices(() => {
+      queryClient.invalidateQueries({ queryKey: ['services'] });
+    });
+
+    const unsubKV = subscribeToKV(() => {
+      queryClient.invalidateQueries({ queryKey: ['kv-list'] });
+    });
+
+    const unsubHealth = subscribeToHealth((event) => {
+      queryClient.setQueryData(['health'], event.data);
+    });
+
+    return () => {
+      unsubServices();
+      unsubKV();
+      unsubHealth();
+    };
+  }, [subscribeToServices, subscribeToKV, subscribeToHealth, queryClient]);
 
   const healthyServices = services?.filter(s => s.status === 'passing' || s.status === 'healthy').length || 0;
 
