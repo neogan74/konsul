@@ -99,3 +99,62 @@ enum HealthCheckStatus {
   WARNING
   CRITICAL
 }
+
+"""
+Input type for registering a service
+"""
+input RegisterServiceInput {
+  """Service name (unique identifier)"""
+  name: String!
+
+  """Service IP address or hostname"""
+  address: String!
+
+  """Service port number"""
+  port: Int!
+
+  """Service tags (optional)"""
+  tags: [String!]
+
+  """Service metadata as key-value pairs (optional)"""
+  metadata: [MetadataInput!]
+}
+
+"""
+Input type for metadata
+"""
+input MetadataInput {
+  """Metadata key"""
+  key: String!
+
+  """Metadata value"""
+  value: String!
+}
+
+"""
+Service change event for subscriptions
+"""
+type ServiceChangeEvent {
+  """Event type: registered, deregister, heartbeat"""
+  type: ServiceEventType!
+
+  """The service that changed"""
+  service: Service!
+
+  """Timestamp of the change"""
+  timestamp: Time!
+}
+
+"""
+Service event types
+"""
+enum ServiceEventType {
+  """Service was registered"""
+  REGISTERED
+
+  """Service was deregistered"""
+  DEREGISTERED
+
+  """Service heartbeat updated"""
+  HEARTBEAT
+}
