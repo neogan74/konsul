@@ -122,7 +122,9 @@ export default function KVStore() {
       {/* Search Bar */}
       <div className="mb-6">
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none z-10">
+            <Search className="text-slate-400" size={20} />
+          </div>
           <input
             type="text"
             value={searchTerm}
