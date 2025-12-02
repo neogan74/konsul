@@ -39,7 +39,7 @@ Each ADR follows a standard format (see [template.md](template.md)) with the fol
 | [ADR-0018](0018-load-balancing-strategies.md) | Load Balancing Strategies | Accepted |
 | [ADR-0019](0019-audit-logging.md) | Audit Logging for Operational Changes | Accepted |
 | [ADR-0020](0020-compare-and-swap-operations.md) | Compare-And-Swap (CAS) Operations | Accepted |
-| [ADR-0021](0021-kv-watch-subscribe.md) | KV Store Watch/Subscribe System | Proposed |
+| [ADR-0021](0021-kv-watch-subscribe.md) | KV Store Watch/Subscribe System | Accepted |
 | [ADR-0022](0022-rate-limiting-comprehensive-testing.md) | Rate Limiting Comprehensive Testing Strategy | Accepted |
 
 ## Creating a New ADR
