@@ -1,6 +1,8 @@
 # Root types
 schema {
   query: Query
+  mutation: Mutation
+  subscription: Subscription
 }
 
 type Query {
@@ -31,4 +33,30 @@ input MetadataFilter {
 
   """Metadata value"""
   value: String!
+}
+
+"""
+Mutation type for write operations
+"""
+type Mutation {
+  # KV Store mutations
+  kvSet(key: String!, value: String!): KVPair!
+  kvDelete(key: String!): Boolean!
+  kvCAS(key: String!, value: String!, index: Int!): KVPair
+
+  # Service mutations
+  registerService(input: RegisterServiceInput!): Service!
+  deregisterService(name: String!): Boolean!
+  updateHeartbeat(name: String!): Service!
+}
+
+"""
+Subscription type for real-time updates
+"""
+type Subscription {
+  # KV Store change events
+  kvChanged(key: String, prefix: String): KVChangeEvent!
+
+  # Service change events
+  serviceChanged(name: String): ServiceChangeEvent!
 }
