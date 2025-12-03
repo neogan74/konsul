@@ -28,3 +28,34 @@ type KVListResponse {
   """Whether there are more items available"""
   hasMore: Boolean!
 }
+
+"""
+KV change event for subscriptions
+"""
+type KVChangeEvent {
+  """Event type: set, delete"""
+  type: KVEventType!
+
+  """The key that changed"""
+  key: String!
+
+  """The new value (null for delete events)"""
+  value: String
+
+  """The previous value (if available)"""
+  oldValue: String
+
+  """Timestamp of the change"""
+  timestamp: Time!
+}
+
+"""
+KV event types
+"""
+enum KVEventType {
+  """Key was created or updated"""
+  SET
+
+  """Key was deleted"""
+  DELETE
+}

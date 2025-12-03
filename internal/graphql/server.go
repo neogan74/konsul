@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/neogan74/konsul/internal/graphql/generated"
 	"github.com/neogan74/konsul/internal/graphql/resolver"
@@ -20,14 +21,26 @@ func NewServer(deps resolver.ResolverDependencies) *Server {
 	// Create resolver
 	r := resolver.NewResolver(deps)
 
-	// Create GraphQL handler
-	srv := handler.NewDefaultServer(
-		generated.NewExecutableSchema(
-			generated.Config{
-				Resolvers: r,
-			},
-		),
+	// Create GraphQL schema
+	schema := generated.NewExecutableSchema(
+		generated.Config{
+			Resolvers: r,
+		},
 	)
+
+	// Create GraphQL handler with WebSocket support
+	srv := handler.New(schema)
+
+	// Enable WebSocket transport for subscriptions
+	srv.AddTransport(transport.Websocket{
+		KeepAlivePingInterval: 10, // Send ping every 10 seconds
+	})
+
+	// Enable HTTP POST transport for queries/mutations
+	srv.AddTransport(transport.POST{})
+
+	// Enable HTTP GET transport for queries (optional)
+	srv.AddTransport(transport.GET{})
 
 	// Add middleware (will expand in Phase 3)
 	// srv.Use(extension.FixedComplexityLimit(1000))

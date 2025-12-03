@@ -39,7 +39,9 @@ type Config struct {
 }
 
 type ResolverRoot interface {
+	Mutation() MutationResolver
 	Query() QueryResolver
+	Subscription() SubscriptionResolver
 }
 
 type DirectiveRoot struct {
@@ -56,6 +58,14 @@ type ComplexityRoot struct {
 		Status      func(childComplexity int) int
 		Timeout     func(childComplexity int) int
 		Type        func(childComplexity int) int
+	}
+
+	KVChangeEvent struct {
+		Key       func(childComplexity int) int
+		OldValue  func(childComplexity int) int
+		Timestamp func(childComplexity int) int
+		Type      func(childComplexity int) int
+		Value     func(childComplexity int) int
 	}
 
 	KVListResponse struct {
@@ -78,6 +88,15 @@ type ComplexityRoot struct {
 	MetadataEntry struct {
 		Key   func(childComplexity int) int
 		Value func(childComplexity int) int
+	}
+
+	Mutation struct {
+		DeregisterService func(childComplexity int, name string) int
+		KvCas             func(childComplexity int, key string, value string, index int) int
+		KvDelete          func(childComplexity int, key string) int
+		KvSet             func(childComplexity int, key string, value string) int
+		RegisterService   func(childComplexity int, input model.RegisterServiceInput) int
+		UpdateHeartbeat   func(childComplexity int, name string) int
 	}
 
 	Query struct {
@@ -103,10 +122,21 @@ type ComplexityRoot struct {
 		Tags      func(childComplexity int) int
 	}
 
+	ServiceChangeEvent struct {
+		Service   func(childComplexity int) int
+		Timestamp func(childComplexity int) int
+		Type      func(childComplexity int) int
+	}
+
 	ServiceStats struct {
 		Active  func(childComplexity int) int
 		Expired func(childComplexity int) int
 		Total   func(childComplexity int) int
+	}
+
+	Subscription struct {
+		KvChanged      func(childComplexity int, key *string, prefix *string) int
+		ServiceChanged func(childComplexity int, name *string) int
 	}
 
 	SystemHealth struct {
@@ -119,6 +149,14 @@ type ComplexityRoot struct {
 	}
 }
 
+type MutationResolver interface {
+	KvSet(ctx context.Context, key string, value string) (*model.KVPair, error)
+	KvDelete(ctx context.Context, key string) (bool, error)
+	KvCas(ctx context.Context, key string, value string, index int) (*model.KVPair, error)
+	RegisterService(ctx context.Context, input model.RegisterServiceInput) (*model.Service, error)
+	DeregisterService(ctx context.Context, name string) (bool, error)
+	UpdateHeartbeat(ctx context.Context, name string) (*model.Service, error)
+}
 type QueryResolver interface {
 	Health(ctx context.Context) (*model.SystemHealth, error)
 	Kv(ctx context.Context, key string) (*model.KVPair, error)
@@ -129,6 +167,10 @@ type QueryResolver interface {
 	ServicesByTags(ctx context.Context, tags []string) ([]*model.Service, error)
 	ServicesByMetadata(ctx context.Context, filters []*model.MetadataFilter) ([]*model.Service, error)
 	ServicesByQuery(ctx context.Context, tags []string, metadata []*model.MetadataFilter) ([]*model.Service, error)
+}
+type SubscriptionResolver interface {
+	KvChanged(ctx context.Context, key *string, prefix *string) (<-chan *model.KVChangeEvent, error)
+	ServiceChanged(ctx context.Context, name *string) (<-chan *model.ServiceChangeEvent, error)
 }
 
 type executableSchema struct {
@@ -205,6 +247,37 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.HealthCheck.Type(childComplexity), true
 
+	case "KVChangeEvent.key":
+		if e.complexity.KVChangeEvent.Key == nil {
+			break
+		}
+
+		return e.complexity.KVChangeEvent.Key(childComplexity), true
+	case "KVChangeEvent.oldValue":
+		if e.complexity.KVChangeEvent.OldValue == nil {
+			break
+		}
+
+		return e.complexity.KVChangeEvent.OldValue(childComplexity), true
+	case "KVChangeEvent.timestamp":
+		if e.complexity.KVChangeEvent.Timestamp == nil {
+			break
+		}
+
+		return e.complexity.KVChangeEvent.Timestamp(childComplexity), true
+	case "KVChangeEvent.type":
+		if e.complexity.KVChangeEvent.Type == nil {
+			break
+		}
+
+		return e.complexity.KVChangeEvent.Type(childComplexity), true
+	case "KVChangeEvent.value":
+		if e.complexity.KVChangeEvent.Value == nil {
+			break
+		}
+
+		return e.complexity.KVChangeEvent.Value(childComplexity), true
+
 	case "KVListResponse.hasMore":
 		if e.complexity.KVListResponse.HasMore == nil {
 			break
@@ -268,6 +341,73 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.MetadataEntry.Value(childComplexity), true
+
+	case "Mutation.deregisterService":
+		if e.complexity.Mutation.DeregisterService == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deregisterService_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeregisterService(childComplexity, args["name"].(string)), true
+	case "Mutation.kvCAS":
+		if e.complexity.Mutation.KvCas == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_kvCAS_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.KvCas(childComplexity, args["key"].(string), args["value"].(string), args["index"].(int)), true
+	case "Mutation.kvDelete":
+		if e.complexity.Mutation.KvDelete == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_kvDelete_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.KvDelete(childComplexity, args["key"].(string)), true
+	case "Mutation.kvSet":
+		if e.complexity.Mutation.KvSet == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_kvSet_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.KvSet(childComplexity, args["key"].(string), args["value"].(string)), true
+	case "Mutation.registerService":
+		if e.complexity.Mutation.RegisterService == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_registerService_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.RegisterService(childComplexity, args["input"].(model.RegisterServiceInput)), true
+	case "Mutation.updateHeartbeat":
+		if e.complexity.Mutation.UpdateHeartbeat == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateHeartbeat_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UpdateHeartbeat(childComplexity, args["name"].(string)), true
 
 	case "Query.health":
 		if e.complexity.Query.Health == nil {
@@ -408,6 +548,25 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Service.Tags(childComplexity), true
 
+	case "ServiceChangeEvent.service":
+		if e.complexity.ServiceChangeEvent.Service == nil {
+			break
+		}
+
+		return e.complexity.ServiceChangeEvent.Service(childComplexity), true
+	case "ServiceChangeEvent.timestamp":
+		if e.complexity.ServiceChangeEvent.Timestamp == nil {
+			break
+		}
+
+		return e.complexity.ServiceChangeEvent.Timestamp(childComplexity), true
+	case "ServiceChangeEvent.type":
+		if e.complexity.ServiceChangeEvent.Type == nil {
+			break
+		}
+
+		return e.complexity.ServiceChangeEvent.Type(childComplexity), true
+
 	case "ServiceStats.active":
 		if e.complexity.ServiceStats.Active == nil {
 			break
@@ -426,6 +585,29 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.ServiceStats.Total(childComplexity), true
+
+	case "Subscription.kvChanged":
+		if e.complexity.Subscription.KvChanged == nil {
+			break
+		}
+
+		args, err := ec.field_Subscription_kvChanged_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Subscription.KvChanged(childComplexity, args["key"].(*string), args["prefix"].(*string)), true
+	case "Subscription.serviceChanged":
+		if e.complexity.Subscription.ServiceChanged == nil {
+			break
+		}
+
+		args, err := ec.field_Subscription_serviceChanged_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Subscription.ServiceChanged(childComplexity, args["name"].(*string)), true
 
 	case "SystemHealth.kvStore":
 		if e.complexity.SystemHealth.KvStore == nil {
@@ -473,6 +655,8 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	ec := executionContext{opCtx, e, 0, 0, make(chan graphql.DeferredResult)}
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
 		ec.unmarshalInputMetadataFilter,
+		ec.unmarshalInputMetadataInput,
+		ec.unmarshalInputRegisterServiceInput,
 	)
 	first := true
 
@@ -506,6 +690,38 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			}
 
 			return &response
+		}
+	case ast.Mutation:
+		return func(ctx context.Context) *graphql.Response {
+			if !first {
+				return nil
+			}
+			first = false
+			ctx = graphql.WithUnmarshalerMap(ctx, inputUnmarshalMap)
+			data := ec._Mutation(ctx, opCtx.Operation.SelectionSet)
+			var buf bytes.Buffer
+			data.MarshalGQL(&buf)
+
+			return &graphql.Response{
+				Data: buf.Bytes(),
+			}
+		}
+	case ast.Subscription:
+		next := ec._Subscription(ctx, opCtx.Operation.SelectionSet)
+
+		var buf bytes.Buffer
+		return func(ctx context.Context) *graphql.Response {
+			buf.Reset()
+			data := next(ctx)
+
+			if data == nil {
+				return nil
+			}
+			data.MarshalGQL(&buf)
+
+			return &graphql.Response{
+				Data: buf.Bytes(),
+			}
 		}
 
 	default:
@@ -640,10 +856,43 @@ type KVListResponse {
   """Whether there are more items available"""
   hasMore: Boolean!
 }
+
+"""
+KV change event for subscriptions
+"""
+type KVChangeEvent {
+  """Event type: set, delete"""
+  type: KVEventType!
+
+  """The key that changed"""
+  key: String!
+
+  """The new value (null for delete events)"""
+  value: String
+
+  """The previous value (if available)"""
+  oldValue: String
+
+  """Timestamp of the change"""
+  timestamp: Time!
+}
+
+"""
+KV event types
+"""
+enum KVEventType {
+  """Key was created or updated"""
+  SET
+
+  """Key was deleted"""
+  DELETE
+}
 `, BuiltIn: false},
 	{Name: "../schema/schema.graphql", Input: `# Root types
 schema {
   query: Query
+  mutation: Mutation
+  subscription: Subscription
 }
 
 type Query {
@@ -674,6 +923,32 @@ input MetadataFilter {
 
   """Metadata value"""
   value: String!
+}
+
+"""
+Mutation type for write operations
+"""
+type Mutation {
+  # KV Store mutations
+  kvSet(key: String!, value: String!): KVPair!
+  kvDelete(key: String!): Boolean!
+  kvCAS(key: String!, value: String!, index: Int!): KVPair
+
+  # Service mutations
+  registerService(input: RegisterServiceInput!): Service!
+  deregisterService(name: String!): Boolean!
+  updateHeartbeat(name: String!): Service!
+}
+
+"""
+Subscription type for real-time updates
+"""
+type Subscription {
+  # KV Store change events
+  kvChanged(key: String, prefix: String): KVChangeEvent!
+
+  # Service change events
+  serviceChanged(name: String): ServiceChangeEvent!
 }
 `, BuiltIn: false},
 	{Name: "../schema/service.graphql", Input: `"""
@@ -777,6 +1052,65 @@ enum HealthCheckStatus {
   WARNING
   CRITICAL
 }
+
+"""
+Input type for registering a service
+"""
+input RegisterServiceInput {
+  """Service name (unique identifier)"""
+  name: String!
+
+  """Service IP address or hostname"""
+  address: String!
+
+  """Service port number"""
+  port: Int!
+
+  """Service tags (optional)"""
+  tags: [String!]
+
+  """Service metadata as key-value pairs (optional)"""
+  metadata: [MetadataInput!]
+}
+
+"""
+Input type for metadata
+"""
+input MetadataInput {
+  """Metadata key"""
+  key: String!
+
+  """Metadata value"""
+  value: String!
+}
+
+"""
+Service change event for subscriptions
+"""
+type ServiceChangeEvent {
+  """Event type: registered, deregister, heartbeat"""
+  type: ServiceEventType!
+
+  """The service that changed"""
+  service: Service!
+
+  """Timestamp of the change"""
+  timestamp: Time!
+}
+
+"""
+Service event types
+"""
+enum ServiceEventType {
+  """Service was registered"""
+  REGISTERED
+
+  """Service was deregistered"""
+  DEREGISTERED
+
+  """Service heartbeat updated"""
+  HEARTBEAT
+}
 `, BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
@@ -784,6 +1118,87 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 // endregion ************************** generated!.gotpl **************************
 
 // region    ***************************** args.gotpl *****************************
+
+func (ec *executionContext) field_Mutation_deregisterService_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "name", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["name"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_kvCAS_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "key", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["key"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "value", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["value"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "index", ec.unmarshalNInt2int)
+	if err != nil {
+		return nil, err
+	}
+	args["index"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_kvDelete_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "key", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["key"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_kvSet_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "key", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["key"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "value", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["value"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_registerService_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNRegisterServiceInput2githubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐRegisterServiceInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updateHeartbeat_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "name", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["name"] = arg0
+	return args, nil
+}
 
 func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
@@ -890,6 +1305,33 @@ func (ec *executionContext) field_Query_services_args(ctx context.Context, rawAr
 		return nil, err
 	}
 	args["offset"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Subscription_kvChanged_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "key", ec.unmarshalOString2ᚖstring)
+	if err != nil {
+		return nil, err
+	}
+	args["key"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "prefix", ec.unmarshalOString2ᚖstring)
+	if err != nil {
+		return nil, err
+	}
+	args["prefix"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Subscription_serviceChanged_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "name", ec.unmarshalOString2ᚖstring)
+	if err != nil {
+		return nil, err
+	}
+	args["name"] = arg0
 	return args, nil
 }
 
@@ -1206,6 +1648,151 @@ func (ec *executionContext) fieldContext_HealthCheck_lastChecked(_ context.Conte
 	return fc, nil
 }
 
+func (ec *executionContext) _KVChangeEvent_type(ctx context.Context, field graphql.CollectedField, obj *model.KVChangeEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_KVChangeEvent_type,
+		func(ctx context.Context) (any, error) {
+			return obj.Type, nil
+		},
+		nil,
+		ec.marshalNKVEventType2githubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐKVEventType,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_KVChangeEvent_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "KVChangeEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type KVEventType does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _KVChangeEvent_key(ctx context.Context, field graphql.CollectedField, obj *model.KVChangeEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_KVChangeEvent_key,
+		func(ctx context.Context) (any, error) {
+			return obj.Key, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_KVChangeEvent_key(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "KVChangeEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _KVChangeEvent_value(ctx context.Context, field graphql.CollectedField, obj *model.KVChangeEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_KVChangeEvent_value,
+		func(ctx context.Context) (any, error) {
+			return obj.Value, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_KVChangeEvent_value(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "KVChangeEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _KVChangeEvent_oldValue(ctx context.Context, field graphql.CollectedField, obj *model.KVChangeEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_KVChangeEvent_oldValue,
+		func(ctx context.Context) (any, error) {
+			return obj.OldValue, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_KVChangeEvent_oldValue(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "KVChangeEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _KVChangeEvent_timestamp(ctx context.Context, field graphql.CollectedField, obj *model.KVChangeEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_KVChangeEvent_timestamp,
+		func(ctx context.Context) (any, error) {
+			return obj.Timestamp, nil
+		},
+		nil,
+		ec.marshalNTime2githubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋscalarᚐTime,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_KVChangeEvent_timestamp(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "KVChangeEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _KVListResponse_items(ctx context.Context, field graphql.CollectedField, obj *model.KVListResponse) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1502,6 +2089,308 @@ func (ec *executionContext) fieldContext_MetadataEntry_value(_ context.Context, 
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
 		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_kvSet(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_kvSet,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().KvSet(ctx, fc.Args["key"].(string), fc.Args["value"].(string))
+		},
+		nil,
+		ec.marshalNKVPair2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐKVPair,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_kvSet(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "key":
+				return ec.fieldContext_KVPair_key(ctx, field)
+			case "value":
+				return ec.fieldContext_KVPair_value(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_KVPair_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_KVPair_updatedAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type KVPair", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_kvSet_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_kvDelete(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_kvDelete,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().KvDelete(ctx, fc.Args["key"].(string))
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_kvDelete(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_kvDelete_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_kvCAS(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_kvCAS,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().KvCas(ctx, fc.Args["key"].(string), fc.Args["value"].(string), fc.Args["index"].(int))
+		},
+		nil,
+		ec.marshalOKVPair2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐKVPair,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_kvCAS(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "key":
+				return ec.fieldContext_KVPair_key(ctx, field)
+			case "value":
+				return ec.fieldContext_KVPair_value(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_KVPair_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_KVPair_updatedAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type KVPair", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_kvCAS_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_registerService(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_registerService,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().RegisterService(ctx, fc.Args["input"].(model.RegisterServiceInput))
+		},
+		nil,
+		ec.marshalNService2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐService,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_registerService(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "name":
+				return ec.fieldContext_Service_name(ctx, field)
+			case "address":
+				return ec.fieldContext_Service_address(ctx, field)
+			case "port":
+				return ec.fieldContext_Service_port(ctx, field)
+			case "status":
+				return ec.fieldContext_Service_status(ctx, field)
+			case "expiresAt":
+				return ec.fieldContext_Service_expiresAt(ctx, field)
+			case "tags":
+				return ec.fieldContext_Service_tags(ctx, field)
+			case "metadata":
+				return ec.fieldContext_Service_metadata(ctx, field)
+			case "checks":
+				return ec.fieldContext_Service_checks(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Service", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_registerService_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deregisterService(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_deregisterService,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().DeregisterService(ctx, fc.Args["name"].(string))
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_deregisterService(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deregisterService_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updateHeartbeat(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_updateHeartbeat,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().UpdateHeartbeat(ctx, fc.Args["name"].(string))
+		},
+		nil,
+		ec.marshalNService2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐService,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_updateHeartbeat(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "name":
+				return ec.fieldContext_Service_name(ctx, field)
+			case "address":
+				return ec.fieldContext_Service_address(ctx, field)
+			case "port":
+				return ec.fieldContext_Service_port(ctx, field)
+			case "status":
+				return ec.fieldContext_Service_status(ctx, field)
+			case "expiresAt":
+				return ec.fieldContext_Service_expiresAt(ctx, field)
+			case "tags":
+				return ec.fieldContext_Service_tags(ctx, field)
+			case "metadata":
+				return ec.fieldContext_Service_metadata(ctx, field)
+			case "checks":
+				return ec.fieldContext_Service_checks(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Service", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updateHeartbeat_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -2339,6 +3228,111 @@ func (ec *executionContext) fieldContext_Service_checks(_ context.Context, field
 	return fc, nil
 }
 
+func (ec *executionContext) _ServiceChangeEvent_type(ctx context.Context, field graphql.CollectedField, obj *model.ServiceChangeEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ServiceChangeEvent_type,
+		func(ctx context.Context) (any, error) {
+			return obj.Type, nil
+		},
+		nil,
+		ec.marshalNServiceEventType2githubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐServiceEventType,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ServiceChangeEvent_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ServiceChangeEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ServiceEventType does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ServiceChangeEvent_service(ctx context.Context, field graphql.CollectedField, obj *model.ServiceChangeEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ServiceChangeEvent_service,
+		func(ctx context.Context) (any, error) {
+			return obj.Service, nil
+		},
+		nil,
+		ec.marshalNService2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐService,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ServiceChangeEvent_service(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ServiceChangeEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "name":
+				return ec.fieldContext_Service_name(ctx, field)
+			case "address":
+				return ec.fieldContext_Service_address(ctx, field)
+			case "port":
+				return ec.fieldContext_Service_port(ctx, field)
+			case "status":
+				return ec.fieldContext_Service_status(ctx, field)
+			case "expiresAt":
+				return ec.fieldContext_Service_expiresAt(ctx, field)
+			case "tags":
+				return ec.fieldContext_Service_tags(ctx, field)
+			case "metadata":
+				return ec.fieldContext_Service_metadata(ctx, field)
+			case "checks":
+				return ec.fieldContext_Service_checks(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Service", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ServiceChangeEvent_timestamp(ctx context.Context, field graphql.CollectedField, obj *model.ServiceChangeEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ServiceChangeEvent_timestamp,
+		func(ctx context.Context) (any, error) {
+			return obj.Timestamp, nil
+		},
+		nil,
+		ec.marshalNTime2githubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋscalarᚐTime,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ServiceChangeEvent_timestamp(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ServiceChangeEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _ServiceStats_total(ctx context.Context, field graphql.CollectedField, obj *model.ServiceStats) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2422,6 +3416,108 @@ func (ec *executionContext) fieldContext_ServiceStats_expired(_ context.Context,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Int does not have child fields")
 		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_kvChanged(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_kvChanged,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Subscription().KvChanged(ctx, fc.Args["key"].(*string), fc.Args["prefix"].(*string))
+		},
+		nil,
+		ec.marshalNKVChangeEvent2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐKVChangeEvent,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_kvChanged(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "type":
+				return ec.fieldContext_KVChangeEvent_type(ctx, field)
+			case "key":
+				return ec.fieldContext_KVChangeEvent_key(ctx, field)
+			case "value":
+				return ec.fieldContext_KVChangeEvent_value(ctx, field)
+			case "oldValue":
+				return ec.fieldContext_KVChangeEvent_oldValue(ctx, field)
+			case "timestamp":
+				return ec.fieldContext_KVChangeEvent_timestamp(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type KVChangeEvent", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Subscription_kvChanged_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_serviceChanged(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_serviceChanged,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Subscription().ServiceChanged(ctx, fc.Args["name"].(*string))
+		},
+		nil,
+		ec.marshalNServiceChangeEvent2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐServiceChangeEvent,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_serviceChanged(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "type":
+				return ec.fieldContext_ServiceChangeEvent_type(ctx, field)
+			case "service":
+				return ec.fieldContext_ServiceChangeEvent_service(ctx, field)
+			case "timestamp":
+				return ec.fieldContext_ServiceChangeEvent_timestamp(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ServiceChangeEvent", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Subscription_serviceChanged_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -4092,6 +5188,95 @@ func (ec *executionContext) unmarshalInputMetadataFilter(ctx context.Context, ob
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputMetadataInput(ctx context.Context, obj any) (model.MetadataInput, error) {
+	var it model.MetadataInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"key", "value"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "key":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("key"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Key = data
+		case "value":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("value"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Value = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputRegisterServiceInput(ctx context.Context, obj any) (model.RegisterServiceInput, error) {
+	var it model.RegisterServiceInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"name", "address", "port", "tags", "metadata"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		case "address":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("address"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Address = data
+		case "port":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("port"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Port = data
+		case "tags":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("tags"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Tags = data
+		case "metadata":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("metadata"))
+			data, err := ec.unmarshalOMetadataInput2ᚕᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐMetadataInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Metadata = data
+		}
+	}
+
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -4144,6 +5329,59 @@ func (ec *executionContext) _HealthCheck(ctx context.Context, sel ast.SelectionS
 			out.Values[i] = ec._HealthCheck_timeout(ctx, field, obj)
 		case "lastChecked":
 			out.Values[i] = ec._HealthCheck_lastChecked(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var kVChangeEventImplementors = []string{"KVChangeEvent"}
+
+func (ec *executionContext) _KVChangeEvent(ctx context.Context, sel ast.SelectionSet, obj *model.KVChangeEvent) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, kVChangeEventImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("KVChangeEvent")
+		case "type":
+			out.Values[i] = ec._KVChangeEvent_type(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "key":
+			out.Values[i] = ec._KVChangeEvent_key(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "value":
+			out.Values[i] = ec._KVChangeEvent_value(ctx, field, obj)
+		case "oldValue":
+			out.Values[i] = ec._KVChangeEvent_oldValue(ctx, field, obj)
+		case "timestamp":
+			out.Values[i] = ec._KVChangeEvent_timestamp(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -4321,6 +5559,87 @@ func (ec *executionContext) _MetadataEntry(ctx context.Context, sel ast.Selectio
 			}
 		case "value":
 			out.Values[i] = ec._MetadataEntry_value(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var mutationImplementors = []string{"Mutation"}
+
+func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, mutationImplementors)
+	ctx = graphql.WithFieldContext(ctx, &graphql.FieldContext{
+		Object: "Mutation",
+	})
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		innerCtx := graphql.WithRootFieldContext(ctx, &graphql.RootFieldContext{
+			Object: field.Name,
+			Field:  field,
+		})
+
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Mutation")
+		case "kvSet":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_kvSet(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "kvDelete":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_kvDelete(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "kvCAS":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_kvCAS(ctx, field)
+			})
+		case "registerService":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_registerService(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "deregisterService":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deregisterService(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updateHeartbeat":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updateHeartbeat(ctx, field)
+			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -4663,6 +5982,55 @@ func (ec *executionContext) _Service(ctx context.Context, sel ast.SelectionSet, 
 	return out
 }
 
+var serviceChangeEventImplementors = []string{"ServiceChangeEvent"}
+
+func (ec *executionContext) _ServiceChangeEvent(ctx context.Context, sel ast.SelectionSet, obj *model.ServiceChangeEvent) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, serviceChangeEventImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ServiceChangeEvent")
+		case "type":
+			out.Values[i] = ec._ServiceChangeEvent_type(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "service":
+			out.Values[i] = ec._ServiceChangeEvent_service(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "timestamp":
+			out.Values[i] = ec._ServiceChangeEvent_timestamp(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var serviceStatsImplementors = []string{"ServiceStats"}
 
 func (ec *executionContext) _ServiceStats(ctx context.Context, sel ast.SelectionSet, obj *model.ServiceStats) graphql.Marshaler {
@@ -4710,6 +6078,28 @@ func (ec *executionContext) _ServiceStats(ctx context.Context, sel ast.Selection
 	}
 
 	return out
+}
+
+var subscriptionImplementors = []string{"Subscription"}
+
+func (ec *executionContext) _Subscription(ctx context.Context, sel ast.SelectionSet) func(ctx context.Context) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, subscriptionImplementors)
+	ctx = graphql.WithFieldContext(ctx, &graphql.FieldContext{
+		Object: "Subscription",
+	})
+	if len(fields) != 1 {
+		graphql.AddErrorf(ctx, "must subscribe to exactly one stream")
+		return nil
+	}
+
+	switch fields[0].Name {
+	case "kvChanged":
+		return ec._Subscription_kvChanged(ctx, fields[0])
+	case "serviceChanged":
+		return ec._Subscription_serviceChanged(ctx, fields[0])
+	default:
+		panic("unknown field " + strconv.Quote(fields[0].Name))
+	}
 }
 
 var systemHealthImplementors = []string{"SystemHealth"}
@@ -5121,7 +6511,7 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	res := graphql.MarshalBoolean(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 	}
 	return res
@@ -5174,7 +6564,7 @@ func (ec *executionContext) marshalNHealthCheck2ᚕᚖgithubᚗcomᚋneogan74ᚋ
 func (ec *executionContext) marshalNHealthCheck2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐHealthCheck(ctx context.Context, sel ast.SelectionSet, v *model.HealthCheck) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
@@ -5211,10 +6601,34 @@ func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.Selecti
 	res := graphql.MarshalInt(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNKVChangeEvent2githubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐKVChangeEvent(ctx context.Context, sel ast.SelectionSet, v model.KVChangeEvent) graphql.Marshaler {
+	return ec._KVChangeEvent(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNKVChangeEvent2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐKVChangeEvent(ctx context.Context, sel ast.SelectionSet, v *model.KVChangeEvent) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._KVChangeEvent(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNKVEventType2githubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐKVEventType(ctx context.Context, v any) (model.KVEventType, error) {
+	var res model.KVEventType
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNKVEventType2githubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐKVEventType(ctx context.Context, sel ast.SelectionSet, v model.KVEventType) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) marshalNKVListResponse2githubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐKVListResponse(ctx context.Context, sel ast.SelectionSet, v model.KVListResponse) graphql.Marshaler {
@@ -5224,11 +6638,15 @@ func (ec *executionContext) marshalNKVListResponse2githubᚗcomᚋneogan74ᚋkon
 func (ec *executionContext) marshalNKVListResponse2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐKVListResponse(ctx context.Context, sel ast.SelectionSet, v *model.KVListResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
 	return ec._KVListResponse(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNKVPair2githubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐKVPair(ctx context.Context, sel ast.SelectionSet, v model.KVPair) graphql.Marshaler {
+	return ec._KVPair(ctx, sel, &v)
 }
 
 func (ec *executionContext) marshalNKVPair2ᚕᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐKVPairᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.KVPair) graphql.Marshaler {
@@ -5278,7 +6696,7 @@ func (ec *executionContext) marshalNKVPair2ᚕᚖgithubᚗcomᚋneogan74ᚋkonsu
 func (ec *executionContext) marshalNKVPair2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐKVPair(ctx context.Context, sel ast.SelectionSet, v *model.KVPair) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
@@ -5288,7 +6706,7 @@ func (ec *executionContext) marshalNKVPair2ᚖgithubᚗcomᚋneogan74ᚋkonsul�
 func (ec *executionContext) marshalNKVStats2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐKVStats(ctx context.Context, sel ast.SelectionSet, v *model.KVStats) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
@@ -5342,7 +6760,7 @@ func (ec *executionContext) marshalNMetadataEntry2ᚕᚖgithubᚗcomᚋneogan74�
 func (ec *executionContext) marshalNMetadataEntry2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐMetadataEntry(ctx context.Context, sel ast.SelectionSet, v *model.MetadataEntry) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
@@ -5367,6 +6785,20 @@ func (ec *executionContext) unmarshalNMetadataFilter2ᚕᚖgithubᚗcomᚋneogan
 func (ec *executionContext) unmarshalNMetadataFilter2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐMetadataFilter(ctx context.Context, v any) (*model.MetadataFilter, error) {
 	res, err := ec.unmarshalInputMetadataFilter(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNMetadataInput2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐMetadataInput(ctx context.Context, v any) (*model.MetadataInput, error) {
+	res, err := ec.unmarshalInputMetadataInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNRegisterServiceInput2githubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐRegisterServiceInput(ctx context.Context, v any) (model.RegisterServiceInput, error) {
+	res, err := ec.unmarshalInputRegisterServiceInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNService2githubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐService(ctx context.Context, sel ast.SelectionSet, v model.Service) graphql.Marshaler {
+	return ec._Service(ctx, sel, &v)
 }
 
 func (ec *executionContext) marshalNService2ᚕᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐServiceᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Service) graphql.Marshaler {
@@ -5416,17 +6848,41 @@ func (ec *executionContext) marshalNService2ᚕᚖgithubᚗcomᚋneogan74ᚋkons
 func (ec *executionContext) marshalNService2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐService(ctx context.Context, sel ast.SelectionSet, v *model.Service) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
 	return ec._Service(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNServiceChangeEvent2githubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐServiceChangeEvent(ctx context.Context, sel ast.SelectionSet, v model.ServiceChangeEvent) graphql.Marshaler {
+	return ec._ServiceChangeEvent(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNServiceChangeEvent2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐServiceChangeEvent(ctx context.Context, sel ast.SelectionSet, v *model.ServiceChangeEvent) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._ServiceChangeEvent(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNServiceEventType2githubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐServiceEventType(ctx context.Context, v any) (model.ServiceEventType, error) {
+	var res model.ServiceEventType
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNServiceEventType2githubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐServiceEventType(ctx context.Context, sel ast.SelectionSet, v model.ServiceEventType) graphql.Marshaler {
+	return v
+}
+
 func (ec *executionContext) marshalNServiceStats2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐServiceStats(ctx context.Context, sel ast.SelectionSet, v *model.ServiceStats) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
@@ -5453,7 +6909,7 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 	res := graphql.MarshalString(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 	}
 	return res
@@ -5496,7 +6952,7 @@ func (ec *executionContext) marshalNSystemHealth2githubᚗcomᚋneogan74ᚋkonsu
 func (ec *executionContext) marshalNSystemHealth2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐSystemHealth(ctx context.Context, sel ast.SelectionSet, v *model.SystemHealth) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
@@ -5571,7 +7027,7 @@ func (ec *executionContext) marshalN__DirectiveLocation2string(ctx context.Conte
 	res := graphql.MarshalString(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 	}
 	return res
@@ -5743,7 +7199,7 @@ func (ec *executionContext) marshalN__Type2ᚕgithubᚗcomᚋ99designsᚋgqlgen�
 func (ec *executionContext) marshalN__Type2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐType(ctx context.Context, sel ast.SelectionSet, v *introspection.Type) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
@@ -5760,7 +7216,7 @@ func (ec *executionContext) marshalN__TypeKind2string(ctx context.Context, sel a
 	res := graphql.MarshalString(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 	}
 	return res
@@ -5848,6 +7304,24 @@ func (ec *executionContext) unmarshalOMetadataFilter2ᚕᚖgithubᚗcomᚋneogan
 	for i := range vSlice {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
 		res[i], err = ec.unmarshalNMetadataFilter2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐMetadataFilter(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalOMetadataInput2ᚕᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐMetadataInputᚄ(ctx context.Context, v any) ([]*model.MetadataInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.MetadataInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNMetadataInput2ᚖgithubᚗcomᚋneogan74ᚋkonsulᚋinternalᚋgraphqlᚋmodelᚐMetadataInput(ctx, vSlice[i])
 		if err != nil {
 			return nil, err
 		}

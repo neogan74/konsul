@@ -38,7 +38,7 @@ Note: The `health` query is public and does not require authentication.
 
 ## Features
 
-### Phase 1 (Current)
+### Phase 1 (Completed)
 
 - ✅ **Read-only Queries**: KV store and Service Discovery
 - ✅ **Pagination**: Limit and offset support
@@ -47,10 +47,16 @@ Note: The `health` query is public and does not require authentication.
 - ✅ **Custom Scalars**: Time (RFC3339) and Duration types
 - ✅ **GraphQL Playground**: Interactive query explorer
 
+### Phase 2 (Completed)
+
+- ✅ **Mutations**: Write operations for KV and Services
+- ✅ **Subscriptions**: Real-time KV updates via WebSocket
+- ✅ **WebSocket Transport**: Full subscription support with keep-alive
+- ✅ **Pattern Matching**: Watch specific keys or prefixes
+
 ### Future Phases
 
-- 🔜 **Mutations**: Write operations (Phase 2)
-- 🔜 **Subscriptions**: Real-time updates via WebSocket (Phase 2)
+- 🔜 **Service Subscriptions**: Real-time service change notifications (Phase 3)
 - 🔜 **DataLoaders**: N+1 query optimization (Phase 3)
 - 🔜 **Query Complexity Limits**: Protection against expensive queries (Phase 3)
 - 🔜 **ACL Integration**: Field-level ACL enforcement (Phase 3)
@@ -610,50 +616,305 @@ query = gql('''
 result = client.execute(query)
 ```
 
-## Roadmap
+## Mutations (Phase 2)
 
-### Phase 2: Mutations and Subscriptions (Planned)
+GraphQL mutations enable write operations for both KV store and Service Discovery.
 
-**Status:** Planning
-**Documentation:** See [Phase 2 Implementation Plan](./graphql-phase2-implementation.md) for detailed technical design and implementation steps.
-
-**High-level Schema Preview:**
+### Mutation Schema
 
 ```graphql
 type Mutation {
   # KV Store mutations
   kvSet(key: String!, value: String!): KVPair!
-  kvSetCAS(key: String!, value: String!, modifyIndex: Int!): KVSetCASResult!
   kvDelete(key: String!): Boolean!
-  kvDeleteCAS(key: String!, modifyIndex: Int!): Boolean!
-  kvDeleteTree(prefix: String!): KVDeleteTreeResult!
+  kvCAS(key: String!, value: String!, index: Int!): KVPair
 
   # Service mutations
   registerService(input: RegisterServiceInput!): Service!
   deregisterService(name: String!): Boolean!
   updateHeartbeat(name: String!): Service!
-  updateServiceCheck(serviceId: String!, checkId: String!, status: HealthCheckStatus!, output: String): HealthCheck!
 }
 
-type Subscription {
-  # Real-time updates
-  kvChanged(prefix: String): KVChangeEvent!
-  kvWatchKey(key: String!): KVChangeEvent!
-  serviceChanged(name: String): ServiceChangeEvent!
-  serviceHealthChanged(name: String): ServiceHealthChangeEvent!
-  allServicesChanged: ServiceChangeEvent!
+input RegisterServiceInput {
+  name: String!
+  address: String!
+  port: Int!
+  tags: [String!]
+  metadata: [MetadataInput!]
+}
+
+input MetadataInput {
+  key: String!
+  value: String!
 }
 ```
 
-**Key Features:**
-- Write operations for KV store and Service Discovery
-- Real-time updates via WebSocket (graphql-ws protocol)
-- Optimistic concurrency control (CAS operations)
-- Event broadcasting with pub/sub
-- Rate limiting and connection management
+### Mutation Examples
+
+#### 1. Set KV Pair
+
+```graphql
+mutation {
+  kvSet(key: "config/database", value: "postgresql://localhost/mydb") {
+    key
+    value
+    updatedAt
+  }
+}
+```
+
+#### 2. Delete KV Pair
+
+```graphql
+mutation {
+  kvDelete(key: "old/config")
+}
+```
+
+**Response:** `true` if deleted, `false` if key didn't exist
+
+#### 3. Compare-And-Swap (Atomic Update)
+
+```graphql
+mutation {
+  kvCAS(key: "counter", value: "42", index: 5) {
+    key
+    value
+  }
+}
+```
+
+**Response:** Returns updated KVPair on success, `null` on index mismatch
+
+#### 4. Register Service
+
+```graphql
+mutation {
+  registerService(input: {
+    name: "web-api"
+    address: "10.0.1.5"
+    port: 8080
+    tags: ["api", "v1"]
+    metadata: [
+      { key: "version", value: "1.2.3" }
+      { key: "region", value: "us-west" }
+    ]
+  }) {
+    name
+    address
+    port
+    status
+    expiresAt
+  }
+}
+```
+
+#### 5. Deregister Service
+
+```graphql
+mutation {
+  deregisterService(name: "old-service")
+}
+```
+
+#### 6. Update Service Heartbeat
+
+```graphql
+mutation {
+  updateHeartbeat(name: "web-api") {
+    name
+    expiresAt
+  }
+}
+```
+
+## Subscriptions (Phase 2)
+
+Real-time updates via WebSocket for KV store changes.
+
+### Subscription Schema
+
+```graphql
+type Subscription {
+  # Watch KV changes by key or prefix
+  kvChanged(key: String, prefix: String): KVChangeEvent!
+
+  # Service changes (not yet implemented)
+  serviceChanged(name: String): ServiceChangeEvent!
+}
+
+type KVChangeEvent {
+  type: KVEventType!
+  key: String!
+  value: String
+  oldValue: String
+  timestamp: Time!
+}
+
+enum KVEventType {
+  SET
+  DELETE
+}
+```
+
+### Subscription Examples
+
+#### 1. Watch Specific Key
+
+```graphql
+subscription {
+  kvChanged(key: "config/database") {
+    type
+    key
+    value
+    oldValue
+    timestamp
+  }
+}
+```
+
+**Events:**
+```json
+{
+  "data": {
+    "kvChanged": {
+      "type": "SET",
+      "key": "config/database",
+      "value": "postgresql://newhost/db",
+      "oldValue": "postgresql://localhost/db",
+      "timestamp": "2025-12-03T10:30:00Z"
+    }
+  }
+}
+```
+
+#### 2. Watch Prefix (All Matching Keys)
+
+```graphql
+subscription {
+  kvChanged(prefix: "config/") {
+    type
+    key
+    value
+    timestamp
+  }
+}
+```
+
+**Receives events for:**
+- `config/database`
+- `config/app`
+- `config/cache`
+- Any key starting with `config/`
+
+#### 3. Watch All Keys
+
+```graphql
+subscription {
+  kvChanged {
+    type
+    key
+    value
+  }
+}
+```
+
+### Using Subscriptions with JavaScript
+
+```javascript
+import { createClient } from 'graphql-ws';
+
+const client = createClient({
+  url: 'ws://localhost:8888/graphql',
+});
+
+client.subscribe(
+  {
+    query: `
+      subscription {
+        kvChanged(prefix: "app/") {
+          type
+          key
+          value
+          timestamp
+        }
+      }
+    `,
+  },
+  {
+    next: (data) => {
+      console.log('KV changed:', data);
+    },
+    error: (error) => {
+      console.error('Subscription error:', error);
+    },
+    complete: () => {
+      console.log('Subscription complete');
+    },
+  }
+);
+```
+
+### Using Subscriptions with Apollo Client
+
+```typescript
+import { ApolloClient, InMemoryCache, split, HttpLink } from '@apollo/client';
+import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
+import { createClient } from 'graphql-ws';
+import { getMainDefinition } from '@apollo/client/utilities';
+
+// HTTP link for queries and mutations
+const httpLink = new HttpLink({
+  uri: 'http://localhost:8888/graphql',
+});
+
+// WebSocket link for subscriptions
+const wsLink = new GraphQLWsLink(
+  createClient({
+    url: 'ws://localhost:8888/graphql',
+  })
+);
+
+// Split based on operation type
+const splitLink = split(
+  ({ query }) => {
+    const definition = getMainDefinition(query);
+    return (
+      definition.kind === 'OperationDefinition' &&
+      definition.operation === 'subscription'
+    );
+  },
+  wsLink,
+  httpLink
+);
+
+const client = new ApolloClient({
+  link: splitLink,
+  cache: new InMemoryCache(),
+});
+
+// Use subscription
+client.subscribe({
+  query: gql`
+    subscription {
+      kvChanged(prefix: "config/") {
+        type
+        key
+        value
+      }
+    }
+  `,
+}).subscribe({
+  next: (data) => console.log(data),
+  error: (error) => console.error(error),
+});
+```
+
+## Roadmap
 
 ### Phase 3: Advanced Features (Planned)
 
+- Service subscriptions (real-time service change notifications)
 - DataLoaders for N+1 query optimization
 - Query complexity analysis and limits
 - Query depth limiting

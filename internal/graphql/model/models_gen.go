@@ -33,6 +33,20 @@ type HealthCheck struct {
 	LastChecked *scalar.Time `json:"lastChecked,omitempty"`
 }
 
+// KV change event for subscriptions
+type KVChangeEvent struct {
+	// Event type: set, delete
+	Type KVEventType `json:"type"`
+	// The key that changed
+	Key string `json:"key"`
+	// The new value (null for delete events)
+	Value *string `json:"value,omitempty"`
+	// The previous value (if available)
+	OldValue *string `json:"oldValue,omitempty"`
+	// Timestamp of the change
+	Timestamp scalar.Time `json:"timestamp"`
+}
+
 // Response type for listing KV pairs
 type KVListResponse struct {
 	// List of key-value pairs
@@ -77,7 +91,33 @@ type MetadataFilter struct {
 	Value string `json:"value"`
 }
 
+// Input type for metadata
+type MetadataInput struct {
+	// Metadata key
+	Key string `json:"key"`
+	// Metadata value
+	Value string `json:"value"`
+}
+
+// Mutation type for write operations
+type Mutation struct {
+}
+
 type Query struct {
+}
+
+// Input type for registering a service
+type RegisterServiceInput struct {
+	// Service name (unique identifier)
+	Name string `json:"name"`
+	// Service IP address or hostname
+	Address string `json:"address"`
+	// Service port number
+	Port int `json:"port"`
+	// Service tags (optional)
+	Tags []string `json:"tags,omitempty"`
+	// Service metadata as key-value pairs (optional)
+	Metadata []*MetadataInput `json:"metadata,omitempty"`
 }
 
 // Service represents a registered service in the service registry
@@ -100,6 +140,16 @@ type Service struct {
 	Checks []*HealthCheck `json:"checks"`
 }
 
+// Service change event for subscriptions
+type ServiceChangeEvent struct {
+	// Event type: registered, deregister, heartbeat
+	Type ServiceEventType `json:"type"`
+	// The service that changed
+	Service *Service `json:"service"`
+	// Timestamp of the change
+	Timestamp scalar.Time `json:"timestamp"`
+}
+
 // Service statistics
 type ServiceStats struct {
 	// Total registered services
@@ -108,6 +158,10 @@ type ServiceStats struct {
 	Active int `json:"active"`
 	// Expired services
 	Expired int `json:"expired"`
+}
+
+// Subscription type for real-time updates
+type Subscription struct {
 }
 
 // System health information
@@ -239,6 +293,125 @@ func (e *HealthCheckType) UnmarshalJSON(b []byte) error {
 }
 
 func (e HealthCheckType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// KV event types
+type KVEventType string
+
+const (
+	// Key was created or updated
+	KVEventTypeSet KVEventType = "SET"
+	// Key was deleted
+	KVEventTypeDelete KVEventType = "DELETE"
+)
+
+var AllKVEventType = []KVEventType{
+	KVEventTypeSet,
+	KVEventTypeDelete,
+}
+
+func (e KVEventType) IsValid() bool {
+	switch e {
+	case KVEventTypeSet, KVEventTypeDelete:
+		return true
+	}
+	return false
+}
+
+func (e KVEventType) String() string {
+	return string(e)
+}
+
+func (e *KVEventType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = KVEventType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid KVEventType", str)
+	}
+	return nil
+}
+
+func (e KVEventType) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *KVEventType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e KVEventType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// Service event types
+type ServiceEventType string
+
+const (
+	// Service was registered
+	ServiceEventTypeRegistered ServiceEventType = "REGISTERED"
+	// Service was deregistered
+	ServiceEventTypeDeregistered ServiceEventType = "DEREGISTERED"
+	// Service heartbeat updated
+	ServiceEventTypeHeartbeat ServiceEventType = "HEARTBEAT"
+)
+
+var AllServiceEventType = []ServiceEventType{
+	ServiceEventTypeRegistered,
+	ServiceEventTypeDeregistered,
+	ServiceEventTypeHeartbeat,
+}
+
+func (e ServiceEventType) IsValid() bool {
+	switch e {
+	case ServiceEventTypeRegistered, ServiceEventTypeDeregistered, ServiceEventTypeHeartbeat:
+		return true
+	}
+	return false
+}
+
+func (e ServiceEventType) String() string {
+	return string(e)
+}
+
+func (e *ServiceEventType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = ServiceEventType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid ServiceEventType", str)
+	}
+	return nil
+}
+
+func (e ServiceEventType) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *ServiceEventType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e ServiceEventType) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil
