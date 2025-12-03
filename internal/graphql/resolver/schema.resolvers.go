@@ -21,32 +21,185 @@ import (
 
 // KvSet is the resolver for the kvSet field.
 func (r *mutationResolver) KvSet(ctx context.Context, key string, value string) (*model.KVPair, error) {
-	panic(fmt.Errorf("not implemented: KvSet - kvSet"))
+	// Check authentication if required
+	// TODO: Add authentication check when auth middleware is implemented
+
+	// Check ACL permissions if enabled
+	// TODO: Add ACL write permission check when ACL middleware is implemented
+
+	// Set the key-value pair
+	r.kvStore.Set(key, value)
+
+	r.logger.Info("GraphQL: KV set",
+		logger.String("key", key),
+		logger.Int("value_length", len(value)))
+
+	// Return the updated KV pair
+	return model.MapKVPairFromStore(key, value), nil
 }
 
 // KvDelete is the resolver for the kvDelete field.
 func (r *mutationResolver) KvDelete(ctx context.Context, key string) (bool, error) {
-	panic(fmt.Errorf("not implemented: KvDelete - kvDelete"))
+	// Check authentication if required
+	// TODO: Add authentication check when auth middleware is implemented
+
+	// Check ACL permissions if enabled
+	// TODO: Add ACL delete permission check when ACL middleware is implemented
+
+	// Check if key exists before deleting
+	_, exists := r.kvStore.Get(key)
+	if !exists {
+		return false, nil
+	}
+
+	// Delete the key
+	r.kvStore.Delete(key)
+
+	r.logger.Info("GraphQL: KV deleted",
+		logger.String("key", key))
+
+	return true, nil
 }
 
 // KvCas is the resolver for the kvCAS field.
 func (r *mutationResolver) KvCas(ctx context.Context, key string, value string, index int) (*model.KVPair, error) {
-	panic(fmt.Errorf("not implemented: KvCas - kvCAS"))
+	// Check authentication if required
+	// TODO: Add authentication check when auth middleware is implemented
+
+	// Check ACL permissions if enabled
+	// TODO: Add ACL write permission check when ACL middleware is implemented
+
+	// Perform Compare-And-Swap operation
+	newIndex, err := r.kvStore.SetCAS(key, value, uint64(index))
+	if err != nil {
+		// CAS failed - index mismatch
+		r.logger.Warn("GraphQL: KV CAS failed",
+			logger.String("key", key),
+			logger.Int("expected_index", index),
+			logger.Error(err))
+		return nil, nil // Return nil to indicate failure (nullable field)
+	}
+
+	r.logger.Info("GraphQL: KV CAS succeeded",
+		logger.String("key", key),
+		logger.Int("new_index", int(newIndex)))
+
+	// Return the updated KV pair
+	return model.MapKVPairFromStore(key, value), nil
 }
 
 // RegisterService is the resolver for the registerService field.
 func (r *mutationResolver) RegisterService(ctx context.Context, input model.RegisterServiceInput) (*model.Service, error) {
-	panic(fmt.Errorf("not implemented: RegisterService - registerService"))
+	// Check authentication if required
+	// TODO: Add authentication check when auth middleware is implemented
+
+	// Check ACL permissions if enabled
+	// TODO: Add ACL register permission check when ACL middleware is implemented
+
+	// Convert metadata from GraphQL input to map
+	metadata := make(map[string]string)
+	if input.Metadata != nil {
+		for _, m := range input.Metadata {
+			metadata[m.Key] = m.Value
+		}
+	}
+
+	// Create service from input
+	service := store.Service{
+		Name:    input.Name,
+		Address: input.Address,
+		Port:    input.Port,
+		Tags:    input.Tags,
+		Meta:    metadata,
+	}
+
+	// Register the service
+	if err := r.serviceStore.Register(service); err != nil {
+		r.logger.Error("GraphQL: Failed to register service",
+			logger.String("name", input.Name),
+			logger.Error(err))
+		return nil, fmt.Errorf("failed to register service: %w", err)
+	}
+
+	r.logger.Info("GraphQL: Service registered",
+		logger.String("name", input.Name),
+		logger.String("address", input.Address),
+		logger.Int("port", input.Port))
+
+	// Get the registered service entry to return with expiration info
+	entries := r.serviceStore.ListAll()
+	var entry *store.ServiceEntry
+	for _, e := range entries {
+		if e.Service.Name == input.Name {
+			entry = &e
+			break
+		}
+	}
+
+	if entry == nil {
+		return nil, fmt.Errorf("service registered but not found")
+	}
+
+	return model.MapServiceFromStore(service, *entry), nil
 }
 
 // DeregisterService is the resolver for the deregisterService field.
 func (r *mutationResolver) DeregisterService(ctx context.Context, name string) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeregisterService - deregisterService"))
+	// Check authentication if required
+	// TODO: Add authentication check when auth middleware is implemented
+
+	// Check ACL permissions if enabled
+	// TODO: Add ACL deregister permission check when ACL middleware is implemented
+
+	// Check if service exists
+	_, exists := r.serviceStore.Get(name)
+	if !exists {
+		return false, nil
+	}
+
+	// Deregister the service
+	r.serviceStore.Deregister(name)
+
+	r.logger.Info("GraphQL: Service deregistered",
+		logger.String("name", name))
+
+	return true, nil
 }
 
 // UpdateHeartbeat is the resolver for the updateHeartbeat field.
 func (r *mutationResolver) UpdateHeartbeat(ctx context.Context, name string) (*model.Service, error) {
-	panic(fmt.Errorf("not implemented: UpdateHeartbeat - updateHeartbeat"))
+	// Check authentication if required
+	// TODO: Add authentication check when auth middleware is implemented
+
+	// Check ACL permissions if enabled
+	// TODO: Add ACL heartbeat permission check when ACL middleware is implemented
+
+	// Update heartbeat
+	success := r.serviceStore.Heartbeat(name)
+	if !success {
+		r.logger.Warn("GraphQL: Heartbeat failed - service not found",
+			logger.String("name", name))
+		return nil, fmt.Errorf("service not found: %s", name)
+	}
+
+	r.logger.Debug("GraphQL: Heartbeat updated",
+		logger.String("name", name))
+
+	// Get the updated service entry
+	entries := r.serviceStore.ListAll()
+	var entry *store.ServiceEntry
+	for _, e := range entries {
+		if e.Service.Name == name {
+			entry = &e
+			break
+		}
+	}
+
+	if entry == nil {
+		return nil, fmt.Errorf("service not found after heartbeat")
+	}
+
+	return model.MapServiceFromStore(entry.Service, *entry), nil
 }
 
 // Health is the resolver for the health field.
@@ -406,12 +559,103 @@ func (r *queryResolver) ServicesByQuery(ctx context.Context, tags []string, meta
 
 // KvChanged is the resolver for the kvChanged field.
 func (r *subscriptionResolver) KvChanged(ctx context.Context, key *string, prefix *string) (<-chan *model.KVChangeEvent, error) {
-	panic(fmt.Errorf("not implemented: KvChanged - kvChanged"))
+	// Check authentication if required
+	// TODO: Add authentication check when auth middleware is implemented
+
+	// Determine watch pattern
+	pattern := ""
+	if key != nil && *key != "" {
+		pattern = *key
+	} else if prefix != nil && *prefix != "" {
+		// Use ** for prefix watch to match all nested keys
+		pattern = *prefix + "**"
+	} else {
+		// Watch all keys
+		pattern = "**"
+	}
+
+	// Create watcher through watch manager
+	// TODO: Get ACL policies from context when ACL is implemented
+	watcher, err := r.watchManager.AddWatcher(pattern, []string{}, "graphql", "")
+	if err != nil {
+		r.logger.Error("GraphQL: Failed to create KV watcher",
+			logger.String("pattern", pattern),
+			logger.Error(err))
+		return nil, fmt.Errorf("failed to create watcher: %w", err)
+	}
+
+	r.logger.Info("GraphQL: KV subscription created",
+		logger.String("pattern", pattern),
+		logger.String("watcher_id", watcher.ID))
+
+	// Create channel for GraphQL events
+	eventChan := make(chan *model.KVChangeEvent, 100)
+
+	// Start goroutine to convert watch events to GraphQL events
+	go func() {
+		defer func() {
+			r.watchManager.RemoveWatcher(watcher.ID)
+			close(eventChan)
+			r.logger.Debug("GraphQL: KV subscription closed",
+				logger.String("watcher_id", watcher.ID))
+		}()
+
+		for {
+			select {
+			case <-ctx.Done():
+				// Context cancelled - subscription ended
+				return
+			case watchEvent, ok := <-watcher.Events:
+				if !ok {
+					// Channel closed
+					return
+				}
+
+				// Convert watch event to GraphQL event
+				eventType := model.KVEventType(watchEvent.Type)
+				timestamp := scalar.FromTime(time.Unix(watchEvent.Timestamp, 0))
+
+				gqlEvent := &model.KVChangeEvent{
+					Type:      eventType,
+					Key:       watchEvent.Key,
+					Timestamp: timestamp,
+				}
+
+				// Add value for set events
+				if watchEvent.Type == "set" {
+					gqlEvent.Value = &watchEvent.Value
+				}
+
+				// Add old value if available
+				if watchEvent.OldValue != "" {
+					gqlEvent.OldValue = &watchEvent.OldValue
+				}
+
+				// Send event to GraphQL subscriber
+				select {
+				case eventChan <- gqlEvent:
+					// Event sent successfully
+				case <-ctx.Done():
+					// Context cancelled while sending
+					return
+				}
+			}
+		}
+	}()
+
+	return eventChan, nil
 }
 
 // ServiceChanged is the resolver for the serviceChanged field.
 func (r *subscriptionResolver) ServiceChanged(ctx context.Context, name *string) (<-chan *model.ServiceChangeEvent, error) {
-	panic(fmt.Errorf("not implemented: ServiceChanged - serviceChanged"))
+	// TODO: Implement service watch system
+	// Services don't currently have a watch/notification system like KV store does.
+	// This would require adding event notifications to ServiceStore similar to KVStore.
+
+	r.logger.Warn("GraphQL: ServiceChanged subscription not yet implemented",
+		logger.String("name", stringOrEmpty(name)))
+
+	return nil, fmt.Errorf("service subscriptions are not yet implemented - see TODO in code")
 }
 
 // Mutation returns generated.MutationResolver implementation.
