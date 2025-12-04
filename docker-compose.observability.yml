@@ -1,4 +1,39 @@
+
 version: '3.8'
+
+# ============================================================================
+# Konsul Observability Stack with Admin UI and GraphQL Demo
+# ============================================================================
+#
+# This docker-compose file provides a complete observability stack including:
+#   - Konsul service mesh with Admin UI and GraphQL API
+#   - Prometheus (metrics)
+#   - Grafana (visualization)
+#   - Loki + Promtail (logging)
+#   - Tempo (tracing)
+#   - OpenTelemetry Collector
+#   - Demo services showcasing service discovery and KV store
+#
+# Quick Start:
+#   docker-compose -f docker-compose.observability.yml up -d
+#
+# Access Points:
+#   - Admin UI:          http://localhost:8888/admin
+#   - GraphQL Playground: http://localhost:8888/graphql/playground
+#   - GraphQL API:       http://localhost:8888/graphql
+#   - REST API:          http://localhost:8888
+#   - Grafana:           http://localhost:3000 (admin/admin)
+#   - Prometheus:        http://localhost:9090
+#
+# Demo Services:
+#   - demo-api-1, demo-api-2: Load-balanced backend API instances
+#   - demo-web: Frontend service with KV config
+#   - graphql-example: GraphQL query examples (check logs)
+#
+# Documentation:
+#   See docs/OBSERVABILITY.md for detailed usage guide
+#
+# ============================================================================
 
 services:
   # Konsul application
@@ -10,6 +45,21 @@ services:
     environment:
       - KONSUL_LOG_LEVEL=info
       - KONSUL_LOG_FORMAT=json
+      # Enable Admin UI (default: true)
+      - KONSUL_ADMIN_UI_ENABLED=true
+      - KONSUL_ADMIN_UI_PATH=/admin
+      # Enable GraphQL API
+      - KONSUL_GRAPHQL_ENABLED=true
+      - KONSUL_GRAPHQL_PLAYGROUND_ENABLED=true
+      # Enable persistence
+      - KONSUL_PERSISTENCE_ENABLED=true
+      - KONSUL_PERSISTENCE_TYPE=badger
+      # Enable tracing to Tempo
+      - KONSUL_TRACING_ENABLED=true
+      - KONSUL_TRACING_ENDPOINT=http://tempo:4317
+      - KONSUL_TRACING_SERVICE_NAME=konsul
+      - KONSUL_TRACING_ENVIRONMENT=observability-demo
+      - KONSUL_TRACING_INSECURE=true
     volumes:
       - konsul-data:/data
     networks:
@@ -20,6 +70,12 @@ services:
         max-size: "10m"
         max-file: "3"
         labels: "service=konsul"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8888/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   # Prometheus - Metrics collection
   prometheus:
@@ -127,6 +183,181 @@ services:
     depends_on:
       - tempo
       - prometheus
+
+  # ============================================================================
+  # Demo Services - Examples showcasing Konsul service discovery
+  # ============================================================================
+
+  # Demo API Service 1 - Simulates a backend API
+  demo-api-1:
+    image: alpine:latest
+    container_name: demo-api-1
+    networks:
+      - observability
+    depends_on:
+      konsul:
+        condition: service_healthy
+    command: >
+      sh -c '
+        apk add --no-cache curl &&
+        echo "Registering demo-api-1 with Konsul..." &&
+        curl -X PUT http://konsul:8888/register \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"name\": \"demo-api\",
+            \"address\": \"demo-api-1\",
+            \"port\": 8080,
+            \"tags\": [\"v1\", \"production\", \"rest\"],
+            \"metadata\": {
+              \"version\": \"1.0.0\",
+              \"region\": \"us-east-1\",
+              \"environment\": \"production\"
+            },
+            \"check\": {
+              \"ttl\": 30
+            }
+          }" &&
+        echo "Service registered successfully!" &&
+        echo "Storing configuration in KV store..." &&
+        curl -X PUT http://konsul:8888/kv/config/demo-api-1/database \
+          -H "Content-Type: application/json" \
+          -d "{\"host\": \"db.example.com\", \"port\": 5432}" &&
+        echo "Starting heartbeat loop..." &&
+        while true; do
+          curl -X PUT http://konsul:8888/heartbeat/demo-api
+          sleep 15
+        done
+      '
+
+  # Demo API Service 2 - Another instance for load balancing
+  demo-api-2:
+    image: alpine:latest
+    container_name: demo-api-2
+    networks:
+      - observability
+    depends_on:
+      konsul:
+        condition: service_healthy
+    command: >
+      sh -c '
+        apk add --no-cache curl &&
+        sleep 5 &&
+        echo "Registering demo-api-2 with Konsul..." &&
+        curl -X PUT http://konsul:8888/register \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"name\": \"demo-api\",
+            \"address\": \"demo-api-2\",
+            \"port\": 8080,
+            \"tags\": [\"v1\", \"production\", \"rest\"],
+            \"metadata\": {
+              \"version\": \"1.0.0\",
+              \"region\": \"us-west-2\",
+              \"environment\": \"production\"
+            },
+            \"check\": {
+              \"ttl\": 30
+            }
+          }" &&
+        echo "Service registered successfully!" &&
+        echo "Starting heartbeat loop..." &&
+        while true; do
+          curl -X PUT http://konsul:8888/heartbeat/demo-api
+          sleep 15
+        done
+      '
+
+  # Demo Web Service - Simulates a frontend service
+  demo-web:
+    image: alpine:latest
+    container_name: demo-web
+    networks:
+      - observability
+    depends_on:
+      konsul:
+        condition: service_healthy
+    command: >
+      sh -c '
+        apk add --no-cache curl &&
+        sleep 3 &&
+        echo "Registering demo-web with Konsul..." &&
+        curl -X PUT http://konsul:8888/register \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"name\": \"demo-web\",
+            \"address\": \"demo-web\",
+            \"port\": 3000,
+            \"tags\": [\"frontend\", \"react\", \"v2\"],
+            \"metadata\": {
+              \"version\": \"2.1.0\",
+              \"framework\": \"react\",
+              \"environment\": \"staging\"
+            },
+            \"check\": {
+              \"ttl\": 45
+            }
+          }" &&
+        echo "Service registered successfully!" &&
+        echo "Storing frontend config in KV store..." &&
+        curl -X PUT http://konsul:8888/kv/config/demo-web/api-endpoint \
+          -d "http://demo-api:8080" &&
+        curl -X PUT http://konsul:8888/kv/config/demo-web/feature-flags \
+          -H "Content-Type: application/json" \
+          -d "{\"darkMode\": true, \"newUI\": false}" &&
+        echo "Starting heartbeat loop..." &&
+        while true; do
+          curl -X PUT http://konsul:8888/heartbeat/demo-web
+          sleep 20
+        done
+      '
+
+  # GraphQL Example Client - Demonstrates GraphQL API usage
+  graphql-example:
+    image: alpine:latest
+    container_name: graphql-example
+    networks:
+      - observability
+    depends_on:
+      konsul:
+        condition: service_healthy
+    command: >
+      sh -c '
+        apk add --no-cache curl jq &&
+        sleep 10 &&
+        echo "========================================" &&
+        echo "GraphQL API Examples" &&
+        echo "========================================" &&
+        echo "" &&
+        echo "1. Query all services:" &&
+        curl -X POST http://konsul:8888/graphql \
+          -H "Content-Type: application/json" \
+          -d "{\"query\": \"{ services { name address port tags } }\"}" | jq . &&
+        echo "" &&
+        sleep 3 &&
+        echo "2. Query service by name:" &&
+        curl -X POST http://konsul:8888/graphql \
+          -H "Content-Type: application/json" \
+          -d "{\"query\": \"{ service(name: \\\"demo-api\\\") { name address port tags metadata { key value } } }\"}" | jq . &&
+        echo "" &&
+        sleep 3 &&
+        echo "3. Query KV store:" &&
+        curl -X POST http://konsul:8888/graphql \
+          -H "Content-Type: application/json" \
+          -d "{\"query\": \"{ kvEntries { key value } }\"}" | jq . &&
+        echo "" &&
+        sleep 3 &&
+        echo "4. Health check query:" &&
+        curl -X POST http://konsul:8888/graphql \
+          -H "Content-Type: application/json" \
+          -d "{\"query\": \"{ health { healthy version uptime } }\"}" | jq . &&
+        echo "" &&
+        echo "========================================" &&
+        echo "GraphQL examples completed!" &&
+        echo "Access GraphQL Playground at:" &&
+        echo "  http://localhost:8888/graphql/playground" &&
+        echo "========================================" &&
+        tail -f /dev/null
+      '
 
 networks:
   observability:
