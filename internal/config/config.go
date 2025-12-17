@@ -22,6 +22,7 @@ type Config struct {
 	AdminUI     AdminUIConfig
 	Watch       WatchConfig
 	Audit       AuditConfig
+	Raft        RaftConfig
 }
 
 // ServerConfig contains HTTP server configuration
@@ -138,6 +139,21 @@ type AuditConfig struct {
 	DropPolicy    string // "block" or "drop"
 }
 
+// RaftConfig contains Raft clustering configuration
+type RaftConfig struct {
+	Enabled            bool
+	NodeID             string
+	BindAddr           string
+	AdvertiseAddr      string
+	DataDir            string
+	Bootstrap          bool
+	HeartbeatTimeout   time.Duration
+	ElectionTimeout    time.Duration
+	LeaderLeaseTimeout time.Duration
+	SnapshotInterval   time.Duration
+	SnapshotThreshold  uint64
+}
+
 // Load loads configuration from environment variables with defaults
 func Load() (*Config, error) {
 	config := &Config{
@@ -225,6 +241,19 @@ func Load() (*Config, error) {
 			BufferSize:    getEnvInt("KONSUL_AUDIT_BUFFER_SIZE", 1024),
 			FlushInterval: getEnvDuration("KONSUL_AUDIT_FLUSH_INTERVAL", time.Second),
 			DropPolicy:    getEnvString("KONSUL_AUDIT_DROP_POLICY", "drop"),
+		},
+		Raft: RaftConfig{
+			Enabled:            getEnvBool("KONSUL_RAFT_ENABLED", false),
+			NodeID:             getEnvString("KONSUL_RAFT_NODE_ID", ""),
+			BindAddr:           getEnvString("KONSUL_RAFT_BIND_ADDR", "0.0.0.0:7000"),
+			AdvertiseAddr:      getEnvString("KONSUL_RAFT_ADVERTISE_ADDR", ""),
+			DataDir:            getEnvString("KONSUL_RAFT_DATA_DIR", "./data/raft"),
+			Bootstrap:          getEnvBool("KONSUL_RAFT_BOOTSTRAP", false),
+			HeartbeatTimeout:   getEnvDuration("KONSUL_RAFT_HEARTBEAT_TIMEOUT", time.Second),
+			ElectionTimeout:    getEnvDuration("KONSUL_RAFT_ELECTION_TIMEOUT", time.Second),
+			LeaderLeaseTimeout: getEnvDuration("KONSUL_RAFT_LEADER_LEASE_TIMEOUT", 500*time.Millisecond),
+			SnapshotInterval:   getEnvDuration("KONSUL_RAFT_SNAPSHOT_INTERVAL", 120*time.Second),
+			SnapshotThreshold:  getEnvUint64("KONSUL_RAFT_SNAPSHOT_THRESHOLD", 8192),
 		},
 	}
 
