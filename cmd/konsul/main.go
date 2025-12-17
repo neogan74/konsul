@@ -599,6 +599,13 @@ func main() {
 	backupRoutes.Post("/import", backupHandler.ImportData)
 	backupRoutes.Get("/backups", backupHandler.ListBackups)
 
+	// Cluster management endpoints (Raft)
+	clusterHandler := handlers.NewClusterHandler(raftNode)
+	clusterHandler.RegisterRoutes(app)
+	if cfg.Raft.Enabled {
+		appLogger.Info("Cluster management endpoints registered at /cluster/*")
+	}
+
 	// Metrics endpoint for Prometheus
 	app.Get("/metrics", adaptor.HTTPHandler(promhttp.Handler()))
 
