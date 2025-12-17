@@ -413,8 +413,11 @@ func main() {
 	}
 	kvRoutes.Get("/", kvHandler.List)
 	kvRoutes.Get("/:key", kvHandler.Get)
+	kvRoutes.Get("/*", kvHandler.Get)
 	kvRoutes.Put("/:key", kvHandler.Set)
+	kvRoutes.Put("/*", kvHandler.Set)
 	kvRoutes.Delete("/:key", kvHandler.Delete)
+	kvRoutes.Delete("/*", kvHandler.Delete)
 
 	// KV Watch endpoints (WebSocket and SSE) - if watch is enabled
 	if cfg.Watch.Enabled && kvWatchHandler != nil {
