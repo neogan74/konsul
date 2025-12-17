@@ -31,6 +31,7 @@ import (
 	"github.com/neogan74/konsul/internal/metrics"
 	"github.com/neogan74/konsul/internal/middleware"
 	"github.com/neogan74/konsul/internal/persistence"
+	konsulraft "github.com/neogan74/konsul/internal/raft"
 	"github.com/neogan74/konsul/internal/ratelimit"
 	"github.com/neogan74/konsul/internal/store"
 	"github.com/neogan74/konsul/internal/telemetry"
@@ -233,6 +234,57 @@ func main() {
 			appLogger.Error("Failed to close service store", logger.Error(err))
 		}
 	}()
+
+	// Initialize Raft clustering if enabled
+	var raftNode *konsulraft.Node
+	if cfg.Raft.Enabled {
+		raftCfg := &konsulraft.Config{
+			NodeID:             cfg.Raft.NodeID,
+			BindAddr:           cfg.Raft.BindAddr,
+			AdvertiseAddr:      cfg.Raft.AdvertiseAddr,
+			DataDir:            cfg.Raft.DataDir,
+			Bootstrap:          cfg.Raft.Bootstrap,
+			HeartbeatTimeout:   cfg.Raft.HeartbeatTimeout,
+			ElectionTimeout:    cfg.Raft.ElectionTimeout,
+			LeaderLeaseTimeout: cfg.Raft.LeaderLeaseTimeout,
+			CommitTimeout:      cfg.Raft.CommitTimeout,
+			SnapshotInterval:   cfg.Raft.SnapshotInterval,
+			SnapshotThreshold:  cfg.Raft.SnapshotThreshold,
+			SnapshotRetention:  cfg.Raft.SnapshotRetention,
+			MaxAppendEntries:   cfg.Raft.MaxAppendEntries,
+			TrailingLogs:       cfg.Raft.TrailingLogs,
+			LogLevel:           cfg.Raft.LogLevel,
+		}
+
+		raftNode, err = konsulraft.NewNode(raftCfg, kv, svcStore)
+		if err != nil {
+			log.Fatalf("Failed to initialize Raft node: %v", err)
+		}
+
+		// Ensure graceful shutdown
+		defer func() {
+			if err := raftNode.Shutdown(); err != nil {
+				appLogger.Error("Failed to shutdown Raft node", logger.Error(err))
+			}
+		}()
+
+		appLogger.Info("Raft clustering enabled",
+			logger.String("node_id", cfg.Raft.NodeID),
+			logger.String("bind_addr", cfg.Raft.BindAddr),
+			logger.String("advertise_addr", cfg.Raft.AdvertiseAddr),
+			logger.String("bootstrap", fmt.Sprintf("%t", cfg.Raft.Bootstrap)))
+
+		// Wait for leader election (with timeout)
+		go func() {
+			if err := raftNode.WaitForLeader(30 * time.Second); err != nil {
+				appLogger.Warn("No leader elected within timeout", logger.Error(err))
+			} else {
+				appLogger.Info("Leader elected",
+					logger.String("leader_id", raftNode.LeaderID()),
+					logger.String("leader_addr", raftNode.LeaderAddr()))
+			}
+		}()
+	}
 
 	// Initialize load balancer with default round-robin strategy
 	balancer := loadbalancer.New(svcStore, loadbalancer.StrategyRoundRobin)
