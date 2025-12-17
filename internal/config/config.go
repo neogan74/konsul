@@ -150,8 +150,13 @@ type RaftConfig struct {
 	HeartbeatTimeout   time.Duration
 	ElectionTimeout    time.Duration
 	LeaderLeaseTimeout time.Duration
+	CommitTimeout      time.Duration
 	SnapshotInterval   time.Duration
 	SnapshotThreshold  uint64
+	SnapshotRetention  int
+	MaxAppendEntries   int
+	TrailingLogs       uint64
+	LogLevel           string
 }
 
 // Load loads configuration from environment variables with defaults
@@ -456,6 +461,16 @@ func getEnvFloat(key string, defaultValue float64) float64 {
 	if value := os.Getenv(key); value != "" {
 		if floatValue, err := strconv.ParseFloat(value, 64); err == nil {
 			return floatValue
+		}
+	}
+	return defaultValue
+}
+
+// getEnvUint64 gets an uint64 environment variable with a default value
+func getEnvUint64(key string, defaultValue uint64) uint64 {
+	if value := os.Getenv(key); value != "" {
+		if uintValue, err := strconv.ParseUint(value, 10, 64); err == nil {
+			return uintValue
 		}
 	}
 	return defaultValue
