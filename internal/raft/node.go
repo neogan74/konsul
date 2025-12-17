@@ -39,7 +39,6 @@ func NewNode(cfg *Config, kvStore KVStoreInterface, serviceStore ServiceStoreInt
 
 	// Create data directory if it doesn't exist
 	if err := os.MkdirAll(cfg.DataDir, 0755); err != nil {
-		lfdf
 		return nil, fmt.Errorf("failed to create data directory: %w", err)
 	}
 
