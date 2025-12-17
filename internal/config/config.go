@@ -257,8 +257,13 @@ func Load() (*Config, error) {
 			HeartbeatTimeout:   getEnvDuration("KONSUL_RAFT_HEARTBEAT_TIMEOUT", time.Second),
 			ElectionTimeout:    getEnvDuration("KONSUL_RAFT_ELECTION_TIMEOUT", time.Second),
 			LeaderLeaseTimeout: getEnvDuration("KONSUL_RAFT_LEADER_LEASE_TIMEOUT", 500*time.Millisecond),
+			CommitTimeout:      getEnvDuration("KONSUL_RAFT_COMMIT_TIMEOUT", 50*time.Millisecond),
 			SnapshotInterval:   getEnvDuration("KONSUL_RAFT_SNAPSHOT_INTERVAL", 120*time.Second),
 			SnapshotThreshold:  getEnvUint64("KONSUL_RAFT_SNAPSHOT_THRESHOLD", 8192),
+			SnapshotRetention:  getEnvInt("KONSUL_RAFT_SNAPSHOT_RETENTION", 2),
+			MaxAppendEntries:   getEnvInt("KONSUL_RAFT_MAX_APPEND_ENTRIES", 64),
+			TrailingLogs:       getEnvUint64("KONSUL_RAFT_TRAILING_LOGS", 10240),
+			LogLevel:           getEnvString("KONSUL_RAFT_LOG_LEVEL", "info"),
 		},
 	}
 
