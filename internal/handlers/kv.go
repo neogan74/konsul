@@ -18,8 +18,17 @@ func NewKVHandler(kvStore *store.KVStore) *KVHandler {
 	return &KVHandler{store: kvStore}
 }
 
-func (h *KVHandler) Get(c *fiber.Ctx) error {
+// getKey extracts the KV path, supporting nested keys via wildcard routes.
+func getKey(c *fiber.Ctx) string {
 	key := c.Params("key")
+	if key == "" {
+		key = c.Params("*")
+	}
+	return key
+}
+
+func (h *KVHandler) Get(c *fiber.Ctx) error {
+	key := getKey(c)
 	log := middleware.GetLogger(c)
 
 	log.Debug("Getting key", logger.String("key", key))
@@ -58,7 +67,7 @@ func (h *KVHandler) Get(c *fiber.Ctx) error {
 }
 
 func (h *KVHandler) Set(c *fiber.Ctx) error {
-	key := c.Params("key")
+	key := getKey(c)
 	log := middleware.GetLogger(c)
 
 	body := struct {
@@ -130,7 +139,7 @@ func (h *KVHandler) Set(c *fiber.Ctx) error {
 }
 
 func (h *KVHandler) Delete(c *fiber.Ctx) error {
-	key := c.Params("key")
+	key := getKey(c)
 	log := middleware.GetLogger(c)
 
 	log.Debug("Deleting key", logger.String("key", key))
