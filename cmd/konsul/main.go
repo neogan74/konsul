@@ -295,9 +295,16 @@ func main() {
 	metrics.LoadBalancerCurrentStrategy.WithLabelValues("random").Set(0)
 	metrics.LoadBalancerCurrentStrategy.WithLabelValues("least-connections").Set(0)
 
-	// Initialize handlers
-	kvHandler := handlers.NewKVHandler(kv)
-	serviceHandler := handlers.NewServiceHandler(svcStore)
+	// Initialize handlers (with Raft support if enabled)
+	var kvHandler *handlers.KVHandler
+	var serviceHandler *handlers.ServiceHandler
+	if raftNode != nil {
+		kvHandler = handlers.NewKVHandlerWithRaft(kv, raftNode)
+		serviceHandler = handlers.NewServiceHandlerWithRaft(svcStore, raftNode)
+	} else {
+		kvHandler = handlers.NewKVHandler(kv)
+		serviceHandler = handlers.NewServiceHandler(svcStore)
+	}
 	loadBalancerHandler := handlers.NewLoadBalancerHandler(balancer)
 	healthHandler := handlers.NewHealthHandler(kv, svcStore, version)
 	healthCheckHandler := handlers.NewHealthCheckHandler(svcStore)
