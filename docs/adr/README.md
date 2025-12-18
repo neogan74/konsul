@@ -17,7 +17,7 @@ Each ADR follows a standard format (see [template.md](template.md)) with the fol
 
 ## ADR Summary by Category
 
-### 🏗️ Core Architecture (7 ADRs)
+### 🏗️ Core Architecture (9 ADRs)
 - **ADR-0001**: Fiber Web Framework
 - **ADR-0002**: BadgerDB Persistence
 - **ADR-0011**: Raft Clustering & HA
@@ -25,6 +25,8 @@ Each ADR follows a standard format (see [template.md](template.md)) with the fol
 - **ADR-0024**: DI Framework Comparison
 - **ADR-0026**: Agent Mode Architecture
 - **ADR-0029**: Kubernetes Operator
+- **ADR-0030**: Raft Integration Implementation Status
+- **ADR-0031**: Raft Production Readiness (Phase 2)
 
 ### 🔐 Security & Access Control (6 ADRs)
 - **ADR-0003**: JWT Authentication
@@ -63,8 +65,9 @@ Each ADR follows a standard format (see [template.md](template.md)) with the fol
 
 ### 📈 Status Overview
 - **Accepted**: 16 ADRs (production-ready features)
-- **Proposed**: 13 ADRs (under consideration/development)
-- **Total**: 29 ADRs
+- **Proposed**: 14 ADRs (under consideration/development)
+- **In Progress**: 1 ADR (active implementation)
+- **Total**: 31 ADRs
 
 ---
 
@@ -101,6 +104,8 @@ Each ADR follows a standard format (see [template.md](template.md)) with the fol
 | [ADR-0027](0027-multi-datacenter-federation.md) | Multi-Datacenter Federation | Proposed | multi-dc, federation, global |
 | [ADR-0028](0028-edge-computing-strategy.md) | Edge Computing & IoT Strategy | Proposed | edge, iot, lightweight |
 | [ADR-0029](0029-kubernetes-operator-design.md) | Kubernetes Operator Design | Proposed | kubernetes, operator, automation |
+| [ADR-0030](0030-raft-integration-implementation.md) | Raft Integration Implementation Status | In Progress | clustering, raft, implementation |
+| [ADR-0031](0031-raft-production-readiness.md) | Raft Production Readiness and Phase 2 Implementation | Proposed | clustering, raft, production, security |
 
 ## Creating a New ADR
 
