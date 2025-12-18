@@ -106,6 +106,20 @@ Start here if you're new to Konsul:
 
 ---
 
+## 🔄 Clustering & High Availability
+
+### Raft Clustering
+- **[Clustering Guide](clustering.md)** - Deploy Konsul in a cluster
+  - Cluster configuration
+  - 3-node and 5-node deployments
+  - Cluster management API
+  - Client behavior with leader forwarding
+  - Monitoring and alerting
+  - Operations (add/remove nodes, rolling restart)
+  - Troubleshooting
+
+---
+
 ## 🏗️ Architecture
 
 ### Architecture Decision Records (ADRs)
@@ -122,6 +136,8 @@ Start here if you're new to Konsul:
 - [ADR-0010: ACL System](adr/0010-acl-system.md)
 - [ADR-0011: Raft Clustering HA](adr/0011-raft-clustering-ha.md)
 - [ADR-0012: CLI Tool konsulctl](adr/0012-cli-tool-konsulctl.md)
+- [ADR-0030: Raft Integration Implementation](adr/0030-raft-integration-implementation.md)
+- [ADR-0031: Raft Production Readiness Phase 2](adr/0031-raft-production-readiness.md)
 - [ADR-0013: Token Bucket Rate Limiting](adr/0013-token-bucket-rate-limiting.md)
 - [ADR-0014: Rate Limiting Management API](adr/0014-rate-limiting-management-api.md)
 - [ADR-0015: Template Engine](adr/0015-template-engine.md)
@@ -133,6 +149,7 @@ Start here if you're new to Konsul:
 ### User Guides
 Quick starts and tutorials for end users:
 - [Main README](../README.md)
+- [Clustering Guide](clustering.md)
 - [Authentication Guide](authentication.md)
 - [DNS Service Discovery](dns-service-discovery.md)
 - [Template Engine User Guide](template-engine.md)
@@ -166,6 +183,7 @@ Problem-solving resources:
 ### Operations Guides
 Deployment and maintenance:
 - [Deployment Guide](deployment.md)
+- [Clustering Guide](clustering.md)
 - [Metrics and Monitoring](metrics.md)
 - [Logging Guide](logging.md)
 - [Tracing Guide](tracing.md)
@@ -190,6 +208,7 @@ All environment variables and configuration options:
 - [Authentication Configuration](../README.md#authentication-configuration)
 - [Persistence Configuration](../README.md#persistence-configuration)
 - [DNS Configuration](../README.md#dns-configuration)
+- [Clustering Configuration](clustering.md#configuration)
 - [Rate Limiting Configuration](rate-limiting.md#configuration)
 - [Tracing Configuration](tracing.md#configuration)
 - [Logging Configuration](logging.md#configuration)
@@ -220,6 +239,7 @@ Quick reference for konsulctl:
 | Task | Documentation |
 |------|---------------|
 | **Deploy Konsul** | [Deployment Guide](deployment.md) |
+| **Set up clustering** | [Clustering Guide](clustering.md) |
 | **Use the CLI** | [konsulctl Documentation](konsulctl.md) |
 | **Use batch operations** | [Batch Operations API](batch-operations-api.md) |
 | **Set up authentication** | [Authentication Guide](authentication.md) |
@@ -244,11 +264,11 @@ See [TODO.md](TODO.md) for planned documentation improvements.
 
 ## 📊 Documentation Statistics
 
-- **Total Documentation Files**: 29+ markdown files
-- **Total Pages**: ~500+ pages
-- **Total Words**: ~200,000+ words
+- **Total Documentation Files**: 30+ markdown files
+- **Total Pages**: ~550+ pages
+- **Total Words**: ~220,000+ words
 - **Categories**: 8 major feature areas
-- **Architecture Decisions**: 15 ADRs
+- **Architecture Decisions**: 31 ADRs
 - **API References**: 4 complete API docs
 - **Troubleshooting Guides**: 5 dedicated guides
 
