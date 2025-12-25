@@ -553,6 +553,23 @@ Configure via environment variables:
 | `KONSUL_SYNC_WRITES` | `true` | Enable synchronous writes |
 | `KONSUL_WAL_ENABLED` | `true` | Enable write-ahead log |
 
+### Raft Clustering (Experimental)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `KONSUL_RAFT_ENABLED` | `false` | Enable Raft clustering |
+| `KONSUL_RAFT_NODE_ID` | `` | Unique node ID |
+| `KONSUL_RAFT_BIND_ADDR` | `` | Raft bind address (host:port) |
+| `KONSUL_RAFT_ADVERTISE_ADDR` | `` | Raft advertise address (host:port) |
+| `KONSUL_RAFT_DATA_DIR` | `./data/raft` | Raft data directory |
+| `KONSUL_RAFT_BOOTSTRAP` | `false` | Bootstrap cluster on this node |
+| `KONSUL_RAFT_PEERS` | `` | Comma-separated `id@host:port` peers |
+| `KONSUL_RAFT_ELECTION_TIMEOUT` | `1s` | Raft election timeout |
+| `KONSUL_RAFT_HEARTBEAT_TIMEOUT` | `1s` | Raft heartbeat timeout |
+| `KONSUL_RAFT_LEADER_LEASE_TIMEOUT` | `500ms` | Leader lease timeout |
+| `KONSUL_RAFT_SNAPSHOT_INTERVAL` | `120s` | Snapshot interval |
+| `KONSUL_RAFT_SNAPSHOT_THRESHOLD` | `8192` | Snapshot threshold |
+
 ### DNS Configuration
 
 | Variable | Default | Description |
@@ -628,6 +645,15 @@ KONSUL_JWT_SECRET="your-secret-key" \
 KONSUL_PERSISTENCE_ENABLED=true \
 KONSUL_PERSISTENCE_TYPE=badger \
 KONSUL_DATA_DIR=/var/lib/konsul \
+./konsul
+
+# Enable Raft clustering (see docs/CLUSTERING.md for 3-node example)
+KONSUL_RAFT_ENABLED=true \
+KONSUL_RAFT_NODE_ID=node1 \
+KONSUL_RAFT_BIND_ADDR=127.0.0.1:7001 \
+KONSUL_RAFT_DATA_DIR=./data/raft/node1 \
+KONSUL_RAFT_BOOTSTRAP=true \
+KONSUL_RAFT_PEERS="node1@127.0.0.1:7001,node2@127.0.0.1:7002,node3@127.0.0.1:7003" \
 ./konsul
 ```
 

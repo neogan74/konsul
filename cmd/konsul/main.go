@@ -31,6 +31,7 @@ import (
 	"github.com/neogan74/konsul/internal/metrics"
 	"github.com/neogan74/konsul/internal/middleware"
 	"github.com/neogan74/konsul/internal/persistence"
+	konsulraft "github.com/neogan74/konsul/internal/raft"
 	"github.com/neogan74/konsul/internal/ratelimit"
 	"github.com/neogan74/konsul/internal/store"
 	"github.com/neogan74/konsul/internal/telemetry"
@@ -234,6 +235,26 @@ func main() {
 		}
 	}()
 
+	// Initialize Raft node if enabled
+	var raftNode *konsulraft.Node
+	if cfg.Raft.Enabled {
+		raftNode, err = konsulraft.NewNode(cfg.Raft, kv, svcStore, appLogger)
+		if err != nil {
+			log.Fatalf("Failed to initialize raft node: %v", err)
+		}
+		defer func() {
+			if err := raftNode.Shutdown(); err != nil {
+				appLogger.Error("Failed to shutdown raft node", logger.Error(err))
+			}
+		}()
+
+		appLogger.Info("Raft clustering enabled",
+			logger.String("node_id", cfg.Raft.NodeID),
+			logger.String("bind_addr", cfg.Raft.BindAddr),
+			logger.String("data_dir", cfg.Raft.DataDir),
+			logger.String("bootstrap", fmt.Sprintf("%t", cfg.Raft.Bootstrap)))
+	}
+
 	// Initialize load balancer with default round-robin strategy
 	balancer := loadbalancer.New(svcStore, loadbalancer.StrategyRoundRobin)
 	appLogger.Info("Load balancer initialized", logger.String("strategy", string(loadbalancer.StrategyRoundRobin)))
@@ -244,13 +265,13 @@ func main() {
 	metrics.LoadBalancerCurrentStrategy.WithLabelValues("least-connections").Set(0)
 
 	// Initialize handlers
-	kvHandler := handlers.NewKVHandler(kv)
-	serviceHandler := handlers.NewServiceHandler(svcStore)
+	kvHandler := handlers.NewKVHandler(kv, raftNode)
+	serviceHandler := handlers.NewServiceHandler(svcStore, raftNode)
 	loadBalancerHandler := handlers.NewLoadBalancerHandler(balancer)
 	healthHandler := handlers.NewHealthHandler(kv, svcStore, version)
-	healthCheckHandler := handlers.NewHealthCheckHandler(svcStore)
+	healthCheckHandler := handlers.NewHealthCheckHandler(svcStore, raftNode)
 	backupHandler := handlers.NewBackupHandler(engine, appLogger)
-	batchHandler := handlers.NewBatchHandler(kv, svcStore)
+	batchHandler := handlers.NewBatchHandler(kv, svcStore, raftNode)
 
 	// Initialize store metrics
 	metrics.KVStoreSize.Set(float64(len(kv.List())))
@@ -583,6 +604,7 @@ func main() {
 			JWTService:   jwtService,
 			Logger:       appLogger,
 			Version:      version,
+			RaftNode:     raftNode,
 		}
 
 		gqlServer := graphql.NewServer(gqlDeps)

@@ -1,12 +1,16 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
+	hashiraft "github.com/hashicorp/raft"
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/metrics"
 	"github.com/neogan74/konsul/internal/middleware"
+	konsulraft "github.com/neogan74/konsul/internal/raft"
 	"github.com/neogan74/konsul/internal/store"
 )
 
@@ -14,13 +18,15 @@ import (
 type BatchHandler struct {
 	kvStore      *store.KVStore
 	serviceStore *store.ServiceStore
+	raftNode     *konsulraft.Node
 }
 
 // NewBatchHandler creates a new batch handler
-func NewBatchHandler(kvStore *store.KVStore, serviceStore *store.ServiceStore) *BatchHandler {
+func NewBatchHandler(kvStore *store.KVStore, serviceStore *store.ServiceStore, raftNode *konsulraft.Node) *BatchHandler {
 	return &BatchHandler{
 		kvStore:      kvStore,
 		serviceStore: serviceStore,
+		raftNode:     raftNode,
 	}
 }
 
@@ -61,8 +67,8 @@ type BatchKVDeleteResponse struct {
 
 // BatchKVSetCASRequest represents a request to set multiple keys with CAS
 type BatchKVSetCASRequest struct {
-	Items           map[string]string  `json:"items"`
-	ExpectedIndices map[string]uint64  `json:"expected_indices"`
+	Items           map[string]string `json:"items"`
+	ExpectedIndices map[string]uint64 `json:"expected_indices"`
 }
 
 // BatchKVSetCASResponse represents the response for batch CAS set
@@ -140,7 +146,25 @@ func (h *BatchHandler) BatchKVSet(c *fiber.Ctx) error {
 
 	log.Debug("Batch setting keys", logger.Int("count", len(req.Items)))
 
-	if err := h.kvStore.BatchSet(req.Items); err != nil {
+	if h.raftNode != nil {
+		entry, marshalErr := konsulraft.NewLogEntry(konsulraft.EntryKVBatchSet, konsulraft.KVBatchSetPayload{
+			Items: req.Items,
+		})
+		if marshalErr != nil {
+			log.Error("Failed to build raft log entry", logger.Error(marshalErr))
+			return middleware.InternalError(c, "Failed to set keys")
+		}
+		if _, err := h.raftNode.ApplyEntry(entry, 10*time.Second); err != nil {
+			if errors.Is(err, hashiraft.ErrNotLeader) {
+				return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+					"error":  "not leader",
+					"leader": h.raftNode.Leader(),
+				})
+			}
+			log.Error("Failed to batch set keys", logger.Error(err))
+			return middleware.InternalError(c, "Failed to set keys")
+		}
+	} else if err := h.kvStore.BatchSet(req.Items); err != nil {
 		log.Error("Failed to batch set keys", logger.Error(err))
 		return middleware.InternalError(c, "Failed to set keys")
 	}
@@ -182,7 +206,25 @@ func (h *BatchHandler) BatchKVDelete(c *fiber.Ctx) error {
 
 	log.Debug("Batch deleting keys", logger.Int("count", len(req.Keys)))
 
-	if err := h.kvStore.BatchDelete(req.Keys); err != nil {
+	if h.raftNode != nil {
+		entry, marshalErr := konsulraft.NewLogEntry(konsulraft.EntryKVBatchDelete, konsulraft.KVBatchDeletePayload{
+			Keys: req.Keys,
+		})
+		if marshalErr != nil {
+			log.Error("Failed to build raft log entry", logger.Error(marshalErr))
+			return middleware.InternalError(c, "Failed to delete keys")
+		}
+		if _, err := h.raftNode.ApplyEntry(entry, 10*time.Second); err != nil {
+			if errors.Is(err, hashiraft.ErrNotLeader) {
+				return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+					"error":  "not leader",
+					"leader": h.raftNode.Leader(),
+				})
+			}
+			log.Error("Failed to batch delete keys", logger.Error(err))
+			return middleware.InternalError(c, "Failed to delete keys")
+		}
+	} else if err := h.kvStore.BatchDelete(req.Keys); err != nil {
 		log.Error("Failed to batch delete keys", logger.Error(err))
 		return middleware.InternalError(c, "Failed to delete keys")
 	}
@@ -226,7 +268,32 @@ func (h *BatchHandler) BatchKVSetCAS(c *fiber.Ctx) error {
 
 	log.Debug("Batch setting keys with CAS", logger.Int("count", len(req.Items)))
 
-	newIndices, err := h.kvStore.BatchSetCAS(req.Items, req.ExpectedIndices)
+	var newIndices map[string]uint64
+	var err error
+	if h.raftNode != nil {
+		entry, marshalErr := konsulraft.NewLogEntry(konsulraft.EntryKVBatchSetCAS, konsulraft.KVBatchSetCASPayload{
+			Items:           req.Items,
+			ExpectedIndices: req.ExpectedIndices,
+		})
+		if marshalErr != nil {
+			log.Error("Failed to build raft log entry", logger.Error(marshalErr))
+			return middleware.InternalError(c, "Failed to set keys")
+		}
+		resp, applyErr := h.raftNode.ApplyEntry(entry, 10*time.Second)
+		if applyErr != nil {
+			if errors.Is(applyErr, hashiraft.ErrNotLeader) {
+				return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+					"error":  "not leader",
+					"leader": h.raftNode.Leader(),
+				})
+			}
+			err = applyErr
+		} else if cast, ok := resp.(map[string]uint64); ok {
+			newIndices = cast
+		}
+	} else {
+		newIndices, err = h.kvStore.BatchSetCAS(req.Items, req.ExpectedIndices)
+	}
 	if err != nil {
 		if store.IsCASConflict(err) {
 			log.Warn("CAS conflict in batch set", logger.Error(err))
@@ -285,7 +352,28 @@ func (h *BatchHandler) BatchKVDeleteCAS(c *fiber.Ctx) error {
 
 	log.Debug("Batch deleting keys with CAS", logger.Int("count", len(req.Keys)))
 
-	err := h.kvStore.BatchDeleteCAS(req.Keys, req.ExpectedIndices)
+	var err error
+	if h.raftNode != nil {
+		entry, marshalErr := konsulraft.NewLogEntry(konsulraft.EntryKVBatchDeleteCAS, konsulraft.KVBatchDeleteCASPayload{
+			Keys:            req.Keys,
+			ExpectedIndices: req.ExpectedIndices,
+		})
+		if marshalErr != nil {
+			log.Error("Failed to build raft log entry", logger.Error(marshalErr))
+			return middleware.InternalError(c, "Failed to delete keys")
+		}
+		if _, applyErr := h.raftNode.ApplyEntry(entry, 10*time.Second); applyErr != nil {
+			if errors.Is(applyErr, hashiraft.ErrNotLeader) {
+				return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+					"error":  "not leader",
+					"leader": h.raftNode.Leader(),
+				})
+			}
+			err = applyErr
+		}
+	} else {
+		err = h.kvStore.BatchDeleteCAS(req.Keys, req.ExpectedIndices)
+	}
 	if err != nil {
 		if store.IsCASConflict(err) {
 			log.Warn("CAS conflict in batch delete", logger.Error(err))
@@ -381,7 +469,29 @@ func (h *BatchHandler) BatchServiceRegister(c *fiber.Ctx) error {
 		}
 
 		// Register the service
-		if err := h.serviceStore.Register(svc); err != nil {
+		if h.raftNode != nil {
+			entry, marshalErr := konsulraft.NewLogEntry(konsulraft.EntryServiceRegister, konsulraft.ServiceRegisterPayload{
+				Service: svc,
+			})
+			if marshalErr != nil {
+				log.Error("Failed to build raft log entry", logger.Error(marshalErr))
+				failed = append(failed, svc.Name)
+				continue
+			}
+			if _, err := h.raftNode.ApplyEntry(entry, 10*time.Second); err != nil {
+				if errors.Is(err, hashiraft.ErrNotLeader) {
+					return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+						"error":  "not leader",
+						"leader": h.raftNode.Leader(),
+					})
+				}
+				log.Error("Failed to register service in batch",
+					logger.String("service", svc.Name),
+					logger.Error(err))
+				failed = append(failed, svc.Name)
+				continue
+			}
+		} else if err := h.serviceStore.Register(svc); err != nil {
 			log.Error("Failed to register service in batch",
 				logger.String("service", svc.Name),
 				logger.Error(err))
@@ -436,7 +546,29 @@ func (h *BatchHandler) BatchServiceDeregister(c *fiber.Ctx) error {
 	deregistered := make([]string, 0, len(req.Names))
 
 	for _, name := range req.Names {
-		h.serviceStore.Deregister(name)
+		if h.raftNode != nil {
+			entry, marshalErr := konsulraft.NewLogEntry(konsulraft.EntryServiceDeregister, konsulraft.ServiceDeregisterPayload{
+				Name: name,
+			})
+			if marshalErr != nil {
+				log.Error("Failed to build raft log entry", logger.Error(marshalErr))
+				return middleware.InternalError(c, "Failed to deregister services")
+			}
+			if _, err := h.raftNode.ApplyEntry(entry, 10*time.Second); err != nil {
+				if errors.Is(err, hashiraft.ErrNotLeader) {
+					return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+						"error":  "not leader",
+						"leader": h.raftNode.Leader(),
+					})
+				}
+				log.Error("Failed to deregister service in batch",
+					logger.String("service", name),
+					logger.Error(err))
+				return middleware.InternalError(c, "Failed to deregister services")
+			}
+		} else {
+			h.serviceStore.Deregister(name)
+		}
 		deregistered = append(deregistered, name)
 	}
 

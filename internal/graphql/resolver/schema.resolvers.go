@@ -7,15 +7,18 @@ package resolver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	hashiraft "github.com/hashicorp/raft"
 	"github.com/neogan74/konsul/internal/graphql/generated"
 	"github.com/neogan74/konsul/internal/graphql/model"
 	"github.com/neogan74/konsul/internal/graphql/scalar"
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/metrics"
+	konsulraft "github.com/neogan74/konsul/internal/raft"
 	"github.com/neogan74/konsul/internal/store"
 )
 
@@ -28,7 +31,23 @@ func (r *mutationResolver) KvSet(ctx context.Context, key string, value string) 
 	// TODO: Add ACL write permission check when ACL middleware is implemented
 
 	// Set the key-value pair
-	r.kvStore.Set(key, value)
+	if r.raftNode != nil {
+		entry, err := konsulraft.NewLogEntry(konsulraft.EntryKVSet, konsulraft.KVSetPayload{
+			Key:   key,
+			Value: value,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if _, err := r.raftNode.ApplyEntry(entry, 5*time.Second); err != nil {
+			if errors.Is(err, hashiraft.ErrNotLeader) {
+				return nil, fmt.Errorf("not leader: %w", err)
+			}
+			return nil, err
+		}
+	} else {
+		r.kvStore.Set(key, value)
+	}
 
 	r.logger.Info("GraphQL: KV set",
 		logger.String("key", key),
@@ -53,7 +72,22 @@ func (r *mutationResolver) KvDelete(ctx context.Context, key string) (bool, erro
 	}
 
 	// Delete the key
-	r.kvStore.Delete(key)
+	if r.raftNode != nil {
+		entry, err := konsulraft.NewLogEntry(konsulraft.EntryKVDelete, konsulraft.KVDeletePayload{
+			Key: key,
+		})
+		if err != nil {
+			return false, err
+		}
+		if _, err := r.raftNode.ApplyEntry(entry, 5*time.Second); err != nil {
+			if errors.Is(err, hashiraft.ErrNotLeader) {
+				return false, fmt.Errorf("not leader: %w", err)
+			}
+			return false, err
+		}
+	} else {
+		r.kvStore.Delete(key)
+	}
 
 	r.logger.Info("GraphQL: KV deleted",
 		logger.String("key", key))
@@ -70,14 +104,39 @@ func (r *mutationResolver) KvCas(ctx context.Context, key string, value string, 
 	// TODO: Add ACL write permission check when ACL middleware is implemented
 
 	// Perform Compare-And-Swap operation
-	newIndex, err := r.kvStore.SetCAS(key, value, uint64(index))
+	var newIndex uint64
+	var err error
+	if r.raftNode != nil {
+		entry, marshalErr := konsulraft.NewLogEntry(konsulraft.EntryKVSetCAS, konsulraft.KVSetCASPayload{
+			Key:           key,
+			Value:         value,
+			ExpectedIndex: uint64(index),
+		})
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
+		resp, applyErr := r.raftNode.ApplyEntry(entry, 5*time.Second)
+		if applyErr != nil {
+			err = applyErr
+		} else if cast, ok := resp.(uint64); ok {
+			newIndex = cast
+		}
+	} else {
+		newIndex, err = r.kvStore.SetCAS(key, value, uint64(index))
+	}
 	if err != nil {
 		// CAS failed - index mismatch
 		r.logger.Warn("GraphQL: KV CAS failed",
 			logger.String("key", key),
 			logger.Int("expected_index", index),
 			logger.Error(err))
-		return nil, nil // Return nil to indicate failure (nullable field)
+		if store.IsCASConflict(err) || store.IsNotFound(err) {
+			return nil, nil
+		}
+		if errors.Is(err, hashiraft.ErrNotLeader) {
+			return nil, fmt.Errorf("not leader: %w", err)
+		}
+		return nil, err
 	}
 
 	r.logger.Info("GraphQL: KV CAS succeeded",
@@ -114,7 +173,20 @@ func (r *mutationResolver) RegisterService(ctx context.Context, input model.Regi
 	}
 
 	// Register the service
-	if err := r.serviceStore.Register(service); err != nil {
+	if r.raftNode != nil {
+		entry, err := konsulraft.NewLogEntry(konsulraft.EntryServiceRegister, konsulraft.ServiceRegisterPayload{
+			Service: service,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if _, err := r.raftNode.ApplyEntry(entry, 5*time.Second); err != nil {
+			if errors.Is(err, hashiraft.ErrNotLeader) {
+				return nil, fmt.Errorf("not leader: %w", err)
+			}
+			return nil, fmt.Errorf("failed to register service: %w", err)
+		}
+	} else if err := r.serviceStore.Register(service); err != nil {
 		r.logger.Error("GraphQL: Failed to register service",
 			logger.String("name", input.Name),
 			logger.Error(err))
@@ -158,7 +230,22 @@ func (r *mutationResolver) DeregisterService(ctx context.Context, name string) (
 	}
 
 	// Deregister the service
-	r.serviceStore.Deregister(name)
+	if r.raftNode != nil {
+		entry, err := konsulraft.NewLogEntry(konsulraft.EntryServiceDeregister, konsulraft.ServiceDeregisterPayload{
+			Name: name,
+		})
+		if err != nil {
+			return false, err
+		}
+		if _, err := r.raftNode.ApplyEntry(entry, 5*time.Second); err != nil {
+			if errors.Is(err, hashiraft.ErrNotLeader) {
+				return false, fmt.Errorf("not leader: %w", err)
+			}
+			return false, err
+		}
+	} else {
+		r.serviceStore.Deregister(name)
+	}
 
 	r.logger.Info("GraphQL: Service deregistered",
 		logger.String("name", name))
@@ -175,7 +262,27 @@ func (r *mutationResolver) UpdateHeartbeat(ctx context.Context, name string) (*m
 	// TODO: Add ACL heartbeat permission check when ACL middleware is implemented
 
 	// Update heartbeat
-	success := r.serviceStore.Heartbeat(name)
+	success := false
+	if r.raftNode != nil {
+		entry, err := konsulraft.NewLogEntry(konsulraft.EntryServiceHeartbeat, konsulraft.ServiceHeartbeatPayload{
+			Name: name,
+		})
+		if err != nil {
+			return nil, err
+		}
+		resp, err := r.raftNode.ApplyEntry(entry, 5*time.Second)
+		if err != nil {
+			if errors.Is(err, hashiraft.ErrNotLeader) {
+				return nil, fmt.Errorf("not leader: %w", err)
+			}
+			return nil, err
+		}
+		if cast, ok := resp.(bool); ok {
+			success = cast
+		}
+	} else {
+		success = r.serviceStore.Heartbeat(name)
+	}
 	if !success {
 		r.logger.Warn("GraphQL: Heartbeat failed - service not found",
 			logger.String("name", name))

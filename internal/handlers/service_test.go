@@ -13,7 +13,7 @@ import (
 
 func setupServiceHandler() (*ServiceHandler, *fiber.App) {
 	serviceStore := store.NewServiceStore()
-	handler := NewServiceHandler(serviceStore)
+	handler := NewServiceHandler(serviceStore, nil)
 	app := fiber.New()
 
 	app.Put("/register", handler.Register)
@@ -198,7 +198,7 @@ func TestServiceHandler_Heartbeat(t *testing.T) {
 
 func TestServiceHandler_NewServiceHandler(t *testing.T) {
 	serviceStore := store.NewServiceStore()
-	handler := NewServiceHandler(serviceStore)
+	handler := NewServiceHandler(serviceStore, nil)
 
 	if handler == nil {
 		t.Fatal("expected NewServiceHandler to return non-nil handler")

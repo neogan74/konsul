@@ -1,20 +1,27 @@
 package handlers
 
 import (
+	"errors"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
+	hashiraft "github.com/hashicorp/raft"
 	"github.com/neogan74/konsul/internal/healthcheck"
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/middleware"
+	konsulraft "github.com/neogan74/konsul/internal/raft"
 	"github.com/neogan74/konsul/internal/store"
 )
 
 type HealthCheckHandler struct {
 	serviceStore *store.ServiceStore
+	raftNode     *konsulraft.Node
 }
 
-func NewHealthCheckHandler(serviceStore *store.ServiceStore) *HealthCheckHandler {
+func NewHealthCheckHandler(serviceStore *store.ServiceStore, raftNode *konsulraft.Node) *HealthCheckHandler {
 	return &HealthCheckHandler{
 		serviceStore: serviceStore,
+		raftNode:     raftNode,
 	}
 }
 
@@ -49,7 +56,27 @@ func (h *HealthCheckHandler) UpdateTTLCheck(c *fiber.Ctx) error {
 
 	log.Debug("Updating TTL check", logger.String("check_id", checkID))
 
-	err := h.serviceStore.UpdateTTLCheck(checkID)
+	var err error
+	if h.raftNode != nil {
+		entry, marshalErr := konsulraft.NewLogEntry(konsulraft.EntryHealthTTLUpdate, konsulraft.HealthTTLUpdatePayload{
+			CheckID: checkID,
+		})
+		if marshalErr != nil {
+			log.Error("Failed to build raft log entry", logger.Error(marshalErr))
+			return middleware.InternalError(c, "Failed to update TTL check")
+		}
+		if _, applyErr := h.raftNode.ApplyEntry(entry, 5*time.Second); applyErr != nil {
+			if errors.Is(applyErr, hashiraft.ErrNotLeader) {
+				return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+					"error":  "not leader",
+					"leader": h.raftNode.Leader(),
+				})
+			}
+			err = applyErr
+		}
+	} else {
+		err = h.serviceStore.UpdateTTLCheck(checkID)
+	}
 	if err != nil {
 		log.Error("Failed to update TTL check",
 			logger.String("check_id", checkID),
