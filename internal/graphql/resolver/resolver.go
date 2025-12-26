@@ -6,6 +6,7 @@ import (
 	"github.com/neogan74/konsul/internal/acl"
 	"github.com/neogan74/konsul/internal/auth"
 	"github.com/neogan74/konsul/internal/logger"
+	konsulraft "github.com/neogan74/konsul/internal/raft"
 	"github.com/neogan74/konsul/internal/store"
 	"github.com/neogan74/konsul/internal/watch"
 )
@@ -18,6 +19,7 @@ import (
 type Resolver struct {
 	kvStore      *store.KVStore
 	serviceStore *store.ServiceStore
+	raftNode     *konsulraft.Node
 	watchManager *watch.Manager
 	aclEvaluator *acl.Evaluator
 	jwtService   *auth.JWTService
@@ -31,6 +33,7 @@ func NewResolver(deps ResolverDependencies) *Resolver {
 	return &Resolver{
 		kvStore:      deps.KVStore,
 		serviceStore: deps.ServiceStore,
+		raftNode:     deps.RaftNode,
 		watchManager: deps.WatchManager,
 		aclEvaluator: deps.ACLEvaluator,
 		jwtService:   deps.JWTService,
@@ -44,6 +47,7 @@ func NewResolver(deps ResolverDependencies) *Resolver {
 type ResolverDependencies struct {
 	KVStore      *store.KVStore
 	ServiceStore *store.ServiceStore
+	RaftNode     *konsulraft.Node
 	WatchManager *watch.Manager
 	ACLEvaluator *acl.Evaluator
 	JWTService   *auth.JWTService

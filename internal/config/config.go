@@ -13,6 +13,7 @@ type Config struct {
 	Service     ServiceConfig
 	Log         LogConfig
 	Persistence PersistenceConfig
+	Raft        RaftConfig
 	DNS         DNSConfig
 	RateLimit   RateLimitConfig
 	Auth        AuthConfig
@@ -60,6 +61,28 @@ type PersistenceConfig struct {
 	BackupDir  string
 	SyncWrites bool
 	WALEnabled bool
+}
+
+// RaftConfig contains clustering configuration
+type RaftConfig struct {
+	Enabled            bool
+	NodeID             string
+	BindAddr           string
+	AdvertiseAddr      string
+	DataDir            string
+	Bootstrap          bool
+	Peers              []RaftPeer
+	ElectionTimeout    time.Duration
+	HeartbeatTimeout   time.Duration
+	LeaderLeaseTimeout time.Duration
+	SnapshotInterval   time.Duration
+	SnapshotThreshold  uint64
+}
+
+// RaftPeer represents a bootstrap peer (id@host:port)
+type RaftPeer struct {
+	ID      string
+	Address string
 }
 
 // DNSConfig contains DNS server configuration
@@ -187,6 +210,20 @@ func Load() (*Config, error) {
 			BackupDir:  getEnvString("KONSUL_BACKUP_DIR", "./backups"),
 			SyncWrites: getEnvBool("KONSUL_SYNC_WRITES", true),
 			WALEnabled: getEnvBool("KONSUL_WAL_ENABLED", true),
+		},
+		Raft: RaftConfig{
+			Enabled:            getEnvBool("KONSUL_RAFT_ENABLED", false),
+			NodeID:             getEnvString("KONSUL_RAFT_NODE_ID", ""),
+			BindAddr:           getEnvString("KONSUL_RAFT_BIND_ADDR", ""),
+			AdvertiseAddr:      getEnvString("KONSUL_RAFT_ADVERTISE_ADDR", ""),
+			DataDir:            getEnvString("KONSUL_RAFT_DATA_DIR", "./data/raft"),
+			Bootstrap:          getEnvBool("KONSUL_RAFT_BOOTSTRAP", false),
+			Peers:              parseRaftPeers(getEnvString("KONSUL_RAFT_PEERS", "")),
+			ElectionTimeout:    getEnvDuration("KONSUL_RAFT_ELECTION_TIMEOUT", time.Second),
+			HeartbeatTimeout:   getEnvDuration("KONSUL_RAFT_HEARTBEAT_TIMEOUT", time.Second),
+			LeaderLeaseTimeout: getEnvDuration("KONSUL_RAFT_LEADER_LEASE_TIMEOUT", 500*time.Millisecond),
+			SnapshotInterval:   getEnvDuration("KONSUL_RAFT_SNAPSHOT_INTERVAL", 120*time.Second),
+			SnapshotThreshold:  getEnvUint64("KONSUL_RAFT_SNAPSHOT_THRESHOLD", 8192),
 		},
 		DNS: DNSConfig{
 			Enabled: getEnvBool("KONSUL_DNS_ENABLED", true),
@@ -330,6 +367,45 @@ func (c *Config) Validate() error {
 
 		if c.Persistence.DataDir == "" {
 			return fmt.Errorf("data directory must be specified when persistence is enabled")
+		}
+	}
+
+	// Validate raft configuration if enabled
+	if c.Raft.Enabled {
+		if c.Raft.NodeID == "" {
+			return fmt.Errorf("raft node ID must be specified when raft is enabled")
+		}
+		if c.Raft.BindAddr == "" {
+			return fmt.Errorf("raft bind address must be specified when raft is enabled")
+		}
+		if c.Raft.DataDir == "" {
+			return fmt.Errorf("raft data directory must be specified when raft is enabled")
+		}
+		if c.Raft.ElectionTimeout <= 0 || c.Raft.HeartbeatTimeout <= 0 || c.Raft.LeaderLeaseTimeout <= 0 {
+			return fmt.Errorf("raft timeouts must be positive")
+		}
+		if c.Raft.SnapshotInterval <= 0 {
+			return fmt.Errorf("raft snapshot interval must be positive")
+		}
+		if c.Raft.SnapshotThreshold == 0 {
+			return fmt.Errorf("raft snapshot threshold must be positive")
+		}
+		for _, peer := range c.Raft.Peers {
+			if peer.ID == "" || peer.Address == "" {
+				return fmt.Errorf("raft peers must use id@host:port format")
+			}
+		}
+		if c.Raft.Bootstrap && len(c.Raft.Peers) > 0 {
+			found := false
+			for _, peer := range c.Raft.Peers {
+				if peer.ID == c.Raft.NodeID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("raft bootstrap peers must include local node ID")
+			}
 		}
 	}
 
@@ -538,4 +614,33 @@ func trimSpace(s string) string {
 		end--
 	}
 	return s[start:end]
+}
+
+func parseRaftPeers(value string) []RaftPeer {
+	if value == "" {
+		return nil
+	}
+	parts := splitAndTrim(value, ",")
+	peers := make([]RaftPeer, 0, len(parts))
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+		at := -1
+		for i := 0; i < len(part); i++ {
+			if part[i] == '@' {
+				at = i
+				break
+			}
+		}
+		if at <= 0 || at+1 >= len(part) {
+			continue
+		}
+		peer := RaftPeer{
+			ID:      part[:at],
+			Address: part[at+1:],
+		}
+		peers = append(peers, peer)
+	}
+	return peers
 }

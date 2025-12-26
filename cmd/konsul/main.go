@@ -307,9 +307,9 @@ func main() {
 	}
 	loadBalancerHandler := handlers.NewLoadBalancerHandler(balancer)
 	healthHandler := handlers.NewHealthHandler(kv, svcStore, version)
-	healthCheckHandler := handlers.NewHealthCheckHandler(svcStore)
+	healthCheckHandler := handlers.NewHealthCheckHandler(svcStore, raftNode)
 	backupHandler := handlers.NewBackupHandler(engine, appLogger)
-	batchHandler := handlers.NewBatchHandler(kv, svcStore)
+	batchHandler := handlers.NewBatchHandler(kv, svcStore, raftNode)
 
 	// Initialize store metrics
 	metrics.KVStoreSize.Set(float64(len(kv.List())))
@@ -652,6 +652,7 @@ func main() {
 			JWTService:   jwtService,
 			Logger:       appLogger,
 			Version:      version,
+			RaftNode:     raftNode,
 		}
 
 		gqlServer := graphql.NewServer(gqlDeps)

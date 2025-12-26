@@ -14,7 +14,7 @@ func setupBatchTestApp() (*fiber.App, *BatchHandler) {
 	app := fiber.New()
 	kvStore := store.NewKVStore()
 	serviceStore := store.NewServiceStore()
-	handler := NewBatchHandler(kvStore, serviceStore)
+	handler := NewBatchHandler(kvStore, serviceStore, nil)
 	return app, handler
 }
 
@@ -682,7 +682,7 @@ func TestBatchKVSetCAS_Conflict(t *testing.T) {
 		},
 		ExpectedIndices: map[string]uint64{
 			"key1": entry1.ModifyIndex, // Old index - will conflict
-			"key2": 0,                   // Create-only
+			"key2": 0,                  // Create-only
 		},
 	}
 	body, _ := json.Marshal(reqBody)

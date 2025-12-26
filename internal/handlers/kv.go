@@ -1,9 +1,12 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
+	hashiraft "github.com/hashicorp/raft"
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/metrics"
 	"github.com/neogan74/konsul/internal/middleware"
@@ -16,8 +19,8 @@ type KVHandler struct {
 	raftNode *konsulraft.Node
 }
 
-func NewKVHandler(kvStore *store.KVStore) *KVHandler {
-	return &KVHandler{store: kvStore}
+func NewKVHandler(kvStore *store.KVStore, raftNode *konsulraft.Node) *KVHandler {
+	return &KVHandler{store: kvStore, raftNode: raftNode}
 }
 
 // NewKVHandlerWithRaft creates a KV handler with Raft support for replicated writes.
@@ -136,7 +139,33 @@ func (h *KVHandler) Set(c *fiber.Ctx) error {
 
 	// Use CAS if provided (CAS operations are not replicated via Raft in this implementation)
 	if body.CAS != nil {
-		newIndex, err := h.store.SetCAS(key, body.Value, *body.CAS)
+		var newIndex uint64
+		var err error
+		if h.raftNode != nil {
+			entry, marshalErr := konsulraft.NewLogEntry(konsulraft.EntryKVSetCAS, konsulraft.KVSetCASPayload{
+				Key:           key,
+				Value:         body.Value,
+				ExpectedIndex: *body.CAS,
+			})
+			if marshalErr != nil {
+				log.Error("Failed to build raft log entry", logger.Error(marshalErr))
+				return middleware.InternalError(c, "Failed to set key")
+			}
+			resp, applyErr := h.raftNode.ApplyEntry(entry, 5*time.Second)
+			if applyErr != nil {
+				if errors.Is(applyErr, hashiraft.ErrNotLeader) {
+					return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+						"error":  "not leader",
+						"leader": h.raftNode.Leader(),
+					})
+				}
+				err = applyErr
+			} else if index, ok := resp.(uint64); ok {
+				newIndex = index
+			}
+		} else {
+			newIndex, err = h.store.SetCAS(key, body.Value, *body.CAS)
+		}
 		if err != nil {
 			if store.IsCASConflict(err) {
 				log.Warn("CAS conflict", logger.String("key", key), logger.Error(err))
@@ -223,7 +252,28 @@ func (h *KVHandler) Delete(c *fiber.Ctx) error {
 			return middleware.BadRequest(c, "Invalid CAS parameter")
 		}
 
-		err := h.store.DeleteCAS(key, expectedIndex)
+		var err error
+		if h.raftNode != nil {
+			entry, marshalErr := konsulraft.NewLogEntry(konsulraft.EntryKVDeleteCAS, konsulraft.KVDeleteCASPayload{
+				Key:           key,
+				ExpectedIndex: expectedIndex,
+			})
+			if marshalErr != nil {
+				log.Error("Failed to build raft log entry", logger.Error(marshalErr))
+				return middleware.InternalError(c, "Failed to delete key")
+			}
+			if _, applyErr := h.raftNode.ApplyEntry(entry, 5*time.Second); applyErr != nil {
+				if errors.Is(applyErr, hashiraft.ErrNotLeader) {
+					return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+						"error":  "not leader",
+						"leader": h.raftNode.Leader(),
+					})
+				}
+				err = applyErr
+			}
+		} else {
+			err = h.store.DeleteCAS(key, expectedIndex)
+		}
 		if err != nil {
 			if store.IsCASConflict(err) {
 				log.Warn("CAS conflict on delete", logger.String("key", key), logger.Error(err))

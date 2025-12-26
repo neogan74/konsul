@@ -13,7 +13,7 @@ import (
 
 func setupKVHandler() (*KVHandler, *fiber.App) {
 	kvStore := store.NewKVStore()
-	handler := NewKVHandler(kvStore)
+	handler := NewKVHandler(kvStore, nil)
 	app := fiber.New()
 
 	app.Get("/kv/:key", handler.Get)
@@ -127,7 +127,7 @@ func TestKVHandler_Delete(t *testing.T) {
 
 func TestKVHandler_NewKVHandler(t *testing.T) {
 	kvStore := store.NewKVStore()
-	handler := NewKVHandler(kvStore)
+	handler := NewKVHandler(kvStore, nil)
 
 	if handler == nil {
 		t.Fatal("expected NewKVHandler to return non-nil handler")

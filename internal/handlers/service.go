@@ -1,9 +1,12 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
+	hashiraft "github.com/hashicorp/raft"
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/metrics"
 	"github.com/neogan74/konsul/internal/middleware"
@@ -16,8 +19,8 @@ type ServiceHandler struct {
 	raftNode *konsulraft.Node
 }
 
-func NewServiceHandler(serviceStore *store.ServiceStore) *ServiceHandler {
-	return &ServiceHandler{store: serviceStore}
+func NewServiceHandler(serviceStore *store.ServiceStore, raftNode *konsulraft.Node) *ServiceHandler {
+	return &ServiceHandler{store: serviceStore, raftNode: raftNode}
 }
 
 // NewServiceHandlerWithRaft creates a Service handler with Raft support for replicated writes.
@@ -89,7 +92,32 @@ func (h *ServiceHandler) Register(c *fiber.Ctx) error {
 
 	// Use CAS if provided (CAS operations not replicated via Raft)
 	if body.CAS != nil {
-		newIndex, err := h.store.RegisterCAS(svc, *body.CAS)
+		var newIndex uint64
+		var err error
+		if h.raftNode != nil {
+			entry, marshalErr := konsulraft.NewLogEntry(konsulraft.EntryServiceRegisterCAS, konsulraft.ServiceRegisterCASPayload{
+				Service:       svc,
+				ExpectedIndex: *body.CAS,
+			})
+			if marshalErr != nil {
+				log.Error("Failed to build raft log entry", logger.Error(marshalErr))
+				return middleware.InternalError(c, "Failed to register service")
+			}
+			resp, applyErr := h.raftNode.ApplyEntry(entry, 5*time.Second)
+			if applyErr != nil {
+				if errors.Is(applyErr, hashiraft.ErrNotLeader) {
+					return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+						"error":  "not leader",
+						"leader": h.raftNode.Leader(),
+					})
+				}
+				err = applyErr
+			} else if index, ok := resp.(uint64); ok {
+				newIndex = index
+			}
+		} else {
+			newIndex, err = h.store.RegisterCAS(svc, *body.CAS)
+		}
 		if err != nil {
 			if store.IsCASConflict(err) {
 				log.Warn("CAS conflict", logger.String("service", svc.Name), logger.Error(err))
@@ -236,7 +264,28 @@ func (h *ServiceHandler) Deregister(c *fiber.Ctx) error {
 			return middleware.BadRequest(c, "Invalid CAS parameter")
 		}
 
-		err := h.store.DeregisterCAS(name, expectedIndex)
+		var err error
+		if h.raftNode != nil {
+			entry, marshalErr := konsulraft.NewLogEntry(konsulraft.EntryServiceDeregisterCAS, konsulraft.ServiceDeregisterCASPayload{
+				Name:          name,
+				ExpectedIndex: expectedIndex,
+			})
+			if marshalErr != nil {
+				log.Error("Failed to build raft log entry", logger.Error(marshalErr))
+				return middleware.InternalError(c, "Failed to deregister service")
+			}
+			if _, applyErr := h.raftNode.ApplyEntry(entry, 5*time.Second); applyErr != nil {
+				if errors.Is(applyErr, hashiraft.ErrNotLeader) {
+					return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+						"error":  "not leader",
+						"leader": h.raftNode.Leader(),
+					})
+				}
+				err = applyErr
+			}
+		} else {
+			err = h.store.DeregisterCAS(name, expectedIndex)
+		}
 		if err != nil {
 			if store.IsCASConflict(err) {
 				log.Warn("CAS conflict on deregister", logger.String("service", name), logger.Error(err))
