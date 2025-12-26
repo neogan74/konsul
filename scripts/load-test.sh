@@ -6,7 +6,7 @@
 set -e
 
 # Configuration
-KONSUL_URL="${KONSUL_URL:-http://localhost:8888}"
+KONSUL_URL="${KONSUL_URL:-http://konsul.konsul.orb.local:8888}"
 DURATION="${DURATION:-60}"  # seconds
 SERVICE_COUNT="${SERVICE_COUNT:-10}"
 KV_KEY_COUNT="${KV_KEY_COUNT:-50}"
@@ -69,6 +69,7 @@ register_service() {
     done
     selected_tags=$(echo "$selected_tags" | sed 's/,$//')
 
+    ((TOTAL_REQUESTS++))
     local payload=$(cat <<EOF
 {
     "id": "${service_id}",
@@ -94,13 +95,13 @@ EOF
         ((FAILED_REQUESTS++))
         return 1
     fi
-    ((TOTAL_REQUESTS++))
 }
 
 # Deregister a service
 deregister_service() {
     local service_id=$1
 
+    ((TOTAL_REQUESTS++))
     if curl -sf -X DELETE "${KONSUL_URL}/services/${service_id}" > /dev/null 2>&1; then
         ((SUCCESSFUL_REQUESTS++))
         return 0
@@ -108,11 +109,11 @@ deregister_service() {
         ((FAILED_REQUESTS++))
         return 1
     fi
-    ((TOTAL_REQUESTS++))
 }
 
 # Get services
 get_services() {
+    ((TOTAL_REQUESTS++))
     if curl -sf "${KONSUL_URL}/services" > /dev/null 2>&1; then
         ((SUCCESSFUL_REQUESTS++))
         return 0
@@ -120,13 +121,13 @@ get_services() {
         ((FAILED_REQUESTS++))
         return 1
     fi
-    ((TOTAL_REQUESTS++))
 }
 
 # Send heartbeat
 send_heartbeat() {
     local service_id=$1
 
+    ((TOTAL_REQUESTS++))
     if curl -sf -X POST "${KONSUL_URL}/services/${service_id}/heartbeat" > /dev/null 2>&1; then
         ((SUCCESSFUL_REQUESTS++))
         return 0
@@ -134,7 +135,6 @@ send_heartbeat() {
         ((FAILED_REQUESTS++))
         return 1
     fi
-    ((TOTAL_REQUESTS++))
 }
 
 # Set KV pair
@@ -142,6 +142,7 @@ set_kv() {
     local key=$1
     local value=$2
 
+    ((TOTAL_REQUESTS++))
     if curl -sf -X PUT "${KONSUL_URL}/kv/${key}" \
         -H "Content-Type: application/json" \
         -d "{\"value\": \"${value}\"}" > /dev/null 2>&1; then
@@ -151,13 +152,13 @@ set_kv() {
         ((FAILED_REQUESTS++))
         return 1
     fi
-    ((TOTAL_REQUESTS++))
 }
 
 # Get KV pair
 get_kv() {
     local key=$1
 
+    ((TOTAL_REQUESTS++))
     if curl -sf "${KONSUL_URL}/kv/${key}" > /dev/null 2>&1; then
         ((SUCCESSFUL_REQUESTS++))
         return 0
@@ -165,13 +166,13 @@ get_kv() {
         ((FAILED_REQUESTS++))
         return 1
     fi
-    ((TOTAL_REQUESTS++))
 }
 
 # Delete KV pair
 delete_kv() {
     local key=$1
 
+    ((TOTAL_REQUESTS++))
     if curl -sf -X DELETE "${KONSUL_URL}/kv/${key}" > /dev/null 2>&1; then
         ((SUCCESSFUL_REQUESTS++))
         return 0
@@ -179,11 +180,11 @@ delete_kv() {
         ((FAILED_REQUESTS++))
         return 1
     fi
-    ((TOTAL_REQUESTS++))
 }
 
 # Health check
 health_check() {
+    ((TOTAL_REQUESTS++))
     if curl -sf "${KONSUL_URL}/health" > /dev/null 2>&1; then
         ((SUCCESSFUL_REQUESTS++))
         return 0
@@ -191,7 +192,6 @@ health_check() {
         ((FAILED_REQUESTS++))
         return 1
     fi
-    ((TOTAL_REQUESTS++))
 }
 
 # Worker function - simulates realistic application behavior

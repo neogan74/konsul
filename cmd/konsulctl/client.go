@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -225,9 +226,9 @@ func NewKonsulClientWithTLS(baseURL string, tlsConfig *TLSConfig) *KonsulClient 
 }
 
 func (c *KonsulClient) GetKV(key string) (string, error) {
-	url := fmt.Sprintf("%s/kv/%s", c.BaseURL, key)
+	reqURL := fmt.Sprintf("%s/kv/%s", c.BaseURL, url.PathEscape(key))
 
-	resp, err := c.HTTPClient.Get(url)
+	resp, err := c.HTTPClient.Get(reqURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to make request: %w", err)
 	}
@@ -259,7 +260,7 @@ func (c *KonsulClient) GetKV(key string) (string, error) {
 }
 
 func (c *KonsulClient) SetKV(key, value string) error {
-	url := fmt.Sprintf("%s/kv/%s", c.BaseURL, key)
+	reqURL := fmt.Sprintf("%s/kv/%s", c.BaseURL, url.PathEscape(key))
 
 	reqBody := KVRequest{Value: value}
 	jsonData, err := json.Marshal(reqBody)
@@ -267,7 +268,7 @@ func (c *KonsulClient) SetKV(key, value string) error {
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("PUT", reqURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -292,9 +293,9 @@ func (c *KonsulClient) SetKV(key, value string) error {
 }
 
 func (c *KonsulClient) DeleteKV(key string) error {
-	url := fmt.Sprintf("%s/kv/%s", c.BaseURL, key)
+	reqURL := fmt.Sprintf("%s/kv/%s", c.BaseURL, url.PathEscape(key))
 
-	req, err := http.NewRequest("DELETE", url, nil)
+	req, err := http.NewRequest("DELETE", reqURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}

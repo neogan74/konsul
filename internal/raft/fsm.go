@@ -4,167 +4,264 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sync"
 
-	hashiraft "github.com/hashicorp/raft"
-	"github.com/neogan74/konsul/internal/logger"
+	"github.com/hashicorp/raft"
 	"github.com/neogan74/konsul/internal/store"
 )
 
+// KonsulFSM implements the raft.FSM interface.
+// It applies commands from the Raft log to the KV and Service stores.
 type KonsulFSM struct {
-	kvStore      *store.KVStore
-	serviceStore *store.ServiceStore
-	log          logger.Logger
+	mu           sync.RWMutex
+	kvStore      KVStoreInterface
+	serviceStore ServiceStoreInterface
+
+	// Metrics callbacks (optional)
+	onApply func(cmdType CommandType, duration float64, err error)
 }
 
-func NewFSM(kvStore *store.KVStore, serviceStore *store.ServiceStore, log logger.Logger) *KonsulFSM {
+// FSMConfig contains configuration for the FSM.
+type FSMConfig struct {
+	KVStore      KVStoreInterface
+	ServiceStore ServiceStoreInterface
+	OnApply      func(cmdType CommandType, duration float64, err error)
+}
+
+// NewFSM creates a new KonsulFSM instance.
+func NewFSM(cfg FSMConfig) *KonsulFSM {
 	return &KonsulFSM{
-		kvStore:      kvStore,
-		serviceStore: serviceStore,
-		log:          log,
+		kvStore:      cfg.KVStore,
+		serviceStore: cfg.ServiceStore,
+		onApply:      cfg.OnApply,
 	}
 }
 
-func (f *KonsulFSM) Apply(logEntry *hashiraft.Log) interface{} {
-	var entry LogEntry
-	if err := json.Unmarshal(logEntry.Data, &entry); err != nil {
-		f.log.Error("Raft FSM: failed to decode log entry", logger.Error(err))
-		return err
+// Apply implements raft.FSM.Apply.
+// It applies a Raft log entry to the local state.
+// This is called by Raft after a log entry is committed.
+func (f *KonsulFSM) Apply(log *raft.Log) interface{} {
+	// Parse the command
+	cmd, err := UnmarshalCommand(log.Data)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal command: %w", err)
 	}
 
-	switch entry.Type {
-	case EntryKVSet:
-		var payload KVSetPayload
-		if err := json.Unmarshal(entry.Data, &payload); err != nil {
-			return err
-		}
-		f.kvStore.Set(payload.Key, payload.Value)
-		return nil
-	case EntryKVSetWithFlags:
-		var payload KVSetWithFlagsPayload
-		if err := json.Unmarshal(entry.Data, &payload); err != nil {
-			return err
-		}
-		f.kvStore.SetWithFlags(payload.Key, payload.Value, payload.Flags)
-		return nil
-	case EntryKVSetCAS:
-		var payload KVSetCASPayload
-		if err := json.Unmarshal(entry.Data, &payload); err != nil {
-			return err
-		}
-		newIndex, err := f.kvStore.SetCAS(payload.Key, payload.Value, payload.ExpectedIndex)
-		if err != nil {
-			return err
-		}
-		return newIndex
-	case EntryKVDelete:
-		var payload KVDeletePayload
-		if err := json.Unmarshal(entry.Data, &payload); err != nil {
-			return err
-		}
-		f.kvStore.Delete(payload.Key)
-		return nil
-	case EntryKVDeleteCAS:
-		var payload KVDeleteCASPayload
-		if err := json.Unmarshal(entry.Data, &payload); err != nil {
-			return err
-		}
-		return f.kvStore.DeleteCAS(payload.Key, payload.ExpectedIndex)
-	case EntryKVBatchSet:
-		var payload KVBatchSetPayload
-		if err := json.Unmarshal(entry.Data, &payload); err != nil {
-			return err
-		}
-		return f.kvStore.BatchSet(payload.Items)
-	case EntryKVBatchSetCAS:
-		var payload KVBatchSetCASPayload
-		if err := json.Unmarshal(entry.Data, &payload); err != nil {
-			return err
-		}
-		returnValue, err := f.kvStore.BatchSetCAS(payload.Items, payload.ExpectedIndices)
-		if err != nil {
-			return err
-		}
-		return returnValue
-	case EntryKVBatchDelete:
-		var payload KVBatchDeletePayload
-		if err := json.Unmarshal(entry.Data, &payload); err != nil {
-			return err
-		}
-		return f.kvStore.BatchDelete(payload.Keys)
-	case EntryKVBatchDeleteCAS:
-		var payload KVBatchDeleteCASPayload
-		if err := json.Unmarshal(entry.Data, &payload); err != nil {
-			return err
-		}
-		return f.kvStore.BatchDeleteCAS(payload.Keys, payload.ExpectedIndices)
-	case EntryServiceRegister:
-		var payload ServiceRegisterPayload
-		if err := json.Unmarshal(entry.Data, &payload); err != nil {
-			return err
-		}
-		return f.serviceStore.Register(payload.Service)
-	case EntryServiceRegisterCAS:
-		var payload ServiceRegisterCASPayload
-		if err := json.Unmarshal(entry.Data, &payload); err != nil {
-			return err
-		}
-		newIndex, err := f.serviceStore.RegisterCAS(payload.Service, payload.ExpectedIndex)
-		if err != nil {
-			return err
-		}
-		return newIndex
-	case EntryServiceDeregister:
-		var payload ServiceDeregisterPayload
-		if err := json.Unmarshal(entry.Data, &payload); err != nil {
-			return err
-		}
-		f.serviceStore.Deregister(payload.Name)
-		return nil
-	case EntryServiceDeregisterCAS:
-		var payload ServiceDeregisterCASPayload
-		if err := json.Unmarshal(entry.Data, &payload); err != nil {
-			return err
-		}
-		return f.serviceStore.DeregisterCAS(payload.Name, payload.ExpectedIndex)
-	case EntryServiceHeartbeat:
-		var payload ServiceHeartbeatPayload
-		if err := json.Unmarshal(entry.Data, &payload); err != nil {
-			return err
-		}
-		return f.serviceStore.Heartbeat(payload.Name)
-	case EntryHealthTTLUpdate:
-		var payload HealthTTLUpdatePayload
-		if err := json.Unmarshal(entry.Data, &payload); err != nil {
-			return err
-		}
-		return f.serviceStore.UpdateTTLCheck(payload.CheckID)
+	// Apply the command based on its type
+	var applyErr error
+	switch cmd.Type {
+	case CmdKVSet:
+		applyErr = f.applyKVSet(cmd.Payload)
+	case CmdKVSetWithFlags:
+		applyErr = f.applyKVSetWithFlags(cmd.Payload)
+	case CmdKVDelete:
+		applyErr = f.applyKVDelete(cmd.Payload)
+	case CmdKVBatchSet:
+		applyErr = f.applyKVBatchSet(cmd.Payload)
+	case CmdKVBatchDelete:
+		applyErr = f.applyKVBatchDelete(cmd.Payload)
+	case CmdServiceRegister:
+		applyErr = f.applyServiceRegister(cmd.Payload)
+	case CmdServiceDeregister:
+		applyErr = f.applyServiceDeregister(cmd.Payload)
+	case CmdServiceHeartbeat:
+		applyErr = f.applyServiceHeartbeat(cmd.Payload)
 	default:
-		return fmt.Errorf("unknown raft log entry type: %s", entry.Type)
+		applyErr = fmt.Errorf("unknown command type: %d", cmd.Type)
 	}
+
+	return applyErr
 }
 
-func (f *KonsulFSM) Snapshot() (hashiraft.FSMSnapshot, error) {
-	kvEntries, kvIndex := f.kvStore.SnapshotState()
-	serviceEntries, serviceIndex := f.serviceStore.SnapshotState()
+// --- KV Apply Methods ---
+
+func (f *KonsulFSM) applyKVSet(payload []byte) error {
+	var p KVSetPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal KVSetPayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.kvStore.SetLocal(p.Key, p.Value)
+	return nil
+}
+
+func (f *KonsulFSM) applyKVSetWithFlags(payload []byte) error {
+	var p KVSetWithFlagsPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal KVSetWithFlagsPayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.kvStore.SetWithFlagsLocal(p.Key, p.Value, p.Flags)
+	return nil
+}
+
+func (f *KonsulFSM) applyKVDelete(payload []byte) error {
+	var p KVDeletePayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal KVDeletePayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.kvStore.DeleteLocal(p.Key)
+	return nil
+}
+
+func (f *KonsulFSM) applyKVBatchSet(payload []byte) error {
+	var p KVBatchSetPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal KVBatchSetPayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.kvStore.BatchSetLocal(p.Items)
+}
+
+func (f *KonsulFSM) applyKVBatchDelete(payload []byte) error {
+	var p KVBatchDeletePayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal KVBatchDeletePayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.kvStore.BatchDeleteLocal(p.Keys)
+}
+
+// --- Service Apply Methods ---
+
+func (f *KonsulFSM) applyServiceRegister(payload []byte) error {
+	var p ServiceRegisterPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal ServiceRegisterPayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	service := store.ServiceDataSnapshot{
+		Name:    p.Name,
+		Address: p.Address,
+		Port:    p.Port,
+		Tags:    p.Tags,
+		Meta:    p.Meta,
+	}
+
+	return f.serviceStore.RegisterLocal(service)
+}
+
+func (f *KonsulFSM) applyServiceDeregister(payload []byte) error {
+	var p ServiceDeregisterPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal ServiceDeregisterPayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.serviceStore.DeregisterLocal(p.Name)
+	return nil
+}
+
+func (f *KonsulFSM) applyServiceHeartbeat(payload []byte) error {
+	var p ServiceHeartbeatPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal ServiceHeartbeatPayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.serviceStore.HeartbeatLocal(p.Name)
+	return nil
+}
+
+// Snapshot implements raft.FSM.Snapshot.
+// It returns a snapshot of the current state for persistence.
+// Raft calls this periodically to compact the log.
+func (f *KonsulFSM) Snapshot() (raft.FSMSnapshot, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	// Create deep copies of the data
+	kvData := f.kvStore.GetAllData()
+	serviceData := f.serviceStore.GetAllData()
 
 	return &KonsulSnapshot{
-		KVEntries:      kvEntries,
-		KVIndex:        kvIndex,
-		ServiceEntries: serviceEntries,
-		ServiceIndex:   serviceIndex,
-		log:            f.log,
+		KVData:      kvData,
+		ServiceData: serviceData,
 	}, nil
 }
 
+// Restore implements raft.FSM.Restore.
+// It restores the FSM state from a snapshot.
+// This is called when a node joins the cluster or recovers from a crash.
 func (f *KonsulFSM) Restore(rc io.ReadCloser) error {
 	defer rc.Close()
 
-	var snapshot SnapshotState
+	var snapshot SnapshotData
 	if err := json.NewDecoder(rc).Decode(&snapshot); err != nil {
-		return err
+		return fmt.Errorf("failed to decode snapshot: %w", err)
 	}
 
-	f.kvStore.RestoreSnapshot(snapshot.KVEntries, snapshot.KVIndex)
-	f.serviceStore.RestoreSnapshot(snapshot.ServiceEntries, snapshot.ServiceIndex)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	// Restore KV store
+	if err := f.kvStore.RestoreFromSnapshot(snapshot.KVData); err != nil {
+		return fmt.Errorf("failed to restore KV store: %w", err)
+	}
+
+	// Restore service store
+	if err := f.serviceStore.RestoreFromSnapshot(snapshot.ServiceData); err != nil {
+		return fmt.Errorf("failed to restore service store: %w", err)
+	}
+
 	return nil
+}
+
+// SnapshotData represents the data structure stored in a snapshot.
+type SnapshotData struct {
+	KVData      map[string]store.KVEntrySnapshot      `json:"kv_data"`
+	ServiceData map[string]store.ServiceEntrySnapshot `json:"service_data"`
+}
+
+// KonsulSnapshot implements raft.FSMSnapshot.
+// It holds a point-in-time snapshot of the FSM state.
+type KonsulSnapshot struct {
+	KVData      map[string]store.KVEntrySnapshot
+	ServiceData map[string]store.ServiceEntrySnapshot
+}
+
+// Persist implements raft.FSMSnapshot.Persist.
+// It writes the snapshot to the given sink.
+func (s *KonsulSnapshot) Persist(sink raft.SnapshotSink) error {
+	data := SnapshotData{
+		KVData:      s.KVData,
+		ServiceData: s.ServiceData,
+	}
+
+	// Encode the snapshot as JSON
+	if err := json.NewEncoder(sink).Encode(data); err != nil {
+		sink.Cancel()
+		return fmt.Errorf("failed to encode snapshot: %w", err)
+	}
+
+	return sink.Close()
+}
+
+// Release implements raft.FSMSnapshot.Release.
+// It is called when Raft is finished with the snapshot.
+func (s *KonsulSnapshot) Release() {
+	// Nothing to release - we use plain Go maps
 }

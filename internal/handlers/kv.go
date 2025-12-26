@@ -23,8 +23,57 @@ func NewKVHandler(kvStore *store.KVStore, raftNode *konsulraft.Node) *KVHandler 
 	return &KVHandler{store: kvStore, raftNode: raftNode}
 }
 
-func (h *KVHandler) Get(c *fiber.Ctx) error {
+// NewKVHandlerWithRaft creates a KV handler with Raft support for replicated writes.
+func NewKVHandlerWithRaft(kvStore *store.KVStore, raftNode *konsulraft.Node) *KVHandler {
+	return &KVHandler{
+		store:    kvStore,
+		raftNode: raftNode,
+	}
+}
+
+// isRaftEnabled returns true if Raft clustering is enabled.
+func (h *KVHandler) isRaftEnabled() bool {
+	return h.raftNode != nil
+}
+
+// checkLeaderForWrite checks if this node can handle writes.
+// Returns nil if writes are allowed, or an error response if not leader.
+func (h *KVHandler) checkLeaderForWrite(c *fiber.Ctx) error {
+	if !h.isRaftEnabled() {
+		return nil // Standalone mode, writes allowed
+	}
+
+	if h.raftNode.IsLeader() {
+		return nil // Leader, writes allowed
+	}
+
+	// Not leader, return redirect response
+	leaderAddr := h.raftNode.LeaderAddr()
+	if leaderAddr == "" {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+			"error":   "no leader",
+			"message": "No leader is currently elected. The cluster may be initializing or partitioned.",
+		})
+	}
+
+	return c.Status(fiber.StatusTemporaryRedirect).JSON(fiber.Map{
+		"error":       "not leader",
+		"message":     "This node is not the leader. Redirect to leader for write operations.",
+		"leader_addr": leaderAddr,
+	})
+}
+
+// getKey extracts the KV path, supporting nested keys via wildcard routes.
+func getKey(c *fiber.Ctx) string {
 	key := c.Params("key")
+	if key == "" {
+		key = c.Params("*")
+	}
+	return key
+}
+
+func (h *KVHandler) Get(c *fiber.Ctx) error {
+	key := getKey(c)
 	log := middleware.GetLogger(c)
 
 	log.Debug("Getting key", logger.String("key", key))
@@ -63,8 +112,13 @@ func (h *KVHandler) Get(c *fiber.Ctx) error {
 }
 
 func (h *KVHandler) Set(c *fiber.Ctx) error {
-	key := c.Params("key")
+	key := getKey(c)
 	log := middleware.GetLogger(c)
+
+	// Check if this node can handle writes (leader check for Raft mode)
+	if err := h.checkLeaderForWrite(c); err != nil {
+		return err
+	}
 
 	body := struct {
 		Value string  `json:"value"`
@@ -83,7 +137,7 @@ func (h *KVHandler) Set(c *fiber.Ctx) error {
 		logger.String("key", key),
 		logger.String("value_length", fmt.Sprintf("%d", len(body.Value))))
 
-	// Use CAS if provided
+	// Use CAS if provided (CAS operations are not replicated via Raft in this implementation)
 	if body.CAS != nil {
 		var newIndex uint64
 		var err error
@@ -140,29 +194,24 @@ func (h *KVHandler) Set(c *fiber.Ctx) error {
 		})
 	}
 
-	// Regular set (with or without flags)
-	if h.raftNode != nil {
-		entryType := konsulraft.EntryKVSet
-		var payload any = konsulraft.KVSetPayload{Key: key, Value: body.Value}
+	// Use Raft for replicated writes if enabled
+	if h.isRaftEnabled() {
+		var err error
 		if body.Flags > 0 {
-			entryType = konsulraft.EntryKVSetWithFlags
-			payload = konsulraft.KVSetWithFlagsPayload{Key: key, Value: body.Value, Flags: body.Flags}
+			err = h.raftNode.KVSetWithFlags(key, body.Value, body.Flags)
+		} else {
+			err = h.raftNode.KVSet(key, body.Value)
 		}
-		entry, marshalErr := konsulraft.NewLogEntry(entryType, payload)
-		if marshalErr != nil {
-			log.Error("Failed to build raft log entry", logger.Error(marshalErr))
-			return middleware.InternalError(c, "Failed to set key")
-		}
-		if _, err := h.raftNode.ApplyEntry(entry, 5*time.Second); err != nil {
-			if errors.Is(err, hashiraft.ErrNotLeader) {
-				return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
-					"error":  "not leader",
-					"leader": h.raftNode.Leader(),
-				})
-			}
-			return middleware.InternalError(c, "Failed to set key")
+		if err != nil {
+			log.Error("Raft KV set failed", logger.String("key", key), logger.Error(err))
+			metrics.KVOperationsTotal.WithLabelValues("set", "error").Inc()
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error":   "replication failed",
+				"message": err.Error(),
+			})
 		}
 	} else {
+		// Standalone mode: direct store write
 		if body.Flags > 0 {
 			h.store.SetWithFlags(key, body.Value, body.Flags)
 		} else {
@@ -184,12 +233,17 @@ func (h *KVHandler) Set(c *fiber.Ctx) error {
 }
 
 func (h *KVHandler) Delete(c *fiber.Ctx) error {
-	key := c.Params("key")
+	key := getKey(c)
 	log := middleware.GetLogger(c)
+
+	// Check if this node can handle writes (leader check for Raft mode)
+	if err := h.checkLeaderForWrite(c); err != nil {
+		return err
+	}
 
 	log.Debug("Deleting key", logger.String("key", key))
 
-	// Check if CAS is requested via query parameter
+	// Check if CAS is requested via query parameter (CAS operations not replicated via Raft)
 	casParam := c.Query("cas")
 	if casParam != "" {
 		var expectedIndex uint64
@@ -245,24 +299,18 @@ func (h *KVHandler) Delete(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"message": "key deleted", "key": key})
 	}
 
-	if h.raftNode != nil {
-		entry, marshalErr := konsulraft.NewLogEntry(konsulraft.EntryKVDelete, konsulraft.KVDeletePayload{
-			Key: key,
-		})
-		if marshalErr != nil {
-			log.Error("Failed to build raft log entry", logger.Error(marshalErr))
-			return middleware.InternalError(c, "Failed to delete key")
-		}
-		if _, err := h.raftNode.ApplyEntry(entry, 5*time.Second); err != nil {
-			if errors.Is(err, hashiraft.ErrNotLeader) {
-				return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
-					"error":  "not leader",
-					"leader": h.raftNode.Leader(),
-				})
-			}
-			return middleware.InternalError(c, "Failed to delete key")
+	// Use Raft for replicated deletes if enabled
+	if h.isRaftEnabled() {
+		if err := h.raftNode.KVDelete(key); err != nil {
+			log.Error("Raft KV delete failed", logger.String("key", key), logger.Error(err))
+			metrics.KVOperationsTotal.WithLabelValues("delete", "error").Inc()
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error":   "replication failed",
+				"message": err.Error(),
+			})
 		}
 	} else {
+		// Standalone mode: direct store delete
 		h.store.Delete(key)
 	}
 

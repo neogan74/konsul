@@ -1334,7 +1334,7 @@ Cross-cluster replication for disaster recovery and geographic redundancy.
 
 ---
 
-### BACK-027: Network Segments
+### BACK-0 Network Segments
 
 **Priority**: P3 (Low)
 **Effort**: 8 SP (2 weeks)
@@ -1415,7 +1415,7 @@ Network segmentation for isolating services within a cluster.
 11. **BACK-017**: JavaScript SDK (8 SP)
 12. **BACK-019**: Light Mode (3 SP)
 
-**Total**: 27 SP (~5.5 weeks)
+**Total**:P (~5.5 weeks)
 
 ### Phase 4: Advanced Features (Q3 2025)
 13. **BACK-023**: API Versioning (5 SP)
@@ -2327,3 +2327,498 @@ Integrations with major observability platforms (DataDog, New Relic, Dynatrace, 
 **Last Review**: 2025-12-06
 **Next Review**: 2026-01-10
 **Innovation Committee**: Quarterly review
+
+
+## Epic 14: Code Architecture & Refactoring 🏗️
+### 🎯 Goal
+ Improve code maintainability, testability, and scalability through architectural refactoring.
+
+**Total Effort**: 47 SP (~9.5 weeks)
+**Priority**: P2 (Medium)
+**ADR**: [ADR-0023](adr/0023-dependency-injection-with-uber-fx.md), [ADR-0008](adr/0008-migrate-fiber-to-chi.md)
+
+---
+
+### BACK-044: Dependency Injection with Uber FX
+
+**Priority**: P2 (Medium)
+**Effort**: 21 SP (4 weeks)
+**Status**: 📋 Not Started
+**Dependencies**: None
+**ADR**: [ADR-0023](adr/0023-dependency-injection-with-uber-fx.md)
+
+#### Description
+Refactor the monolithic main.go (700+ lines) to use Uber FX for dependency injection, improving testability, maintainability, and code 
+ organization.
+
+#### Goals
+- Reduce main.go complexity from 700+ to ~100 lines
+- Explicit dependency graphs via FX modules
+- Automatic lifecycle management (OnStart/OnStop)
+- Easier testing with mock injection
+- Better code organization
+
+#### Acceptance Criteria
+- [ ] FX dependency added to go.mod
+- [ ] Config module created (`internal/config/module.go`)
+- [ ] Logger module created (`internal/logger/module.go`)
+- [ ] Storage module created (persistence, KV store, service store)
+- [ ] Services module created (load balancer, auth, ACL, watch)
+- [ ] Handlers module created (all HTTP handlers)
+- [ ] Server module created (Fiber app, routes, middleware)
+- [ ] Optional modules: GraphQL, DNS, Audit, Telemetry 
+- [ ] Lifecycle hooks for graceful shutdown
+- [ ] All existing tests passing
+- [ ] New integration tests using FX
+- [ ] main.go reduced to declarative FX configuration
+- [ ] Documentation updated
+
+#### Technical Tasks
+1. Add `uber-go/fx` dependency
+2. Create module structure in `internal/*/module.go`
+3. Migrate config loading to FX provider
+4. Migrate logger initialization to FX provider
+5. Migrate persistence engine to FX provider with lifecycle
+6. Migrate stores (KV, Service) to FX providers
+7. Migrate all handlers to FX providers
+8. Create server module with route registration
+9. Handle optional features (GraphQL, DNS) conditionally
+10. Remove manual defer statements (use FX lifecycle)
+11. Update tests to use FX
+12. Update documentation
+
+#### References
+- [ADR-0023: Dependency Injection with Uber FX](adr/0023-dependency-injection-with-uber-fx.md)
+- [ADR-0024: FX vs Wire Comparison](adr/0024-dependency-injection-framework-comparison.md)
+
+---
+
+### BACK-045: Migrate from Fiber to Chi Router
+
+**Priority**: P3 (Low)
+**Effort**: 13 SP (2.5 weeks)
+**Status**: 📋 Not Started
+**Dependencies**: BACK-044 (recommended to do DI first)
+**ADR**: [ADR-0008](adr/0008-migrate-fiber-to-chi.md)
+
+#### Description
+Migrate HTTP framework from Fiber (fasthttp-based) to Chi (net/http-based) for better ecosystem compatibility and standard library alignment.
+
+#### Goals
+- Standard library compatibility (net/http)
+- Better middleware ecosystem
+- Improved testing support
+- Context handling alignment
+- Long-term maintainability
+
+#### Acceptance Criteria
+- [ ] Chi router dependency added
+- [ ] All routes migrated from Fiber to Chi
+- [ ] All middleware migrated (auth, ACL, rate limit, audit, metrics)
+- [ ] Request/response handling updated
+- [ ] Static file serving updated (Admin UI)
+- [ ] WebSocket handling migrated
+- [ ] TLS configuration migrated
+- [ ] All existing tests passing
+- [ ] Performance benchmarks comparable
+- [ ] Documentation updated
+
+#### Technical Tasks
+1. Add `go-chi/chi` dependency
+2. Create Chi router in server module
+3. Migrate route definitions
+4. Migrate middleware (request logging, metrics, auth, ACL, etc.)
+5. Migrate request context handling
+6. Migrate response helpers +
+7. Update WebSocket handling
+8. Update static file serving
+9. Update TLS configuration
+10. Run performance benchmarks
+11. Update integration tests
+12. Update documentation
+
+#### References
+- [ADR-0008: Migrate Fiber to Chi Router](adr/0008-migrate-fiber-to-chi.md)
+
+---
+
+### BACK-046: Agent Mode Implementation
+
+**Priority**: P0 (Critical)
+**Effort**: 34 SP (7 weeks)
+**Status**: 📋 Not Started
+**Dependencies**: BACK-001 (Raft Clustering recommended)
+**ADR**: [ADR-0026](adr/0026-agent-mode-architecture.md)
+
+#### Description
+Implement lightweight agent mode for distributed architecture, enabling local caching, health check delegation, and 90% server load reduction at 
+scale.
+
+#### Goals
+- 90% reduction in server load
+- Sub-millisecond local operations (<1ms)
+- Local health check execution
+- Batch synchronization protocol
+- Foundation for service mesh
+
+#### Acceptance Criteria
+- [ ] Agent binary/package created (`cmd/konsul-agent`)
+- [ ] Agent core with lifecycle management
+- [ ] Local cache implementation (LRU, TTL-based)
+- [ ] Cache for services (60s TTL)
+- [ ] Cache for KV store (configurable TTL)
+- [ ] Cache for health check results
+- [ ] Health check engine (HTTP, TCP, gRPC)
+- [ ] Sync engine with delta updates
+- [ ] Batch registration protocol
+- [ ] Agent API endpoints (port 8502)
+- [ ] Server-side agent protocol handler
+- [ ] DaemonSet deployment mode
+- [ ] Sidecar deployment mode
+- [ ] Prometheus metrics for agent
+- [ ] Cache hit rate >95%
+- [ ] Registration latency <1ms
+- [ ] Discovery latency <1ms (cache hit)
+- [ ] Unit tests (>80% coverage)
+- [ ] Integration tests (3+ agent scenario)
+- [ ] Performance benchmarks
+- [ ] Documentation
+
+#### Technical Tasks
+
+**Phase 1: Core Agent (4 weeks)**
+1. Create agent package structure
+2. Implement Agent struct with lifecycle
+3. Implement cache (services, KV, health)
+4. Implement health check engine
+5. Implement sync engine
+6. Create agent API server
+7. Write unit tests
+
+**Phase 2: Server Integration (2 weeks)**
+8. Implement server-side agent protocol
+9. Add batch registration handler
+10. Add delta sync handler
+11. Add agent connection tracking
+12. Write integration tests
+
+**Phase 3: Deployment (1 week)**
+13. Create DaemonSet manifests
+14. Create sidecar injection webhook
+15. Performance testing
+16. Documentation
+
+#### References
+- [ADR-0026: Agent Mode Architecture](adr/0026-agent-mode-architecture.md)
+- [Architecture Use Cases - Medium Enterprise](ARCHITECTURE_USE_CASES.md#scenario-3-medium-enterprise-100-500-servers)
+
+---
+
+### BACK-047: Multi-Datacenter Federation Implementation
+
+**Priority**: P1 (High)
+**Effort**: 55 SP (11 weeks)
+**Status**: 📋 Not Started
+**Dependencies**: BACK-001, BACK-002, BACK-003 (Raft Clustering)
+**ADR**: [ADR-00 adr/00 ulti-datacenter-federation.md)
+
+#### Description
+Implement multi-datacenter federation with WAN gossip protocol, mesh gateway, and cross-DC service discovery for global deployments.
+
+#### Goals
+- Global service discovery across DCs
+- Automatic failover between DCs
+- Selective data replication
+- Geo-aware routing
+- <100ms cross-DC latency
+
+#### Acceptance Criteria
+- [ ] Datacenter configuration
+- [ ] WAN gossip protocol (Serf integration)
+- [ ] Mesh gateway implementation
+- [ ] Cross-DC service discovery
+- [ ] Global KV replication
+- [ ] ACL policy replication
+- [ ] CA certificate replication
+- [ ] Failover configuration
+- [ ] Health-based routing
+- [ ] Prometheus metrics for federation
+- [ ] 2-DC federation working
+- [ ] 5-DC federation tested
+- [ ] Replication lag <60s
+- [ ] Integration tests
+- [ ] Chaos tests (DC failure)
+- [ ] Documentation
+
+#### Technical Tasks
+
+**Phase 1: Basic Federation (6 weeks)**
+1. Add Serf library for WAN gossip
+2. Implement datacenter configuration
+3. Implement WAN membership
+4. Create mesh gateway
+5. Implement cross-DC service queries
+6. Add basic KV replication
+
+**Phase 2: Advanced Replication (4 weeks)**
+7. Implement ACL replication
+8. Implement CA certificate replication
+9. Implement intention replication
+10. Add delta replication optimization
+11. Implement conflict resolution
+
+**Phase 3: Failover & DR (3 weeks)**
+12. Implement automatic failover
+13. Add health-based routing
+14. Implement DC promotion/demotion
+15. Add split-brain detection
+16. Write chaos tests
+
+**Phase 4: Production (3 weeks)**
+17. Performance optimization
+18. Security hardening (mTLS)
+19. Monitoring dashboards
+20. Documentation and runbooks
+
+#### References
+- [ADR-00 Multi-Datacenter Federation](adr/00 ulti-datacenter-federation.md)
+- [Architecture Use Cases - Large Enterprise](ARCHITECTURE_USE_CASES.md#scenario-4-large-enterprise-1000-servers-multi-cluster)
+
+---
+
+### BACK-048: Kubernetes Operator Implementation
+
+**Priority**: P1 (High)
+**Effort**: 47 SP (9.5 weeks)
+**Status**: 📋 Not Started
+**Dependencies**: BACK-046 (Agent Mode recommended)
+**ADR**: [ADR-0029](adr/0029-kubernetes-operator-design.md)
+
+#### Description
+Implement Kubernetes Operator using Kubebuilder with CRDs for declarative Konsul management, automatic service registration, and GitOps 
+workflows.
+
+#### Goals
+- Declarative management via CRDs
+- Automatic agent injection
+- GitOps-friendly workflows
+- Simplified Kubernetes operations
+- Self-healing clusters
+
+#### Acceptance Criteria
+- [ ] Kubebuilder project scaffolded
+- [ ] KonsulCluster CRD and controller
+- [ ] ServiceEntry CRD and controller
+- [ ] ServiceIntentions CRD and controller
+- [ ] ACLPolicy CRD and controller
+- [ ] KVConfig CRD and controller
+- [ ] Mutating webhook for agent injection
+- [ ] Server StatefulSet reconciliation
+- [ ] Agent DaemonSet reconciliation
+- [ ] Helm chart for operator
+- [ ] GitOps examples (Argo CD, Flux)
+- [ ] E2E tests
+- [ ] Upgrade testing
+- [ ] Documentation
+
+#### Technical Tasks
+
+**Phase 1: Core Operator (4 weeks)**
+1. Scaffold Kubebuilder project
+2. Define CRD schemas
+3. Implement KonsulCluster controller
+4. Implement server reconciliation
+5. Implement agent reconciliation
+
+**Phase 2: Service Management (3 weeks)**
+6. Implement ServiceEntry controller
+7. Implement service registration automation
+8. Implement KVConfig controller
+9. Implement ACLPolicy controller
+
+**Phase 3: Agent Injection (2 weeks)**
+10. Create mutating webhook
+11. Implement sidecar injection
+12. Implement init container registration
+13. Add lifecycle management
+
+**Phase 4: Production (3 weeks)**
+14. Create Helm chart
+15. Write E2E tests
+16. GitOps examples
+17. Documentation
+
+#### References
+- [ADR-0029: Kubernetes Operator Design](adr/0029-kubernetes-operator-design.md)
+- [Architecture Use Cases](ARCHITECTURE_USE_CASES.md)
+
+---
+
+### BACK-049: Edge Computing Implementation
+
+**Priority**: P2 (Medium)
+**Effort**: 47 SP (9.5 weeks)
+**Status**: 📋 Not Started
+**Dependencies**: None
+**ADR**: [ADR-0028](adr/0028-edge-computing-strategy.md)
+
+#### Description
+Implement lightweight edge nodes (<10MB) with offline-first architecture, MQTT integration, and device registry for IoT deployments.
+
+#### Goals
+- Binary size <10MB
+- Memory footprint <50MB
+- Offline operation with sync
+- MQTT device communication
+- ARM/ARM64 support
+
+#### Acceptance Criteria
+- [ ] Lightweight build configuration
+- [ ] Edge binary <10MB
+- [ ] Memory usage <50MB
+- [ ] Embedded SQLite storage
+- [ ] Offline queue implementation
+- [ ] CRDT conflict resolution
+- [ ] MQTT client integration
+- [ ] Device registration via MQTT
+- [ ] Telemetry collection
+- [ ] OTA update mechanism
+- [ ] ARM/ARM64 cross-compilation
+- [ ] Cloud sync protocol
+- [ ] Edge-specific configuration
+- [ ] Prometheus metrics
+- [ ] Tests for offline scenarios
+- [ ] Documentation
+
+#### Technical Tasks
+
+**Phase 1: Lightweight Build (3 weeks)**
+1. Create edge build configuration
+2. Implement embedded SQLite storage
+3. Create minimal dependency set
+4. Cross-compile for ARM/ARM64
+5. Optimize binary size
+
+**Phase 2: Offline Sync (4 weeks)**
+6. Implement offline queue
+7. Implement delta sync protocol
+8. Implement CRDT conflict resolution
+9. Add batch upload/download
+10. Test offline scenarios
+
+**Phase 3: MQTT Integration (3 weeks)**
+11. Add MQTT client library
+12. Implement device registration
+13. Implement telemetry collection
+14. Implement bidirectional messaging
+15. Add QoS support
+
+**Phase 4: Device Management (3 weeks)**
+16. Implement device registry
+17. Add OTA update mechanism
+18. Implement health monitoring
+19. Add alert generation
+20. Documentation
+
+#### References
+- [ADR-0028: Edge Computing & IoT Strategy](adr/0028-edge-computing-strategy.md)
+- [Architecture Use Cases - Edge/IoT](ARCHITECTURE_USE_CASES.md#scenario-5-edgeiot-deployment)
+
+---
+
+### BACK-050: ACL System Full Implementation
+
+**Priority**: P1 (High)
+**Effort**: 21 SP (4 weeks)
+**Status**: 🚧 Partially Implemented
+**Dependencies**: None
+**ADR**: [ADR-0010](adr/0010-acl-system.md)
+
+#### Description
+Complete the ACL system implementation with all planned features from ADR-0010, including policy hot-reload, CLI integration, and comprehensive 
+testing.
+
+#### Goals
+- Complete policy-based authorization
+- Path-based access control
+- Policy hot-reload
+- CLI policy management
+- Web UI integration
+
+#### Acceptance Criteria
+- [ ] All resource types covered (KV, service, health, backup, admin)
+- [ ] Wildcard path matching (* and **)
+- [ ] Policy CRUD via API
+- [ ] Policy file storage
+- [ ] Policy hot-reload without restart
+- [ ] konsulctl ACL commands complete
+- [ ] ACL testing endpoint
+- [ ] Policy validation
+- [ ] Metrics for ACL evaluations
+- [ ] Web UI policy management
+- [ ] Comprehensive tests
+- [ ] Documentation
+
+#### Technical Tasks
+1. Review current ACL implementation
+2. Complete any missing resource types
+3. Implement policy hot-reload
+4. Complete CLI commands
+5. Add policy validation
+6. Implement Web UI policy editor
+7. Add ACL metrics
+8. Write comprehensive tests
+9. Update documentation
+
+#### References
+- [ADR-0010: ACL System](adr/0010-acl-system.md)
+
+---
+
+### BACK-051: GraphQL Subscriptions & Advanced Features
+
+**Priority**: P2 (Medium)
+**Effort**: 13 SP (2.5 weeks)
+**Status**: 📋 Not Started
+**Dependencies**: None
+**ADR**: [ADR-0016](adr/0016-graphql-api-interface.md)
+
+#### Description
+Implement advanced GraphQL features including real-time subscriptions over WebSocket, persisted queries, and query batching.
+
+#### Goals
+- Real-time subscriptions
+- Persisted queries for security
+- Query batching for performance
+- GraphQL federation support
+
+#### Acceptance Criteria
+- [ ] WebSocket transport for subscriptions
+- [ ] KV change subscriptions working
+- [ ] Service change subscriptions working
+- [ ] Health check subscriptions
+- [ ] Persisted query support
+- [ ] Query batching
+- [ ] Subscription authentication
+- [ ] Subscription rate limiting
+- [ ] Metrics for subscriptions
+- [ ] Tests for subscription scenarios
+- [ ] Documentation
+
+#### Technical Tasks
+1. Implement WebSocket transport
+2. Add KV change subscription resolver
+3. Add service change subscription resolver
+4. Implement subscription authentication
+5. Add persisted query support
+6. Implement query batching
+7. Add subscription rate limiting
+8. Add subscription metrics
+9. Write subscription tests
+10. Update documentation
+
+#### References
+- [ADR-0016: GraphQL API Interface](adr/0016-graphql-api-interface.md)
+
+---
+
