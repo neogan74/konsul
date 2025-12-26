@@ -14,14 +14,43 @@
 - [ ] Incremental backups
 - [ ] S3-compatible backup storage
 
-## 2. Clustering & Replication
-- [ ] Multi-node support with Raft consensus
-- [ ] Implement leader election
-- [ ] Add data replication across nodes
-- [ ] Read-your-writes consistency
-- [ ] Quorum reads
-- [ ] Stale reads with bounded staleness
-- [ ] Cross-region replication with conflict resolution
+## 2. Clustering & Replication 🔥 **IN PROGRESS**
+- [x] **Phase 1: Core Raft Implementation** (COMPLETED - Dec 2025)
+  - [x] Multi-node support with Raft consensus
+  - [x] Implement leader election
+  - [x] Add data replication across nodes
+  - [x] Raft node wrapper with FSM
+  - [x] Configuration system (environment variables)
+  - [x] Cluster management API (join, leave, status, snapshot)
+  - [x] KV handler Raft integration (leader redirection)
+  - [x] Service handler Raft integration
+  - [x] Snapshot support (create, restore, automatic)
+  - [x] Prometheus metrics for Raft operations
+  - [x] Unit tests for core components
+  - [x] Documentation: [ADR-0030](adr/0030-raft-integration-implementation.md), [Clustering Guide](clustering.md)
+- [ ] **Phase 2: Production Readiness** (PLANNED - Q1 2026)
+  - [ ] **Tier 1: Security & Reliability**
+    - [ ] TLS/mTLS for Raft transport
+    - [ ] Join token authentication
+    - [ ] Split-brain protection (quorum checks, leadership lease)
+    - [ ] Snapshot recovery on startup
+    - [ ] Integration testing suite (50+ tests)
+  - [ ] **Tier 2: Correctness**
+    - [ ] CAS operations via Raft (currently bypasses Raft)
+    - [ ] Batch operations via Raft (atomic batches)
+    - [ ] Linearizable reads (ReadIndex)
+  - [ ] **Tier 3: Operations**
+    - [ ] Automatic cluster discovery (DNS, static, cloud)
+    - [ ] Autopilot (dead server cleanup)
+    - [ ] CLI cluster commands (konsulctl)
+    - [ ] Grafana dashboards for Raft metrics
+  - [ ] Documentation: [ADR-0031](adr/0031-raft-production-readiness.md)
+- [ ] **Phase 3: Advanced Features** (FUTURE)
+  - [ ] Read-your-writes consistency
+  - [ ] Quorum reads
+  - [ ] Stale reads with bounded staleness
+  - [ ] Cross-region replication with conflict resolution
+  - [ ] Multi-datacenter federation
 
 ## 3. Security Features
 - [x] Authentication (API keys/JWT)
@@ -602,8 +631,8 @@
 
 ---
 
-**Last Updated**: 2025-12-06
-**Next Review**: 2025-12-20
+**Last Updated**: 2025-12-18
+**Next Review**: 2026-01-15
 
 ## Strategic Directions 🎯
 

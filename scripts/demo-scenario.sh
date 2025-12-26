@@ -7,7 +7,7 @@ set -e
 
 # Configuration
 KONSUL_URL="${KONSUL_URL:-http://localhost:8888}"
-KONSULCTL="${KONSULCTL:-./bin/konsulctl}"
+KONSULCTL="${KONSULCTL:-../bin/konsulctl}"
 
 # Colors
 RED='\033[0;31m'
@@ -196,18 +196,14 @@ scenario_scaling() {
 
     step "Scaling product-service (adding 2 more instances)..."
     $KONSULCTL service register \
-        --id product-service-3 \
-        --name product-service \
-        --address 10.0.3.12 \
-        --port 9001 \
-        --tags production,backend,java
+        product-service \
+        10.0.3.12 \
+        9001
 
     $KONSULCTL service register \
-        --id product-service-4 \
-        --name product-service \
-        --address 10.0.3.13 \
-        --port 9001 \
-        --tags production,backend,java
+        product-service \
+        10.0.3.13 \
+        9001
 
     success "Product service scaled to 4 instances"
     pause 1
@@ -225,11 +221,9 @@ scenario_scaling() {
 
     step "Adding canary deployment for order-service..."
     $KONSULCTL service register \
-        --id order-service-2-canary \
-        --name order-service \
-        --address 10.0.3.21 \
-        --port 9002 \
-        --tags production,backend,go,canary,v2.0
+        order-service \
+        10.0.3.21 \
+        9002
 
     success "Canary instance deployed"
     pause 2

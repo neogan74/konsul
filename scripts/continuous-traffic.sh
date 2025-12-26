@@ -5,7 +5,7 @@
 
 set -e
 
-KONSUL_URL="${KONSUL_URL:-http://localhost:8888}"
+KONSUL_URL="${KONSUL_URL:-http://konsul.konsul.orb.local:8888}"
 INTERVAL="${INTERVAL:-5}"  # seconds between cycles
 
 # Colors

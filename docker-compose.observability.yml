@@ -46,7 +46,7 @@ services:
       - KONSUL_LOG_LEVEL=info
       - KONSUL_LOG_FORMAT=json
       # Enable Admin UI (default: true)
-      - KONSUL_ADMIN_UI_ENABLED=true
+      - KONSUL_ADMIN_UI_ENABLED=false
       - KONSUL_ADMIN_UI_PATH=/admin
       # Enable GraphQL API
       - KONSUL_GRAPHQL_ENABLED=true

@@ -66,6 +66,8 @@ func ExtractResourceFromPath(c *fiber.Ctx, resourceType string) Resource {
 	// Extract resource ID from path parameters
 	if id := c.Params("key"); id != "" {
 		resource.ID = id
+	} else if id := c.Params("*"); id != "" {
+		resource.ID = id
 	} else if id := c.Params("id"); id != "" {
 		resource.ID = id
 	} else if id := c.Params("name"); id != "" {

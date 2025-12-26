@@ -7,19 +7,66 @@ import (
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/metrics"
 	"github.com/neogan74/konsul/internal/middleware"
+	konsulraft "github.com/neogan74/konsul/internal/raft"
 	"github.com/neogan74/konsul/internal/store"
 )
 
 type ServiceHandler struct {
-	store *store.ServiceStore
+	store    *store.ServiceStore
+	raftNode *konsulraft.Node
 }
 
 func NewServiceHandler(serviceStore *store.ServiceStore) *ServiceHandler {
 	return &ServiceHandler{store: serviceStore}
 }
 
+// NewServiceHandlerWithRaft creates a Service handler with Raft support for replicated writes.
+func NewServiceHandlerWithRaft(serviceStore *store.ServiceStore, raftNode *konsulraft.Node) *ServiceHandler {
+	return &ServiceHandler{
+		store:    serviceStore,
+		raftNode: raftNode,
+	}
+}
+
+// isRaftEnabled returns true if Raft clustering is enabled.
+func (h *ServiceHandler) isRaftEnabled() bool {
+	return h.raftNode != nil
+}
+
+// checkLeaderForWrite checks if this node can handle writes.
+// Returns nil if writes are allowed, or an error response if not leader.
+func (h *ServiceHandler) checkLeaderForWrite(c *fiber.Ctx) error {
+	if !h.isRaftEnabled() {
+		return nil // Standalone mode, writes allowed
+	}
+
+	if h.raftNode.IsLeader() {
+		return nil // Leader, writes allowed
+	}
+
+	// Not leader, return redirect response
+	leaderAddr := h.raftNode.LeaderAddr()
+	if leaderAddr == "" {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+			"error":   "no leader",
+			"message": "No leader is currently elected. The cluster may be initializing or partitioned.",
+		})
+	}
+
+	return c.Status(fiber.StatusTemporaryRedirect).JSON(fiber.Map{
+		"error":       "not leader",
+		"message":     "This node is not the leader. Redirect to leader for write operations.",
+		"leader_addr": leaderAddr,
+	})
+}
+
 func (h *ServiceHandler) Register(c *fiber.Ctx) error {
 	log := middleware.GetLogger(c)
+
+	// Check if this node can handle writes (leader check for Raft mode)
+	if err := h.checkLeaderForWrite(c); err != nil {
+		return err
+	}
 
 	body := struct {
 		store.Service
@@ -40,7 +87,7 @@ func (h *ServiceHandler) Register(c *fiber.Ctx) error {
 		logger.Int("tags", len(svc.Tags)),
 		logger.Int("metadata_keys", len(svc.Meta)))
 
-	// Use CAS if provided
+	// Use CAS if provided (CAS operations not replicated via Raft)
 	if body.CAS != nil {
 		newIndex, err := h.store.RegisterCAS(svc, *body.CAS)
 		if err != nil {
@@ -80,13 +127,27 @@ func (h *ServiceHandler) Register(c *fiber.Ctx) error {
 		})
 	}
 
-	// Regular registration (validation happens inside)
-	if err := h.store.Register(svc); err != nil {
-		log.Error("Failed to register service",
-			logger.String("service", svc.Name),
-			logger.Error(err))
-		metrics.ServiceOperationsTotal.WithLabelValues("register", "error").Inc()
-		return middleware.BadRequest(c, err.Error())
+	// Use Raft for replicated registration if enabled
+	if h.isRaftEnabled() {
+		if err := h.raftNode.ServiceRegister(svc.Name, svc.Address, svc.Port, svc.Tags, svc.Meta); err != nil {
+			log.Error("Raft service registration failed",
+				logger.String("service", svc.Name),
+				logger.Error(err))
+			metrics.ServiceOperationsTotal.WithLabelValues("register", "error").Inc()
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error":   "replication failed",
+				"message": err.Error(),
+			})
+		}
+	} else {
+		// Standalone mode: direct store registration
+		if err := h.store.Register(svc); err != nil {
+			log.Error("Failed to register service",
+				logger.String("service", svc.Name),
+				logger.Error(err))
+			metrics.ServiceOperationsTotal.WithLabelValues("register", "error").Inc()
+			return middleware.BadRequest(c, err.Error())
+		}
 	}
 
 	log.Info("Service registered successfully",
@@ -159,9 +220,14 @@ func (h *ServiceHandler) Deregister(c *fiber.Ctx) error {
 	name := c.Params("name")
 	log := middleware.GetLogger(c)
 
+	// Check if this node can handle writes (leader check for Raft mode)
+	if err := h.checkLeaderForWrite(c); err != nil {
+		return err
+	}
+
 	log.Info("Deregistering service", logger.String("service_name", name))
 
-	// Check if CAS is requested via query parameter
+	// Check if CAS is requested via query parameter (CAS operations not replicated via Raft)
 	casParam := c.Query("cas")
 	if casParam != "" {
 		var expectedIndex uint64
@@ -196,7 +262,22 @@ func (h *ServiceHandler) Deregister(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"message": "service deregistered", "name": name})
 	}
 
-	h.store.Deregister(name)
+	// Use Raft for replicated deregistration if enabled
+	if h.isRaftEnabled() {
+		if err := h.raftNode.ServiceDeregister(name); err != nil {
+			log.Error("Raft service deregistration failed",
+				logger.String("service", name),
+				logger.Error(err))
+			metrics.ServiceOperationsTotal.WithLabelValues("deregister", "error").Inc()
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error":   "replication failed",
+				"message": err.Error(),
+			})
+		}
+	} else {
+		// Standalone mode: direct store deregistration
+		h.store.Deregister(name)
+	}
 
 	log.Info("Service deregistered successfully", logger.String("service_name", name))
 	metrics.ServiceOperationsTotal.WithLabelValues("deregister", "success").Inc()
@@ -208,8 +289,31 @@ func (h *ServiceHandler) Heartbeat(c *fiber.Ctx) error {
 	name := c.Params("name")
 	log := middleware.GetLogger(c)
 
+	// Check if this node can handle writes (leader check for Raft mode)
+	if err := h.checkLeaderForWrite(c); err != nil {
+		return err
+	}
+
 	log.Debug("Processing heartbeat", logger.String("service_name", name))
 
+	// Use Raft for replicated heartbeat if enabled
+	if h.isRaftEnabled() {
+		if err := h.raftNode.ServiceHeartbeat(name); err != nil {
+			log.Error("Raft service heartbeat failed",
+				logger.String("service", name),
+				logger.Error(err))
+			metrics.ServiceHeartbeatsTotal.WithLabelValues(name, "error").Inc()
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error":   "replication failed",
+				"message": err.Error(),
+			})
+		}
+		log.Info("Heartbeat updated successfully via Raft", logger.String("service_name", name))
+		metrics.ServiceHeartbeatsTotal.WithLabelValues(name, "success").Inc()
+		return c.JSON(fiber.Map{"message": "heartbeat updated", "service": name})
+	}
+
+	// Standalone mode: direct store heartbeat
 	if h.store.Heartbeat(name) {
 		log.Info("Heartbeat updated successfully", logger.String("service_name", name))
 		metrics.ServiceHeartbeatsTotal.WithLabelValues(name, "success").Inc()

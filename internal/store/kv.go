@@ -705,3 +705,235 @@ func (kv *KVStore) Close() error {
 	}
 	return nil
 }
+
+// =============================================================================
+// Raft Integration Methods
+// These methods are used by the Raft FSM to apply changes without persistence.
+// Raft handles durability through log replication, so we skip the persistence layer.
+// =============================================================================
+
+// SetLocal stores a key-value pair without persisting to the storage engine.
+// This is used by Raft FSM when applying committed log entries.
+func (kv *KVStore) SetLocal(key, value string) {
+	kv.Mutex.Lock()
+	oldEntry, existed := kv.Data[key]
+
+	newIndex := kv.nextIndex()
+	entry := KVEntry{
+		Value:       value,
+		ModifyIndex: newIndex,
+	}
+	if existed {
+		entry.CreateIndex = oldEntry.CreateIndex
+		entry.Flags = oldEntry.Flags
+	} else {
+		entry.CreateIndex = newIndex
+	}
+	kv.Data[key] = entry
+	kv.Mutex.Unlock()
+
+	// Notify watchers (watchers still work in Raft mode)
+	if kv.watchManager != nil {
+		event := watch.WatchEvent{
+			Type:      watch.EventTypeSet,
+			Key:       key,
+			Value:     value,
+			Timestamp: time.Now().Unix(),
+		}
+		if existed {
+			event.OldValue = oldEntry.Value
+		}
+		kv.watchManager.Notify(event)
+	}
+}
+
+// SetWithFlagsLocal stores a key-value pair with flags without persisting.
+// This is used by Raft FSM when applying committed log entries.
+func (kv *KVStore) SetWithFlagsLocal(key, value string, flags uint64) {
+	kv.Mutex.Lock()
+	oldEntry, existed := kv.Data[key]
+
+	newIndex := kv.nextIndex()
+	entry := KVEntry{
+		Value:       value,
+		ModifyIndex: newIndex,
+		Flags:       flags,
+	}
+	if existed {
+		entry.CreateIndex = oldEntry.CreateIndex
+	} else {
+		entry.CreateIndex = newIndex
+	}
+	kv.Data[key] = entry
+	kv.Mutex.Unlock()
+
+	// Notify watchers
+	if kv.watchManager != nil {
+		event := watch.WatchEvent{
+			Type:      watch.EventTypeSet,
+			Key:       key,
+			Value:     value,
+			Timestamp: time.Now().Unix(),
+		}
+		if existed {
+			event.OldValue = oldEntry.Value
+		}
+		kv.watchManager.Notify(event)
+	}
+}
+
+// DeleteLocal removes a key without persisting the deletion.
+// This is used by Raft FSM when applying committed log entries.
+func (kv *KVStore) DeleteLocal(key string) {
+	kv.Mutex.Lock()
+	oldEntry, existed := kv.Data[key]
+	delete(kv.Data, key)
+	kv.Mutex.Unlock()
+
+	// Notify watchers if key existed
+	if kv.watchManager != nil && existed {
+		event := watch.WatchEvent{
+			Type:      watch.EventTypeDelete,
+			Key:       key,
+			OldValue:  oldEntry.Value,
+			Timestamp: time.Now().Unix(),
+		}
+		kv.watchManager.Notify(event)
+	}
+}
+
+// BatchSetLocal sets multiple key-value pairs without persisting.
+// This is used by Raft FSM when applying committed log entries.
+func (kv *KVStore) BatchSetLocal(items map[string]string) error {
+	kv.Mutex.Lock()
+
+	// Track old values for watch events
+	oldEntries := make(map[string]KVEntry)
+
+	for key, value := range items {
+		oldEntry, existed := kv.Data[key]
+		if existed {
+			oldEntries[key] = oldEntry
+		}
+
+		newIndex := kv.nextIndex()
+		entry := KVEntry{
+			Value:       value,
+			ModifyIndex: newIndex,
+		}
+		if existed {
+			entry.CreateIndex = oldEntry.CreateIndex
+			entry.Flags = oldEntry.Flags
+		} else {
+			entry.CreateIndex = newIndex
+		}
+		kv.Data[key] = entry
+	}
+	kv.Mutex.Unlock()
+
+	// Notify watchers
+	if kv.watchManager != nil {
+		timestamp := time.Now().Unix()
+		for key, value := range items {
+			event := watch.WatchEvent{
+				Type:      watch.EventTypeSet,
+				Key:       key,
+				Value:     value,
+				Timestamp: timestamp,
+			}
+			if oldEntry, existed := oldEntries[key]; existed {
+				event.OldValue = oldEntry.Value
+			}
+			kv.watchManager.Notify(event)
+		}
+	}
+
+	return nil
+}
+
+// BatchDeleteLocal deletes multiple keys without persisting.
+// This is used by Raft FSM when applying committed log entries.
+func (kv *KVStore) BatchDeleteLocal(keys []string) error {
+	kv.Mutex.Lock()
+
+	// Track old values for watch events
+	oldEntries := make(map[string]KVEntry)
+	for _, key := range keys {
+		if oldEntry, existed := kv.Data[key]; existed {
+			oldEntries[key] = oldEntry
+		}
+		delete(kv.Data, key)
+	}
+	kv.Mutex.Unlock()
+
+	// Notify watchers for deleted keys
+	if kv.watchManager != nil {
+		timestamp := time.Now().Unix()
+		for key, oldEntry := range oldEntries {
+			event := watch.WatchEvent{
+				Type:      watch.EventTypeDelete,
+				Key:       key,
+				OldValue:  oldEntry.Value,
+				Timestamp: timestamp,
+			}
+			kv.watchManager.Notify(event)
+		}
+	}
+
+	return nil
+}
+
+// KVEntrySnapshot represents KV entry data for Raft snapshots.
+type KVEntrySnapshot struct {
+	Value       string `json:"value"`
+	ModifyIndex uint64 `json:"modify_index"`
+	CreateIndex uint64 `json:"create_index"`
+	Flags       uint64 `json:"flags,omitempty"`
+}
+
+// GetAllData returns all KV data for Raft snapshotting.
+// Returns a deep copy to ensure snapshot consistency.
+func (kv *KVStore) GetAllData() map[string]KVEntrySnapshot {
+	kv.Mutex.RLock()
+	defer kv.Mutex.RUnlock()
+
+	result := make(map[string]KVEntrySnapshot, len(kv.Data))
+	for key, entry := range kv.Data {
+		result[key] = KVEntrySnapshot{
+			Value:       entry.Value,
+			ModifyIndex: entry.ModifyIndex,
+			CreateIndex: entry.CreateIndex,
+			Flags:       entry.Flags,
+		}
+	}
+	return result
+}
+
+// RestoreFromSnapshot restores KV data from a Raft snapshot.
+// This replaces all existing data with the snapshot data.
+func (kv *KVStore) RestoreFromSnapshot(data map[string]KVEntrySnapshot) error {
+	kv.Mutex.Lock()
+	defer kv.Mutex.Unlock()
+
+	// Clear existing data
+	kv.Data = make(map[string]KVEntry, len(data))
+
+	// Restore from snapshot
+	var maxIndex uint64
+	for key, snapshot := range data {
+		kv.Data[key] = KVEntry{
+			Value:       snapshot.Value,
+			ModifyIndex: snapshot.ModifyIndex,
+			CreateIndex: snapshot.CreateIndex,
+			Flags:       snapshot.Flags,
+		}
+		if snapshot.ModifyIndex > maxIndex {
+			maxIndex = snapshot.ModifyIndex
+		}
+	}
+
+	// Update global index to max found index
+	kv.globalIndex = maxIndex
+
+	return nil
+}
