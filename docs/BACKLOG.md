@@ -34,7 +34,7 @@ Transform Konsul from single-node to highly-available distributed system with au
 
 **Priority**: P0 (Critical)
 **Effort**: 21 SP (4 weeks)
-**Status**: 📋 Not Started
+**Status**: ✅ Implemented (MVP) - Phase 1 Complete
 **Dependencies**: None
 **ADR**: ADR-0011
 
@@ -49,20 +49,20 @@ Implement Raft consensus algorithm using HashiCorp's raft library to enable mult
 - Sub-second failure detection
 
 #### Acceptance Criteria
-- [ ] Raft library integrated (hashicorp/raft)
-- [ ] Finite State Machine (FSM) implemented for KV and Service stores
-- [ ] Log storage configured (BadgerDB backend)
-- [ ] Snapshot and restore functionality working
-- [ ] 3-node cluster can be bootstrapped
-- [ ] Leader election completes in <300ms
-- [ ] Write operations replicated to majority
-- [ ] Follower can be promoted to leader automatically
-- [ ] Cluster survives single node failure
-- [ ] Writes are linearizable (strong consistency)
-- [ ] Prometheus metrics for Raft operations
-- [ ] Unit tests for FSM Apply/Snapshot/Restore
-- [ ] Integration tests for 3-node cluster
-- [ ] Documentation for cluster setup
+- [x] Raft library integrated (hashicorp/raft)
+- [x] Finite State Machine (FSM) implemented for KV and Service stores
+- [x] Log storage configured (BoltDB backend - using raft-boltdb)
+- [x] Snapshot and restore functionality working
+- [x] 3-node cluster can be bootstrapped
+- [ ] Leader election completes in <300ms (needs performance testing)
+- [x] Write operations replicated to majority (via Raft.Apply)
+- [x] Follower can be promoted to leader automatically (Raft handles this)
+- [ ] Cluster survives single node failure (needs integration testing)
+- [x] Writes are linearizable (strong consistency) (Raft guarantees this)
+- [ ] Prometheus metrics for Raft operations (Phase 2)
+- [x] Unit tests for FSM Apply/Snapshot/Restore
+- [ ] Integration tests for 3-node cluster (Phase 2)
+- [x] Documentation for cluster setup (docs/CLUSTERING.md)
 
 #### Technical Tasks
 1. Add `hashicorp/raft` dependency

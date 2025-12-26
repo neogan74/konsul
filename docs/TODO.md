@@ -15,9 +15,9 @@
 - [ ] S3-compatible backup storage
 
 ## 2. Clustering & Replication
-- [ ] Multi-node support with Raft consensus
-- [ ] Implement leader election
-- [ ] Add data replication across nodes
+- [x] Multi-node support with Raft consensus (MVP - Phase 1 Complete)
+- [x] Implement leader election (Raft handles this automatically)
+- [x] Add data replication across nodes (via Raft log replication)
 - [ ] Read-your-writes consistency
 - [ ] Quorum reads
 - [ ] Stale reads with bounded staleness
