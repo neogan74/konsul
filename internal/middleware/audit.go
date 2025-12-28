@@ -70,13 +70,18 @@ func deriveAction(c *fiber.Ctx, resourceType string, mapper func(*fiber.Ctx) str
 // KVActionMapper provides specific action mapping for KV operations.
 func KVActionMapper(c *fiber.Ctx) string {
 	method := c.Method()
+	key := c.Params("key")
+	if key == "" {
+		key = c.Params("*")
+	}
+
 	switch method {
 	case "PUT":
 		return "kv.set"
 	case "DELETE":
 		return "kv.delete"
 	case "GET":
-		if c.Params("key") != "" {
+		if key != "" {
 			return "kv.get"
 		}
 		return "kv.list"

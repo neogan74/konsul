@@ -119,6 +119,12 @@ func inferResourceAndCapability(c *fiber.Ctx) (acl.Resource, acl.Capability) {
 	if strings.HasPrefix(path, "/kv/") || path == "/kv" {
 		key := c.Params("key")
 		if key == "" {
+			key = c.Params("*")
+		}
+		if key == "" && strings.HasPrefix(path, "/kv/") {
+			key = strings.TrimPrefix(path, "/kv/")
+		}
+		if key == "" {
 			key = "*"
 		}
 		resource := acl.NewKVResource(key)

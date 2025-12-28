@@ -557,3 +557,211 @@ func (s *ServiceStore) Close() error {
 	}
 	return nil
 }
+
+// =============================================================================
+// Raft Integration Methods
+// These methods are used by the Raft FSM to apply changes without persistence.
+// Raft handles durability through log replication, so we skip the persistence layer.
+// =============================================================================
+
+// ServiceDataSnapshot represents service data for Raft commands and snapshots.
+// This is decoupled from internal Service struct to avoid circular dependencies.
+type ServiceDataSnapshot struct {
+	Name    string            `json:"name"`
+	Address string            `json:"address"`
+	Port    int               `json:"port"`
+	Tags    []string          `json:"tags,omitempty"`
+	Meta    map[string]string `json:"meta,omitempty"`
+}
+
+// ServiceEntrySnapshot represents service entry data for Raft snapshots.
+type ServiceEntrySnapshot struct {
+	Service     ServiceDataSnapshot `json:"service"`
+	ExpiresAt   time.Time           `json:"expires_at"`
+	ModifyIndex uint64              `json:"modify_index"`
+	CreateIndex uint64              `json:"create_index"`
+}
+
+// RegisterLocal registers a service without persisting to the storage engine.
+// This is used by Raft FSM when applying committed log entries.
+// Note: Health checks are NOT registered here - they should be handled locally on each node.
+func (s *ServiceStore) RegisterLocal(serviceData ServiceDataSnapshot) error {
+	// Convert to internal Service type
+	service := Service{
+		Name:    serviceData.Name,
+		Address: serviceData.Address,
+		Port:    serviceData.Port,
+		Tags:    serviceData.Tags,
+		Meta:    serviceData.Meta,
+		// Note: Checks are not included - they are local to each node
+	}
+
+	// Validate service
+	if err := ValidateService(&service); err != nil {
+		s.log.Error("Service validation failed",
+			logger.String("service", service.Name),
+			logger.Error(err))
+		return err
+	}
+
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	// Remove old indexes if service exists (for re-registration)
+	oldEntry, existed := s.Data[service.Name]
+	if existed {
+		s.removeFromTagIndex(service.Name, oldEntry.Service.Tags)
+		s.removeFromMetaIndex(service.Name, oldEntry.Service.Meta)
+	}
+
+	newIndex := s.nextIndex()
+	entry := ServiceEntry{
+		Service:     service,
+		ExpiresAt:   time.Now().Add(s.TTL),
+		ModifyIndex: newIndex,
+	}
+	if existed {
+		entry.CreateIndex = oldEntry.CreateIndex
+	} else {
+		entry.CreateIndex = newIndex
+	}
+	s.Data[service.Name] = entry
+
+	// Add to tag and metadata indexes
+	s.addToTagIndex(service.Name, service.Tags)
+	s.addToMetaIndex(service.Name, service.Meta)
+
+	s.log.Debug("Service registered via Raft",
+		logger.String("service", service.Name),
+		logger.Int("tags", len(service.Tags)))
+
+	return nil
+}
+
+// DeregisterLocal removes a service without persisting the deletion.
+// This is used by Raft FSM when applying committed log entries.
+func (s *ServiceStore) DeregisterLocal(name string) {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	// Remove from indexes before deleting
+	if entry, exists := s.Data[name]; exists {
+		s.removeFromTagIndex(name, entry.Service.Tags)
+		s.removeFromMetaIndex(name, entry.Service.Meta)
+	}
+
+	delete(s.Data, name)
+
+	s.log.Debug("Service deregistered via Raft",
+		logger.String("service", name))
+}
+
+// HeartbeatLocal updates service TTL without persisting.
+// This is used by Raft FSM when applying committed log entries.
+func (s *ServiceStore) HeartbeatLocal(name string) bool {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	entry, ok := s.Data[name]
+	if !ok {
+		return false
+	}
+
+	// Update TTL but preserve indices
+	entry.ExpiresAt = time.Now().Add(s.TTL)
+	s.Data[name] = entry
+
+	return true
+}
+
+// GetAllData returns all service data for Raft snapshotting.
+// Returns a deep copy to ensure snapshot consistency.
+func (s *ServiceStore) GetAllData() map[string]ServiceEntrySnapshot {
+	s.Mutex.RLock()
+	defer s.Mutex.RUnlock()
+
+	result := make(map[string]ServiceEntrySnapshot, len(s.Data))
+	for name, entry := range s.Data {
+		// Deep copy tags
+		var tags []string
+		if len(entry.Service.Tags) > 0 {
+			tags = make([]string, len(entry.Service.Tags))
+			copy(tags, entry.Service.Tags)
+		}
+
+		// Deep copy meta
+		var meta map[string]string
+		if len(entry.Service.Meta) > 0 {
+			meta = make(map[string]string, len(entry.Service.Meta))
+			for k, v := range entry.Service.Meta {
+				meta[k] = v
+			}
+		}
+
+		result[name] = ServiceEntrySnapshot{
+			Service: ServiceDataSnapshot{
+				Name:    entry.Service.Name,
+				Address: entry.Service.Address,
+				Port:    entry.Service.Port,
+				Tags:    tags,
+				Meta:    meta,
+			},
+			ExpiresAt:   entry.ExpiresAt,
+			ModifyIndex: entry.ModifyIndex,
+			CreateIndex: entry.CreateIndex,
+		}
+	}
+	return result
+}
+
+// RestoreFromSnapshot restores service data from a Raft snapshot.
+// This replaces all existing data with the snapshot data.
+// Note: Health checks are NOT restored - they should be re-registered locally.
+func (s *ServiceStore) RestoreFromSnapshot(data map[string]ServiceEntrySnapshot) error {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	// Clear existing data and indexes
+	s.Data = make(map[string]ServiceEntry, len(data))
+	s.TagIndex = make(map[string]map[string]bool)
+	s.MetaIndex = make(map[string]map[string][]string)
+
+	// Restore from snapshot
+	var maxIndex uint64
+	for name, snapshot := range data {
+		// Convert snapshot to internal types
+		service := Service{
+			Name:    snapshot.Service.Name,
+			Address: snapshot.Service.Address,
+			Port:    snapshot.Service.Port,
+			Tags:    snapshot.Service.Tags,
+			Meta:    snapshot.Service.Meta,
+		}
+
+		entry := ServiceEntry{
+			Service:     service,
+			ExpiresAt:   snapshot.ExpiresAt,
+			ModifyIndex: snapshot.ModifyIndex,
+			CreateIndex: snapshot.CreateIndex,
+		}
+
+		s.Data[name] = entry
+
+		// Rebuild indexes
+		s.addToTagIndex(name, service.Tags)
+		s.addToMetaIndex(name, service.Meta)
+
+		if snapshot.ModifyIndex > maxIndex {
+			maxIndex = snapshot.ModifyIndex
+		}
+	}
+
+	// Update global index to max found index
+	s.globalIndex = maxIndex
+
+	s.log.Info("Service store restored from Raft snapshot",
+		logger.Int("services", len(data)),
+		logger.String("max_index", fmt.Sprintf("%d", maxIndex)))
+
+	return nil
+}

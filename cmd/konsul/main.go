@@ -235,24 +235,55 @@ func main() {
 		}
 	}()
 
-	// Initialize Raft node if enabled
+	// Initialize Raft clustering if enabled
 	var raftNode *konsulraft.Node
 	if cfg.Raft.Enabled {
-		raftNode, err = konsulraft.NewNode(cfg.Raft, kv, svcStore, appLogger)
-		if err != nil {
-			log.Fatalf("Failed to initialize raft node: %v", err)
+		raftCfg := &konsulraft.Config{
+			NodeID:             cfg.Raft.NodeID,
+			BindAddr:           cfg.Raft.BindAddr,
+			AdvertiseAddr:      cfg.Raft.AdvertiseAddr,
+			DataDir:            cfg.Raft.DataDir,
+			Bootstrap:          cfg.Raft.Bootstrap,
+			HeartbeatTimeout:   cfg.Raft.HeartbeatTimeout,
+			ElectionTimeout:    cfg.Raft.ElectionTimeout,
+			LeaderLeaseTimeout: cfg.Raft.LeaderLeaseTimeout,
+			CommitTimeout:      cfg.Raft.CommitTimeout,
+			SnapshotInterval:   cfg.Raft.SnapshotInterval,
+			SnapshotThreshold:  cfg.Raft.SnapshotThreshold,
+			SnapshotRetention:  cfg.Raft.SnapshotRetention,
+			MaxAppendEntries:   cfg.Raft.MaxAppendEntries,
+			TrailingLogs:       cfg.Raft.TrailingLogs,
+			LogLevel:           cfg.Raft.LogLevel,
 		}
+
+		raftNode, err = konsulraft.NewNode(raftCfg, kv, svcStore)
+		if err != nil {
+			log.Fatalf("Failed to initialize Raft node: %v", err)
+		}
+
+		// Ensure graceful shutdown
 		defer func() {
 			if err := raftNode.Shutdown(); err != nil {
-				appLogger.Error("Failed to shutdown raft node", logger.Error(err))
+				appLogger.Error("Failed to shutdown Raft node", logger.Error(err))
 			}
 		}()
 
 		appLogger.Info("Raft clustering enabled",
 			logger.String("node_id", cfg.Raft.NodeID),
 			logger.String("bind_addr", cfg.Raft.BindAddr),
-			logger.String("data_dir", cfg.Raft.DataDir),
+			logger.String("advertise_addr", cfg.Raft.AdvertiseAddr),
 			logger.String("bootstrap", fmt.Sprintf("%t", cfg.Raft.Bootstrap)))
+
+		// Wait for leader election (with timeout)
+		go func() {
+			if err := raftNode.WaitForLeader(30 * time.Second); err != nil {
+				appLogger.Warn("No leader elected within timeout", logger.Error(err))
+			} else {
+				appLogger.Info("Leader elected",
+					logger.String("leader_id", raftNode.LeaderID()),
+					logger.String("leader_addr", raftNode.LeaderAddr()))
+			}
+		}()
 	}
 
 	// Initialize load balancer with default round-robin strategy
@@ -264,9 +295,16 @@ func main() {
 	metrics.LoadBalancerCurrentStrategy.WithLabelValues("random").Set(0)
 	metrics.LoadBalancerCurrentStrategy.WithLabelValues("least-connections").Set(0)
 
-	// Initialize handlers
-	kvHandler := handlers.NewKVHandler(kv, raftNode)
-	serviceHandler := handlers.NewServiceHandler(svcStore, raftNode)
+	// Initialize handlers (with Raft support if enabled)
+	var kvHandler *handlers.KVHandler
+	var serviceHandler *handlers.ServiceHandler
+	if raftNode != nil {
+		kvHandler = handlers.NewKVHandlerWithRaft(kv, raftNode)
+		serviceHandler = handlers.NewServiceHandlerWithRaft(svcStore, raftNode)
+	} else {
+		kvHandler = handlers.NewKVHandler(kv)
+		serviceHandler = handlers.NewServiceHandler(svcStore)
+	}
 	loadBalancerHandler := handlers.NewLoadBalancerHandler(balancer)
 	healthHandler := handlers.NewHealthHandler(kv, svcStore, version)
 	healthCheckHandler := handlers.NewHealthCheckHandler(svcStore, raftNode)
@@ -434,8 +472,11 @@ func main() {
 	}
 	kvRoutes.Get("/", kvHandler.List)
 	kvRoutes.Get("/:key", kvHandler.Get)
+	kvRoutes.Get("/*", kvHandler.Get)
 	kvRoutes.Put("/:key", kvHandler.Set)
+	kvRoutes.Put("/*", kvHandler.Set)
 	kvRoutes.Delete("/:key", kvHandler.Delete)
+	kvRoutes.Delete("/*", kvHandler.Delete)
 
 	// KV Watch endpoints (WebSocket and SSE) - if watch is enabled
 	if cfg.Watch.Enabled && kvWatchHandler != nil {
@@ -564,6 +605,13 @@ func main() {
 	backupRoutes.Get("/export", backupHandler.ExportData)
 	backupRoutes.Post("/import", backupHandler.ImportData)
 	backupRoutes.Get("/backups", backupHandler.ListBackups)
+
+	// Cluster management endpoints (Raft)
+	clusterHandler := handlers.NewClusterHandler(raftNode)
+	clusterHandler.RegisterRoutes(app)
+	if cfg.Raft.Enabled {
+		appLogger.Info("Cluster management endpoints registered at /cluster/*")
+	}
 
 	// Metrics endpoint for Prometheus
 	app.Get("/metrics", adaptor.HTTPHandler(promhttp.Handler()))
