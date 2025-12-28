@@ -2,6 +2,7 @@ package agent
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"github.com/neogan74/konsul/internal/healthcheck"
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/store"
 )
@@ -53,6 +54,12 @@ func (api *API) setupRoutes() {
 	api.app.Get("/agent/kv/:key", api.handleGetKV)
 	api.app.Put("/agent/kv/:key", api.handleSetKV)
 	api.app.Delete("/agent/kv/:key", api.handleDeleteKV)
+
+	// Health checks
+	api.app.Post("/agent/check/register", api.handleRegisterCheck)
+	api.app.Delete("/agent/check/deregister/:id", api.handleDeregisterCheck)
+	api.app.Get("/agent/checks", api.handleListChecks)
+	api.app.Put("/agent/check/update/:id", api.handleUpdateTTLCheck)
 }
 
 // Start starts the API server
@@ -254,6 +261,65 @@ func (api *API) handleDeleteKV(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"status": "deleted",
 		"key":    key,
+	})
+}
+
+// Health check handlers
+
+func (api *API) handleRegisterCheck(c *fiber.Ctx) error {
+	var def healthcheck.CheckDefinition
+	if err := c.BodyParser(&def); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid check definition")
+	}
+
+	if def.ServiceID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "Service ID is required")
+	}
+
+	if err := api.agent.healthChecker.RegisterCheck(def.ServiceID, &def); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(fiber.Map{
+		"status":   "registered",
+		"check_id": def.ID,
+	})
+}
+
+func (api *API) handleDeregisterCheck(c *fiber.Ctx) error {
+	id := c.Params("id")
+	if id == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "Check ID is required")
+	}
+
+	if err := api.agent.healthChecker.DeregisterCheck(id); err != nil {
+		return fiber.NewError(fiber.StatusNotFound, err.Error())
+	}
+
+	return c.JSON(fiber.Map{
+		"status":   "deregistered",
+		"check_id": id,
+	})
+}
+
+func (api *API) handleListChecks(c *fiber.Ctx) error {
+	checks := api.agent.healthChecker.ListChecks()
+	return c.JSON(checks)
+}
+
+func (api *API) handleUpdateTTLCheck(c *fiber.Ctx) error {
+	id := c.Params("id")
+	if id == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "Check ID is required")
+	}
+
+	if err := api.agent.healthChecker.UpdateTTLCheck(id); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+
+	return c.JSON(fiber.Map{
+		"status":   "updated",
+		"check_id": id,
 	})
 }
 

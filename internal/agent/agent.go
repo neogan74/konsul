@@ -20,10 +20,11 @@ type Agent struct {
 	log    logger.Logger
 
 	// Components
-	cache        *Cache
-	syncEngine   *SyncEngine
-	serverClient *ServerClient
-	api          *API
+	cache         *Cache
+	syncEngine    *SyncEngine
+	serverClient  *ServerClient
+	api           *API
+	healthChecker *HealthChecker
 
 	// Local state
 	localServices map[string]*store.ServiceEntry
@@ -74,6 +75,9 @@ func NewAgent(cfg *Config, log logger.Logger) (*Agent, error) {
 	// Create sync engine
 	syncEngine := NewSyncEngine(cfg.Sync, log)
 
+	// Create health checker
+	healthChecker := NewHealthChecker(cfg.HealthChecks, serverClient, log)
+
 	agent := &Agent{
 		config:        cfg,
 		info:          info,
@@ -81,6 +85,7 @@ func NewAgent(cfg *Config, log logger.Logger) (*Agent, error) {
 		cache:         cache,
 		syncEngine:    syncEngine,
 		serverClient:  serverClient,
+		healthChecker: healthChecker,
 		localServices: make(map[string]*store.ServiceEntry),
 		ctx:           ctx,
 		cancel:        cancel,
@@ -115,6 +120,13 @@ func (a *Agent) Start() error {
 	go func() {
 		defer a.wg.Done()
 		a.syncEngine.Run(a.ctx, a.serverClient, a.cache, a.config.WatchedPrefixes)
+	}()
+
+	// Start health checker
+	a.wg.Add(1)
+	go func() {
+		defer a.wg.Done()
+		a.healthChecker.Run(a.ctx)
 	}()
 
 	a.log.Info("Agent started successfully")
