@@ -69,6 +69,7 @@ Implement Raft consensus algorithm using HashiCorp's raft library to enable mult
 2. Implement `KonsulFSM` 
 3. (Apply, Snapshot, Restore)
 3. Configure log store (BoltDB)
+4. 
 4. Configure snapshot store (file-based)
 5. Setup TCP transport for Raft
 6. Integrate Raft with KV store handlers
