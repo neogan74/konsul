@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: konsul-agent-config
+  namespace: konsul-system
+  labels:
+    app: konsul-agent
+data:
+  agent.yaml: |
+    # Konsul Agent Configuration
+
+    # Agent Identity
+    node_name: "${NODE_NAME}"
+    node_ip: "${NODE_IP}"
+    datacenter: "dc1"
+
+    # Server Connection
+    server_address: "http://konsul-server.konsul-system.svc.cluster.local:8888"
+
+    # API Server
+    bind_address: "0.0.0.0:8502"
+
+    # TLS Configuration (optional)
+    tls:
+      enabled: false
+      skip_verify: false
+      # ca_cert: /etc/konsul/tls/ca.crt
+      # client_cert: /etc/konsul/tls/client.crt
+      # client_key: /etc/konsul/tls/client.key
+
+    # Cache Configuration
+    cache:
+      service_ttl: 60s
+      kv_ttl: 300s
+      health_ttl: 30s
+      max_entries: 10000
+      eviction_policy: lru
+
+    # Health Check Configuration
+    health_checks:
+      enable_local_execution: true
+      check_interval: 10s
+      report_only_changes: true
+      timeout: 5s
+
+    # Sync Configuration
+    sync:
+      interval: 10s
+      full_sync_interval: 300s
+      batch_size: 100
+      compression: true
+      retry_attempts: 3
+      retry_delay: 5s
+
+    # Resource Limits
+    resources:
+      memory_limit: "128Mi"
+      cpu_limit: "100m"
+
+    # Watched KV Prefixes
+    watched_prefixes:
+      - "config/"
+      - "feature_flags/"
+
+    # Agent Metadata (optional)
+    metadata:
+      zone: "${ZONE}"
+      region: "${REGION}"

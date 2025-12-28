@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: konsul-system
+  labels:
+    name: konsul-system
+    app.kubernetes.io/name: konsul
+    app.kubernetes.io/part-of: konsul

@@ -1,0 +1,139 @@
+uapiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: konsul-agent
+  namespace: konsul-system
+  labels:
+    app: konsul-agent
+    version: v0.1.0
+spec:
+  selector:
+    matchLabels:
+      app: konsul-agent
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: konsul-agent
+        version: v0.1.0
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8502"
+        prometheus.io/path: "/agent/metrics"
+    spec:
+      serviceAccountName: konsul-agent
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+
+      # Node selector (optional - run on all nodes by default)
+      # nodeSelector:
+      #   konsul-agent: "true"
+
+      # Tolerations to run on all nodes including masters
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
+
+      containers:
+        - name: konsul-agent
+          image: ghcr.io/neogan74/konsul-agent:latest
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: http
+              containerPort: 8502
+              protocol: TCP
+              hostPort: 8502
+
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: ZONE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['topology.kubernetes.io/zone']
+            - name: REGION
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['topology.kubernetes.io/region']
+
+          volumeMounts:
+            - name: config
+              mountPath: /etc/konsul
+              readOnly: true
+            # Optional: mount host path for local data persistence
+            # - name: data
+            #   mountPath: /var/lib/konsul-agent
+
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8502
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8502
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 2
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+
+      volumes:
+        - name: config
+          configMap:
+            name: konsul-agent-config
+        # Optional: host path for data persistence
+        # - name: data
+        #   hostPath:
+        #     path: /var/lib/konsul-agent
+        #     type: DirectoryOrCreate
+
+      # Priority class (optional - for critical system daemons)
+      # priorityClassName: system-node-critical

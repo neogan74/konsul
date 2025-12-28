@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: konsul-agent
+  namespace: konsul-system
+  labels:
+    app: konsul-agent
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8502"
+    prometheus.io/path: "/agent/metrics"
+spec:
+  type: ClusterIP
+  clusterIP: None  # Headless service for DaemonSet
+  selector:
+    app: konsul-agent
+  ports:
+    - name: http
+      port: 8502
+      targetPort: 8502
+      protocol: TCP
+  sessionAffinity: None
+  publishNotReadyAddresses: false

@@ -1,0 +1,33 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: konsul-system
+
+commonLabels:
+  app.kubernetes.io/name: konsul-agent
+  app.kubernetes.io/component: agent
+  app.kubernetes.io/part-of: konsul
+
+resources:
+  - rbac.yaml
+  - configmap.yaml
+  - daemonset.yaml
+  - service.yaml
+
+# ConfigMap generator (alternative to static ConfigMap)
+# configMapGenerator:
+#   - name: konsul-agent-config
+#     files:
+#       - agent.yaml
+
+# Images
+images:
+  - name: ghcr.io/neogan74/konsul-agent
+    newTag: latest
+
+# Patches for customization
+# patches:
+#   - path: patches/production.yaml
+#     target:
+#       kind: DaemonSet
+#       name: konsul-agent
