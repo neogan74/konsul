@@ -310,6 +310,7 @@ func main() {
 	healthCheckHandler := handlers.NewHealthCheckHandler(svcStore, raftNode)
 	backupHandler := handlers.NewBackupHandler(engine, appLogger)
 	batchHandler := handlers.NewBatchHandler(kv, svcStore, raftNode)
+	agentHandler := handlers.NewAgentHandlers(svcStore, kv, appLogger)
 
 	// Initialize store metrics
 	metrics.KVStoreSize.Set(float64(len(kv.List())))
@@ -545,6 +546,17 @@ func main() {
 	app.Get("/services/query/tags", serviceHandler.QueryByTags)
 	app.Get("/services/query/metadata", serviceHandler.QueryByMetadata)
 	app.Get("/services/query", serviceHandler.QueryByTagsAndMetadata)
+	// Agent protocol endpoints - for agent communication
+	agentRoutes := app.Group("/v1/agent")
+	agentRoutes.Post("/register", agentHandler.HandleAgentRegister)
+	agentRoutes.Post("/sync", agentHandler.HandleAgentSync)
+	agentRoutes.Post("/batch-update", agentHandler.HandleBatchUpdate)
+	agentRoutes.Post("/health-update", agentHandler.HandleHealthUpdate)
+	agentRoutes.Get("/list", agentHandler.HandleListAgents)
+	agentRoutes.Get("/:id", agentHandler.HandleGetAgent)
+
+	appLogger.Info("Agent protocol endpoints registered",
+		logger.String("prefix", "/v1/agent"))
 
 	// Load balancer endpoints
 	app.Get("/lb/service/:name", loadBalancerHandler.SelectService)

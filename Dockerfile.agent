@@ -1,0 +1,51 @@
+# Build stage
+FROM golang:1.24-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache git make ca-certificates
+
+WORKDIR /build
+
+# Copy go mod files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build the agent binary
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-w -s" \
+    -o konsul-agent \
+    ./cmd/konsul-agent
+
+# Runtime stage
+FROM alpine:3.19
+
+# Install runtime dependencies
+RUN apk add --no-cache ca-certificates tzdata
+
+# Create non-root user
+RUN addgroup -g 1000 konsul && \
+    adduser -D -u 1000 -G konsul konsul
+
+# Create directories
+RUN mkdir -p /etc/konsul /var/lib/konsul-agent && \
+    chown -R konsul:konsul /etc/konsul /var/lib/konsul-agent
+
+# Copy binary from builder
+COPY --from=builder /build/konsul-agent /usr/local/bin/konsul-agent
+
+# Switch to non-root user
+USER konsul
+
+# Expose agent API port
+EXPOSE 8502
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD ["/usr/local/bin/konsul-agent", "health"]
+
+# Set entrypoint
+ENTRYPOINT ["/usr/local/bin/konsul-agent"]
+CMD ["run", "--config=/etc/konsul/agent.yaml"]
