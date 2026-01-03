@@ -92,8 +92,9 @@ Implement Raft consensus algorithm using HashiCorp's raft library to enable mult
 
 **Priority**: P0 (Critical)
 **Effort**: 8 SP (2 weeks)
-**Status**: 📋 Not Started
-**Dependencies**: BACK-001
+**Status**: 🚧 Partially Implemented (Core Complete, Testing Pending)
+**Completed**: 2026-01-02
+**Dependencies**: BACK-001 ✅
 **ADR**: ADR-0011
 
 #### Description
@@ -107,30 +108,44 @@ Implement automatic leader election using Raft consensus. Nodes automatically el
 - Metrics for leader changes
 
 #### Acceptance Criteria
-- [ ] Cluster elects leader on bootstrap
-- [ ] Leader sends periodic heartbeats
-- [ ] Followers detect missing heartbeats
-- [ ] New election triggered on timeout
-- [ ] Majority votes required to become leader
-- [ ] Split-brain scenarios handled correctly
-- [ ] Leader election completes in <300ms (p99)
-- [ ] Metrics track leader changes
-- [ ] `/cluster/leader` endpoint returns current leader
-- [ ] Tests for election scenarios (startup, failure, partition)
+- [x] Cluster elects leader on bootstrap (via Raft library)
+- [x] Leader sends periodic heartbeats (configured: 1s)
+- [x] Followers detect missing heartbeats (via ElectionTimeout: 1s)
+- [x] New election triggered on timeout (Raft handles this)
+- [x] Majority votes required to become leader (Raft guarantees)
+- [x] Split-brain scenarios handled correctly (Raft guarantees)
+- [ ] Leader election completes in <300ms (p99) - needs performance testing
+- [x] Metrics track leader changes (`konsul_raft_leader_changes_total`)
+- [x] `/cluster/leader` endpoint returns current leader
+- [x] Unit tests for Node creation and metrics
+- [ ] Integration tests for election scenarios (startup, failure, partition)
 - [ ] Tests prevent split-brain
-- [ ] Documentation for election configuration
+- [x] Documentation for election configuration (docs/LEADER_ELECTION.md)
 
 #### Technical Tasks
-1. Configure Raft election timeout (default: 1s)
-2. Configure Raft heartbeat timeout (default: 1s)
-3. Configure leader lease timeout (default: 500ms)
-4. Implement `/cluster/leader` endpoint
-5. Add `konsul_raft_state` metric (leader/follower/candidate)
-6. Add `konsul_raft_leader_changes_total` metric
-7. Test 3-node election scenarios
-8. Test network partition scenarios
-9. Test simultaneous node failure
-10. Document election tuning parameters
+1. ✅ Configure Raft election timeout (default: 1s) - `internal/raft/config.go:36`
+2. ✅ Configure Raft heartbeat timeout (default: 1s) - `internal/raft/config.go:31`
+3. ✅ Configure leader lease timeout (default: 500ms) - `internal/raft/config.go:41`
+4. ✅ Implement `/cluster/leader` endpoint - `internal/handlers/cluster.go:62-84`
+5. ✅ Add `konsul_raft_state` metric (leader/follower/candidate) - `internal/raft/metrics.go:43-51`
+6. ✅ Add `konsul_raft_leader_changes_total` metric - `internal/raft/metrics.go:118-125`
+7. ✅ Add metrics monitoring goroutine - `internal/raft/node.go:566-633`
+8. ✅ Create unit tests - `internal/raft/node_test.go`
+9. ⏳ Test 3-node election scenarios (blocked by duplicate payload definitions)
+10. ⏳ Test network partition scenarios (pending)
+11. ✅ Document election tuning parameters - `docs/LEADER_ELECTION.md`
+
+#### Implementation Notes
+- Metrics collection system fully implemented with 1-second polling
+- State monitoring goroutine tracks Raft state changes and updates Prometheus metrics
+- Leader change detection logs transitions and increments counter
+- All core metrics exported: state, is_leader, leader_changes_total, peers_total, indices
+- `/cluster/leader` endpoint returns leader_id, leader_addr, and is_self flag
+- Comprehensive documentation with monitoring examples and troubleshooting guide
+
+#### Known Issues
+- Duplicate payload definitions in `commands.go` and `log_entry.go` prevent integration tests from running
+- Needs resolution before full test suite can execute
 
 #### References
 - [ADR-0011 Section: Leader Election](adr/0011-raft-clustering-ha.md#leader-election)
