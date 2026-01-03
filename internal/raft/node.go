@@ -24,7 +24,8 @@ type Node struct {
 	stable    *raftboltdb.BoltStore
 	snapshots *raft.FileSnapshotStore
 
-	logger hclog.Logger
+	logger  hclog.Logger
+	metrics *Metrics
 
 	shutdownCh chan struct{}
 	mu         sync.RWMutex
@@ -119,6 +120,9 @@ func NewNode(cfg *Config, kvStore KVStoreInterface, serviceStore ServiceStoreInt
 		return nil, fmt.Errorf("failed to create raft: %w", err)
 	}
 
+	// Create metrics
+	metrics := NewMetrics("konsul")
+
 	node := &Node{
 		config:     cfg,
 		raft:       r,
@@ -128,8 +132,12 @@ func NewNode(cfg *Config, kvStore KVStoreInterface, serviceStore ServiceStoreInt
 		stable:     stable,
 		snapshots:  snapshots,
 		logger:     logger,
+		metrics:    metrics,
 		shutdownCh: make(chan struct{}),
 	}
+
+	// Start metrics monitoring goroutine
+	go node.monitorState()
 
 	// Bootstrap if this is the first node
 	if cfg.Bootstrap {
@@ -549,4 +557,77 @@ func (n *Node) GetClusterInfoJSON() ([]byte, error) {
 		return nil, err
 	}
 	return json.Marshal(info)
+}
+
+// =============================================================================
+// Metrics Monitoring
+// =============================================================================
+
+// monitorState monitors Raft state changes and updates metrics.
+// This runs in a background goroutine for the lifetime of the node.
+func (n *Node) monitorState() {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	lastState := n.raft.State()
+	n.metrics.SetState(n.config.NodeID, lastState)
+
+	n.logger.Debug("starting state monitor goroutine")
+
+	for {
+		select {
+		case <-ticker.C:
+			// Get current state
+			currentState := n.raft.State()
+
+			// Update state metric
+			n.metrics.SetState(n.config.NodeID, currentState)
+
+			// Detect leader changes
+			if lastState != currentState {
+				n.logger.Info("raft state changed",
+					"node_id", n.config.NodeID,
+					"old_state", lastState.String(),
+					"new_state", currentState.String(),
+				)
+
+				// If we transitioned to/from leader, increment leader changes
+				if lastState == raft.Leader || currentState == raft.Leader {
+					n.metrics.IncLeaderChanges()
+					n.logger.Info("leader change detected",
+						"node_id", n.config.NodeID,
+						"is_leader", currentState == raft.Leader,
+					)
+				}
+
+				lastState = currentState
+			}
+
+			// Update indices metrics
+			lastIndex := n.raft.LastIndex()
+			appliedIndex := n.raft.AppliedIndex()
+
+			// Get commit index from stats
+			stats := n.raft.Stats()
+			var commitIndex uint64
+			fmt.Sscanf(stats["commit_index"], "%d", &commitIndex)
+
+			n.metrics.SetIndices(lastIndex, commitIndex, appliedIndex)
+
+			// Update peer count
+			config, err := n.GetConfiguration()
+			if err == nil {
+				n.metrics.SetNumPeers(len(config.Servers))
+			}
+
+			// Update FSM pending
+			var fsmPending uint64
+			fmt.Sscanf(stats["fsm_pending"], "%d", &fsmPending)
+			n.metrics.SetFSMPending(fsmPending)
+
+		case <-n.shutdownCh:
+			n.logger.Debug("stopping state monitor goroutine")
+			return
+		}
+	}
 }
