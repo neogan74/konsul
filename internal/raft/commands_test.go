@@ -3,6 +3,7 @@ package raft
 import (
 	"testing"
 
+	"github.com/neogan74/konsul/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -43,11 +44,13 @@ func TestNewCommand(t *testing.T) {
 			name:    "Service Register",
 			cmdType: CmdServiceRegister,
 			payload: ServiceRegisterPayload{
-				Name:    "web",
-				Address: "10.0.0.1",
-				Port:    8080,
-				Tags:    []string{"primary"},
-				Meta:    map[string]string{"version": "1.0"},
+				Service: store.Service{
+					Name:    "web",
+					Address: "10.0.0.1",
+					Port:    8080,
+					Tags:    []string{"primary"},
+					Meta:    map[string]string{"version": "1.0"},
+				},
 			},
 		},
 		{

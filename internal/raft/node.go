@@ -2,6 +2,7 @@ package raft
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb/v2"
+	"github.com/neogan74/konsul/internal/store"
 )
 
 // Node represents a Raft node in the cluster.
@@ -195,6 +197,33 @@ func (n *Node) State() raft.RaftState {
 	return n.raft.State()
 }
 
+// EnsureLinearizableRead blocks until this leader has applied all prior writes.
+// Call this before serving linearizable reads from the local state machine.
+func (n *Node) EnsureLinearizableRead(timeout time.Duration) error {
+	if n.raft.State() != raft.Leader {
+		return ErrNotLeader
+	}
+
+	if err := n.raft.VerifyLeader().Error(); err != nil {
+		if errors.Is(err, raft.ErrNotLeader) {
+			return ErrNotLeader
+		}
+		return fmt.Errorf("raft verify leader failed: %w", err)
+	}
+
+	if err := n.raft.Barrier(timeout).Error(); err != nil {
+		if errors.Is(err, raft.ErrNotLeader) || errors.Is(err, raft.ErrLeadershipLost) {
+			return ErrNotLeader
+		}
+		if errors.Is(err, raft.ErrRaftShutdown) {
+			return ErrShutdown
+		}
+		return fmt.Errorf("raft barrier failed: %w", err)
+	}
+
+	return nil
+}
+
 // Stats returns Raft statistics.
 func (n *Node) Stats() map[string]string {
 	return n.raft.Stats()
@@ -360,11 +389,13 @@ func (n *Node) KVBatchDelete(keys []string) error {
 // ServiceRegister registers a service through Raft consensus.
 func (n *Node) ServiceRegister(name, address string, port int, tags []string, meta map[string]string) error {
 	cmd, err := NewCommand(CmdServiceRegister, ServiceRegisterPayload{
-		Name:    name,
-		Address: address,
-		Port:    port,
-		Tags:    tags,
-		Meta:    meta,
+		Service: store.Service{
+			Name:    name,
+			Address: address,
+			Port:    port,
+			Tags:    tags,
+			Meta:    meta,
+		},
 	})
 	if err != nil {
 		return err
