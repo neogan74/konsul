@@ -231,13 +231,13 @@ func (h *ACLHandler) LoadPolicies() error {
 	for _, file := range files {
 		data, err := os.ReadFile(file)
 		if err != nil {
-			h.log.Error("Failed to read policy file", logger.String("file", file), logger.Error(err))
+			h.log.Debug("Failed to read policy file", logger.String("file", file), logger.Error(err))
 			continue
 		}
 
 		policy, err := acl.FromJSON(data)
 		if err != nil {
-			h.log.Error("Failed to parse policy file", logger.String("file", file), logger.Error(err))
+			h.log.Debug("Failed to parse policy file", logger.String("file", file), logger.Error(err))
 			continue
 		}
 
