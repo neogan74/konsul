@@ -192,6 +192,12 @@ func (n *Node) LeaderID() string {
 	return string(id)
 }
 
+// Leader returns the address of the current leader (alias for LeaderAddr).
+// This is provided for compatibility with handler code.
+func (n *Node) Leader() string {
+	return n.LeaderAddr()
+}
+
 // State returns the current Raft state (follower, candidate, leader, shutdown).
 func (n *Node) State() raft.RaftState {
 	return n.raft.State()
@@ -310,6 +316,31 @@ func (n *Node) WaitForLeader(timeout time.Duration) error {
 // =============================================================================
 // Apply Methods - These send commands through Raft
 // =============================================================================
+
+// ApplyEntry applies a LogEntry through Raft consensus (compatibility method).
+// This method bridges the LogEntry-based API (used by handlers) with the
+// Command-based internal API. Returns the response from FSM and any error.
+func (n *Node) ApplyEntry(entry LogEntry, timeout time.Duration) (interface{}, error) {
+	if n.raft.State() != raft.Leader {
+		return nil, ErrNotLeader
+	}
+
+	data, err := entry.Marshal()
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal log entry: %w", err)
+	}
+
+	future := n.raft.Apply(data, timeout)
+	if err := future.Error(); err != nil {
+		if err == raft.ErrLeadershipLost {
+			return nil, ErrNotLeader
+		}
+		return nil, fmt.Errorf("raft apply failed: %w", err)
+	}
+
+	// Return the response from FSM.Apply
+	return future.Response(), nil
+}
 
 // applyCommand applies a command through Raft consensus.
 // Returns error if this node is not the leader or if apply fails.

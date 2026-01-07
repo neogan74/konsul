@@ -23,7 +23,6 @@ type Config struct {
 	AdminUI     AdminUIConfig
 	Watch       WatchConfig
 	Audit       AuditConfig
-	Raft        RaftConfig
 }
 
 // ServerConfig contains HTTP server configuration
@@ -61,28 +60,6 @@ type PersistenceConfig struct {
 	BackupDir  string
 	SyncWrites bool
 	WALEnabled bool
-}
-
-// RaftConfig contains clustering configuration
-type RaftConfig struct {
-	Enabled            bool
-	NodeID             string
-	BindAddr           string
-	AdvertiseAddr      string
-	DataDir            string
-	Bootstrap          bool
-	Peers              []RaftPeer
-	ElectionTimeout    time.Duration
-	HeartbeatTimeout   time.Duration
-	LeaderLeaseTimeout time.Duration
-	SnapshotInterval   time.Duration
-	SnapshotThreshold  uint64
-}
-
-// RaftPeer represents a bootstrap peer (id@host:port)
-type RaftPeer struct {
-	ID      string
-	Address string
 }
 
 // DNSConfig contains DNS server configuration
@@ -170,6 +147,7 @@ type RaftConfig struct {
 	AdvertiseAddr      string
 	DataDir            string
 	Bootstrap          bool
+	Peers              []RaftPeer
 	HeartbeatTimeout   time.Duration
 	ElectionTimeout    time.Duration
 	LeaderLeaseTimeout time.Duration
@@ -180,6 +158,12 @@ type RaftConfig struct {
 	MaxAppendEntries   int
 	TrailingLogs       uint64
 	LogLevel           string
+}
+
+// RaftPeer represents a bootstrap peer (id@host:port)
+type RaftPeer struct {
+	ID      string
+	Address string
 }
 
 // Load loads configuration from environment variables with defaults
@@ -210,20 +194,6 @@ func Load() (*Config, error) {
 			BackupDir:  getEnvString("KONSUL_BACKUP_DIR", "./backups"),
 			SyncWrites: getEnvBool("KONSUL_SYNC_WRITES", true),
 			WALEnabled: getEnvBool("KONSUL_WAL_ENABLED", true),
-		},
-		Raft: RaftConfig{
-			Enabled:            getEnvBool("KONSUL_RAFT_ENABLED", false),
-			NodeID:             getEnvString("KONSUL_RAFT_NODE_ID", ""),
-			BindAddr:           getEnvString("KONSUL_RAFT_BIND_ADDR", ""),
-			AdvertiseAddr:      getEnvString("KONSUL_RAFT_ADVERTISE_ADDR", ""),
-			DataDir:            getEnvString("KONSUL_RAFT_DATA_DIR", "./data/raft"),
-			Bootstrap:          getEnvBool("KONSUL_RAFT_BOOTSTRAP", false),
-			Peers:              parseRaftPeers(getEnvString("KONSUL_RAFT_PEERS", "")),
-			ElectionTimeout:    getEnvDuration("KONSUL_RAFT_ELECTION_TIMEOUT", time.Second),
-			HeartbeatTimeout:   getEnvDuration("KONSUL_RAFT_HEARTBEAT_TIMEOUT", time.Second),
-			LeaderLeaseTimeout: getEnvDuration("KONSUL_RAFT_LEADER_LEASE_TIMEOUT", 500*time.Millisecond),
-			SnapshotInterval:   getEnvDuration("KONSUL_RAFT_SNAPSHOT_INTERVAL", 120*time.Second),
-			SnapshotThreshold:  getEnvUint64("KONSUL_RAFT_SNAPSHOT_THRESHOLD", 8192),
 		},
 		DNS: DNSConfig{
 			Enabled: getEnvBool("KONSUL_DNS_ENABLED", true),
@@ -291,6 +261,7 @@ func Load() (*Config, error) {
 			AdvertiseAddr:      getEnvString("KONSUL_RAFT_ADVERTISE_ADDR", ""),
 			DataDir:            getEnvString("KONSUL_RAFT_DATA_DIR", "./data/raft"),
 			Bootstrap:          getEnvBool("KONSUL_RAFT_BOOTSTRAP", false),
+			Peers:              parseRaftPeers(getEnvString("KONSUL_RAFT_PEERS", "")),
 			HeartbeatTimeout:   getEnvDuration("KONSUL_RAFT_HEARTBEAT_TIMEOUT", time.Second),
 			ElectionTimeout:    getEnvDuration("KONSUL_RAFT_ELECTION_TIMEOUT", time.Second),
 			LeaderLeaseTimeout: getEnvDuration("KONSUL_RAFT_LEADER_LEASE_TIMEOUT", 500*time.Millisecond),
