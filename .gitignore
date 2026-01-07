@@ -2,10 +2,9 @@ bin/
 .idea/
 /web/admin/node_modules/*
 
-# Compiled binaries
-konsul
-konsulctl
+# Compiled binaries (root directory only)
+/konsul
+/konsulctl
 monitoring/otel/hosts
-.gitignore
 monitoring/otel/hostname
 monitoring/otel/resolv.conf

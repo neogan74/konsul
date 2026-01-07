@@ -33,13 +33,13 @@ func (h *ACLHandler) CreatePolicy(c *fiber.Ctx) error {
 
 	var policy acl.Policy
 	if err := c.BodyParser(&policy); err != nil {
-		log.Error("Failed to parse policy", logger.Error(err))
+		log.Debug("Failed to parse policy request body", logger.Error(err))
 		return middleware.BadRequest(c, "Invalid JSON body")
 	}
 
 	// Validate policy
 	if err := policy.Validate(); err != nil {
-		log.Error("Invalid policy", logger.String("policy", policy.Name), logger.Error(err))
+		log.Debug("Invalid policy submitted", logger.String("policy", policy.Name), logger.Error(err))
 		return middleware.BadRequest(c, "Invalid policy: "+err.Error())
 	}
 
@@ -100,7 +100,7 @@ func (h *ACLHandler) UpdatePolicy(c *fiber.Ctx) error {
 
 	var policy acl.Policy
 	if err := c.BodyParser(&policy); err != nil {
-		log.Error("Failed to parse policy", logger.Error(err))
+		log.Debug("Failed to parse policy request body", logger.Error(err))
 		return middleware.BadRequest(c, "Invalid JSON body")
 	}
 
@@ -111,7 +111,7 @@ func (h *ACLHandler) UpdatePolicy(c *fiber.Ctx) error {
 
 	// Validate policy
 	if err := policy.Validate(); err != nil {
-		log.Error("Invalid policy", logger.String("policy", policy.Name), logger.Error(err))
+		log.Debug("Invalid policy submitted", logger.String("policy", policy.Name), logger.Error(err))
 		return middleware.BadRequest(c, "Invalid policy: "+err.Error())
 	}
 
@@ -178,7 +178,7 @@ func (h *ACLHandler) TestPolicy(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&req); err != nil {
-		log.Error("Failed to parse test request", logger.Error(err))
+		log.Debug("Failed to parse test request body", logger.Error(err))
 		return middleware.BadRequest(c, "Invalid JSON body")
 	}
 
@@ -231,13 +231,13 @@ func (h *ACLHandler) LoadPolicies() error {
 	for _, file := range files {
 		data, err := os.ReadFile(file)
 		if err != nil {
-			h.log.Error("Failed to read policy file", logger.String("file", file), logger.Error(err))
+			h.log.Debug("Failed to read policy file", logger.String("file", file), logger.Error(err))
 			continue
 		}
 
 		policy, err := acl.FromJSON(data)
 		if err != nil {
-			h.log.Error("Failed to parse policy file", logger.String("file", file), logger.Error(err))
+			h.log.Debug("Failed to parse policy file", logger.String("file", file), logger.Error(err))
 			continue
 		}
 

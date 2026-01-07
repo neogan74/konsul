@@ -2,6 +2,7 @@ package raft
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb/v2"
+	"github.com/neogan74/konsul/internal/store"
 )
 
 // Node represents a Raft node in the cluster.
@@ -190,9 +192,42 @@ func (n *Node) LeaderID() string {
 	return string(id)
 }
 
+// Leader returns the address of the current leader (alias for LeaderAddr).
+// This is provided for compatibility with handler code.
+func (n *Node) Leader() string {
+	return n.LeaderAddr()
+}
+
 // State returns the current Raft state (follower, candidate, leader, shutdown).
 func (n *Node) State() raft.RaftState {
 	return n.raft.State()
+}
+
+// EnsureLinearizableRead blocks until this leader has applied all prior writes.
+// Call this before serving linearizable reads from the local state machine.
+func (n *Node) EnsureLinearizableRead(timeout time.Duration) error {
+	if n.raft.State() != raft.Leader {
+		return ErrNotLeader
+	}
+
+	if err := n.raft.VerifyLeader().Error(); err != nil {
+		if errors.Is(err, raft.ErrNotLeader) {
+			return ErrNotLeader
+		}
+		return fmt.Errorf("raft verify leader failed: %w", err)
+	}
+
+	if err := n.raft.Barrier(timeout).Error(); err != nil {
+		if errors.Is(err, raft.ErrNotLeader) || errors.Is(err, raft.ErrLeadershipLost) {
+			return ErrNotLeader
+		}
+		if errors.Is(err, raft.ErrRaftShutdown) {
+			return ErrShutdown
+		}
+		return fmt.Errorf("raft barrier failed: %w", err)
+	}
+
+	return nil
 }
 
 // Stats returns Raft statistics.
@@ -282,6 +317,31 @@ func (n *Node) WaitForLeader(timeout time.Duration) error {
 // Apply Methods - These send commands through Raft
 // =============================================================================
 
+// ApplyEntry applies a LogEntry through Raft consensus (compatibility method).
+// This method bridges the LogEntry-based API (used by handlers) with the
+// Command-based internal API. Returns the response from FSM and any error.
+func (n *Node) ApplyEntry(entry LogEntry, timeout time.Duration) (interface{}, error) {
+	if n.raft.State() != raft.Leader {
+		return nil, ErrNotLeader
+	}
+
+	data, err := entry.Marshal()
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal log entry: %w", err)
+	}
+
+	future := n.raft.Apply(data, timeout)
+	if err := future.Error(); err != nil {
+		if err == raft.ErrLeadershipLost {
+			return nil, ErrNotLeader
+		}
+		return nil, fmt.Errorf("raft apply failed: %w", err)
+	}
+
+	// Return the response from FSM.Apply
+	return future.Response(), nil
+}
+
 // applyCommand applies a command through Raft consensus.
 // Returns error if this node is not the leader or if apply fails.
 func (n *Node) applyCommand(cmd *Command, timeout time.Duration) error {
@@ -360,11 +420,13 @@ func (n *Node) KVBatchDelete(keys []string) error {
 // ServiceRegister registers a service through Raft consensus.
 func (n *Node) ServiceRegister(name, address string, port int, tags []string, meta map[string]string) error {
 	cmd, err := NewCommand(CmdServiceRegister, ServiceRegisterPayload{
-		Name:    name,
-		Address: address,
-		Port:    port,
-		Tags:    tags,
-		Meta:    meta,
+		Service: store.Service{
+			Name:    name,
+			Address: address,
+			Port:    port,
+			Tags:    tags,
+			Meta:    meta,
+		},
 	})
 	if err != nil {
 		return err

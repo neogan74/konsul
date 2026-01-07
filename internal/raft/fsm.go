@@ -150,11 +150,11 @@ func (f *KonsulFSM) applyServiceRegister(payload []byte) error {
 	defer f.mu.Unlock()
 
 	service := store.ServiceDataSnapshot{
-		Name:    p.Name,
-		Address: p.Address,
-		Port:    p.Port,
-		Tags:    p.Tags,
-		Meta:    p.Meta,
+		Name:    p.Service.Name,
+		Address: p.Service.Address,
+		Port:    p.Service.Port,
+		Tags:    p.Service.Tags,
+		Meta:    p.Service.Meta,
 	}
 
 	return f.serviceStore.RegisterLocal(service)

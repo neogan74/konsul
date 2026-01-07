@@ -283,11 +283,13 @@ func TestFSM_Apply_ServiceRegister(t *testing.T) {
 
 	// Create service register command
 	cmd, err := NewCommand(CmdServiceRegister, ServiceRegisterPayload{
-		Name:    "web",
-		Address: "10.0.0.1",
-		Port:    8080,
-		Tags:    []string{"primary", "v2"},
-		Meta:    map[string]string{"version": "2.0"},
+		Service: store.Service{
+			Name:    "web",
+			Address: "10.0.0.1",
+			Port:    8080,
+			Tags:    []string{"primary", "v2"},
+			Meta:    map[string]string{"version": "2.0"},
+		},
 	})
 	require.NoError(t, err)
 
