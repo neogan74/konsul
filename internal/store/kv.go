@@ -782,16 +782,90 @@ func (kv *KVStore) SetWithFlagsLocal(key, value string, flags uint64) {
 	}
 }
 
-// DeleteLocal removes a key without persisting the deletion.
-// This is used by Raft FSM when applying committed log entries.
-func (kv *KVStore) DeleteLocal(key string) {
+// SetCASLocal performs Compare-And-Swap without persistence.
+func (kv *KVStore) SetCASLocal(key, value string, expectedIndex uint64) (uint64, error) {
 	kv.Mutex.Lock()
-	oldEntry, existed := kv.Data[key]
-	delete(kv.Data, key)
-	kv.Mutex.Unlock()
+	defer kv.Mutex.Unlock()
 
-	// Notify watchers if key existed
-	if kv.watchManager != nil && existed {
+	oldEntry, existed := kv.Data[key]
+
+	// Check CAS condition
+	if expectedIndex == 0 {
+		if existed {
+			return 0, &CASConflictError{
+				Key:           key,
+				ExpectedIndex: 0,
+				CurrentIndex:  oldEntry.ModifyIndex,
+				OperationType: "key",
+			}
+		}
+	} else {
+		if !existed {
+			return 0, &NotFoundError{Type: "key", Key: key}
+		}
+		if oldEntry.ModifyIndex != expectedIndex {
+			return 0, &CASConflictError{
+				Key:           key,
+				ExpectedIndex: expectedIndex,
+				CurrentIndex:  oldEntry.ModifyIndex,
+				OperationType: "key",
+			}
+		}
+	}
+
+	newIndex := kv.nextIndex()
+	entry := KVEntry{
+		Value:       value,
+		ModifyIndex: newIndex,
+	}
+	if existed {
+		entry.CreateIndex = oldEntry.CreateIndex
+		entry.Flags = oldEntry.Flags
+	} else {
+		entry.CreateIndex = newIndex
+	}
+	kv.Data[key] = entry
+
+	// Notify watchers
+	if kv.watchManager != nil {
+		event := watch.WatchEvent{
+			Type:      watch.EventTypeSet,
+			Key:       key,
+			Value:     value,
+			Timestamp: time.Now().Unix(),
+		}
+		if existed {
+			event.OldValue = oldEntry.Value
+		}
+		kv.watchManager.Notify(event)
+	}
+
+	return newIndex, nil
+}
+
+// DeleteCASLocal performs Compare-And-Swap delete without persistence.
+func (kv *KVStore) DeleteCASLocal(key string, expectedIndex uint64) error {
+	kv.Mutex.Lock()
+	defer kv.Mutex.Unlock()
+
+	oldEntry, existed := kv.Data[key]
+	if !existed {
+		return &NotFoundError{Type: "key", Key: key}
+	}
+
+	if oldEntry.ModifyIndex != expectedIndex {
+		return &CASConflictError{
+			Key:           key,
+			ExpectedIndex: expectedIndex,
+			CurrentIndex:  oldEntry.ModifyIndex,
+			OperationType: "key",
+		}
+	}
+
+	delete(kv.Data, key)
+
+	// Notify watchers
+	if kv.watchManager != nil {
 		event := watch.WatchEvent{
 			Type:      watch.EventTypeDelete,
 			Key:       key,
@@ -800,6 +874,152 @@ func (kv *KVStore) DeleteLocal(key string) {
 		}
 		kv.watchManager.Notify(event)
 	}
+
+	return nil
+}
+
+// BatchSetCASLocal performs atomic batch set with CAS checks without persistence.
+func (kv *KVStore) BatchSetCASLocal(items map[string]string, expectedIndices map[string]uint64) (map[string]uint64, error) {
+	kv.Mutex.Lock()
+	defer kv.Mutex.Unlock()
+
+	// First pass: validate all CAS conditions
+	for key := range items {
+		expectedIndex := expectedIndices[key]
+		oldEntry, existed := kv.Data[key]
+
+		if expectedIndex == 0 {
+			if existed {
+				return nil, &CASConflictError{
+					Key:           key,
+					ExpectedIndex: 0,
+					CurrentIndex:  oldEntry.ModifyIndex,
+					OperationType: "key",
+				}
+			}
+		} else {
+			if !existed {
+				return nil, &NotFoundError{Type: "key", Key: key}
+			}
+			if oldEntry.ModifyIndex != expectedIndex {
+				return nil, &CASConflictError{
+					Key:           key,
+					ExpectedIndex: expectedIndex,
+					CurrentIndex:  oldEntry.ModifyIndex,
+					OperationType: "key",
+				}
+			}
+		}
+	}
+
+	// Second pass: apply all updates
+	oldEntries := make(map[string]KVEntry)
+	newIndices := make(map[string]uint64)
+
+	for key, value := range items {
+		oldEntry, existed := kv.Data[key]
+		if existed {
+			oldEntries[key] = oldEntry
+		}
+
+		newIndex := kv.nextIndex()
+		entry := KVEntry{
+			Value:       value,
+			ModifyIndex: newIndex,
+		}
+		if existed {
+			entry.CreateIndex = oldEntry.CreateIndex
+			entry.Flags = oldEntry.Flags
+		} else {
+			entry.CreateIndex = newIndex
+		}
+		kv.Data[key] = entry
+		newIndices[key] = newIndex
+	}
+
+	// Notify watchers
+	if kv.watchManager != nil {
+		timestamp := time.Now().Unix()
+		for key, value := range items {
+			event := watch.WatchEvent{
+				Type:      watch.EventTypeSet,
+				Key:       key,
+				Value:     value,
+				Timestamp: timestamp,
+			}
+			if oldEntry, existed := oldEntries[key]; existed {
+				event.OldValue = oldEntry.Value
+			}
+			kv.watchManager.Notify(event)
+		}
+	}
+
+	return newIndices, nil
+}
+
+// BatchDeleteCASLocal performs atomic batch delete with CAS checks without persistence.
+func (kv *KVStore) BatchDeleteCASLocal(keys []string, expectedIndices map[string]uint64) error {
+	kv.Mutex.Lock()
+	defer kv.Mutex.Unlock()
+
+	// First pass: validate all CAS conditions
+	for _, key := range keys {
+		expectedIndex := expectedIndices[key]
+		oldEntry, existed := kv.Data[key]
+
+		if !existed {
+			return &NotFoundError{Type: "key", Key: key}
+		}
+		if oldEntry.ModifyIndex != expectedIndex {
+			return &CASConflictError{
+				Key:           key,
+				ExpectedIndex: expectedIndex,
+				CurrentIndex:  oldEntry.ModifyIndex,
+				OperationType: "key",
+			}
+		}
+	}
+
+	// Second pass: delete all keys
+	oldEntries := make(map[string]KVEntry)
+	for _, key := range keys {
+		oldEntries[key] = kv.Data[key]
+		delete(kv.Data, key)
+	}
+
+	// Notify watchers
+	if kv.watchManager != nil {
+		timestamp := time.Now().Unix()
+		for key, oldEntry := range oldEntries {
+			event := watch.WatchEvent{
+				Type:      watch.EventTypeDelete,
+				Key:       key,
+				OldValue:  oldEntry.Value,
+				Timestamp: timestamp,
+			}
+			kv.watchManager.Notify(event)
+		}
+	}
+
+	return nil
+}
+
+// GetEntrySnapshot returns a snapshot of a KV entry.
+func (kv *KVStore) GetEntrySnapshot(key string) (KVEntrySnapshot, bool) {
+	kv.Mutex.RLock()
+	defer kv.Mutex.RUnlock()
+
+	entry, ok := kv.Data[key]
+	if !ok {
+		return KVEntrySnapshot{}, false
+	}
+
+	return KVEntrySnapshot{
+		Value:       entry.Value,
+		Flags:       entry.Flags,
+		ModifyIndex: entry.ModifyIndex,
+		CreateIndex: entry.CreateIndex,
+	}, true
 }
 
 // BatchSetLocal sets multiple key-value pairs without persisting.

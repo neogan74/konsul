@@ -54,18 +54,32 @@ func (f *KonsulFSM) Apply(log *raft.Log) interface{} {
 		applyErr = f.applyKVSet(cmd.Payload)
 	case CmdKVSetWithFlags:
 		applyErr = f.applyKVSetWithFlags(cmd.Payload)
+	case CmdKVSetCAS:
+		applyErr = f.applyKVSetCAS(cmd.Payload)
 	case CmdKVDelete:
 		applyErr = f.applyKVDelete(cmd.Payload)
+	case CmdKVDeleteCAS:
+		applyErr = f.applyKVDeleteCAS(cmd.Payload)
 	case CmdKVBatchSet:
 		applyErr = f.applyKVBatchSet(cmd.Payload)
+	case CmdKVBatchSetCAS:
+		applyErr = f.applyKVBatchSetCAS(cmd.Payload)
 	case CmdKVBatchDelete:
 		applyErr = f.applyKVBatchDelete(cmd.Payload)
+	case CmdKVBatchDeleteCAS:
+		applyErr = f.applyKVBatchDeleteCAS(cmd.Payload)
 	case CmdServiceRegister:
 		applyErr = f.applyServiceRegister(cmd.Payload)
+	case CmdServiceRegisterCAS:
+		applyErr = f.applyServiceRegisterCAS(cmd.Payload)
 	case CmdServiceDeregister:
 		applyErr = f.applyServiceDeregister(cmd.Payload)
+	case CmdServiceDeregisterCAS:
+		applyErr = f.applyServiceDeregisterCAS(cmd.Payload)
 	case CmdServiceHeartbeat:
 		applyErr = f.applyServiceHeartbeat(cmd.Payload)
+	case CmdHealthTTLUpdate:
+		applyErr = f.applyHealthTTLUpdate(cmd.Payload)
 	default:
 		applyErr = fmt.Errorf("unknown command type: %d", cmd.Type)
 	}
