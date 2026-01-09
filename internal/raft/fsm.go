@@ -152,6 +152,56 @@ func (f *KonsulFSM) applyKVBatchDelete(payload []byte) error {
 	return f.kvStore.BatchDeleteLocal(p.Keys)
 }
 
+func (f *KonsulFSM) applyKVSetCAS(payload []byte) error {
+	var p KVSetCASPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal KVSetCASPayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	_, err := f.kvStore.SetCASLocal(p.Key, p.Value, p.ExpectedIndex)
+	return err
+}
+
+func (f *KonsulFSM) applyKVDeleteCAS(payload []byte) error {
+	var p KVDeleteCASPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal KVDeleteCASPayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.kvStore.DeleteCASLocal(p.Key, p.ExpectedIndex)
+}
+
+func (f *KonsulFSM) applyKVBatchSetCAS(payload []byte) error {
+	var p KVBatchSetCASPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal KVBatchSetCASPayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	_, err := f.kvStore.BatchSetCASLocal(p.Items, p.ExpectedIndices)
+	return err
+}
+
+func (f *KonsulFSM) applyKVBatchDeleteCAS(payload []byte) error {
+	var p KVBatchDeleteCASPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal KVBatchDeleteCASPayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.kvStore.BatchDeleteCASLocal(p.Keys, p.ExpectedIndices)
+}
+
 // --- Service Apply Methods ---
 
 func (f *KonsulFSM) applyServiceRegister(payload []byte) error {
@@ -198,6 +248,51 @@ func (f *KonsulFSM) applyServiceHeartbeat(payload []byte) error {
 
 	f.serviceStore.HeartbeatLocal(p.Name)
 	return nil
+}
+
+func (f *KonsulFSM) applyServiceRegisterCAS(payload []byte) error {
+	var p ServiceRegisterCASPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal ServiceRegisterCASPayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	service := store.ServiceDataSnapshot{
+		Name:    p.Service.Name,
+		Address: p.Service.Address,
+		Port:    p.Service.Port,
+		Tags:    p.Service.Tags,
+		Meta:    p.Service.Meta,
+	}
+
+	_, err := f.serviceStore.RegisterCASLocal(service, p.ExpectedIndex)
+	return err
+}
+
+func (f *KonsulFSM) applyServiceDeregisterCAS(payload []byte) error {
+	var p ServiceDeregisterCASPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal ServiceDeregisterCASPayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.serviceStore.DeregisterCASLocal(p.Name, p.ExpectedIndex)
+}
+
+func (f *KonsulFSM) applyHealthTTLUpdate(payload []byte) error {
+	var p HealthTTLUpdatePayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal HealthTTLUpdatePayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.serviceStore.UpdateTTLCheck(p.CheckID)
 }
 
 // Snapshot implements raft.FSM.Snapshot.

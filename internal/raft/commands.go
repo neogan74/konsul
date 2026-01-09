@@ -48,6 +48,49 @@ const (
 	CmdHealthTTLUpdate
 )
 
+// String returns the string representation of the command type.
+func (c CommandType) String() string {
+	switch c {
+	case CmdKVSet:
+		return "kv_set"
+	case CmdKVSetWithFlags:
+		return "kv_set_flags"
+	case CmdKVSetCAS:
+		return "kv_set_cas"
+	case CmdKVDelete:
+		return "kv_delete"
+	case CmdKVDeleteCAS:
+		return "kv_delete_cas"
+	case CmdKVBatchSet:
+		return "kv_batch_set"
+	case CmdKVBatchSetCAS:
+		return "kv_batch_set_cas"
+	case CmdKVBatchDelete:
+		return "kv_batch_delete"
+	case CmdKVBatchDeleteCAS:
+		return "kv_batch_delete_cas"
+	case CmdServiceRegister:
+		return "service_register"
+	case CmdServiceRegisterCAS:
+		return "service_register_cas"
+	case CmdServiceDeregister:
+		return "service_deregister"
+	case CmdServiceDeregisterCAS:
+		return "service_deregister_cas"
+	case CmdServiceHeartbeat:
+		return "service_heartbeat"
+	case CmdHealthTTLUpdate:
+		return "health_ttl_update"
+	default:
+		return "unknown"
+	}
+}
+
+// CommandTypeName returns the string representation of the command type for compatibility.
+func CommandTypeName(c CommandType) string {
+	return c.String()
+}
+
 // Command represents a Raft log entry command.
 // Commands are serialized and replicated across the cluster.
 type Command struct {

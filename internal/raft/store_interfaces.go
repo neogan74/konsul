@@ -61,6 +61,9 @@ type ServiceStoreInterface interface {
 	// HeartbeatLocal updates service TTL (without persistence)
 	HeartbeatLocal(name string) bool
 
+	// UpdateTTLCheck updates a TTL-based health check (without persistence)
+	UpdateTTLCheck(checkID string) error
+
 	// GetEntrySnapshot returns a snapshot of the ServiceEntry with version information
 	GetEntrySnapshot(name string) (store.ServiceEntrySnapshot, bool)
 
