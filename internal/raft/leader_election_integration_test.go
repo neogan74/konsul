@@ -20,13 +20,13 @@ type clusterOptions struct {
 
 func (o clusterOptions) withDefaults() clusterOptions {
 	if o.heartbeat == 0 {
-		o.heartbeat = 200 * time.Millisecond
+		o.heartbeat = 250 * time.Millisecond
 	}
 	if o.election == 0 {
-		o.election = 300 * time.Millisecond
+		o.election = 500 * time.Millisecond
 	}
 	if o.leaderLease == 0 {
-		o.leaderLease = 100 * time.Millisecond
+		o.leaderLease = 200 * time.Millisecond
 	}
 	return o
 }
