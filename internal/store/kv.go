@@ -1071,6 +1071,26 @@ func (kv *KVStore) BatchSetLocal(items map[string]string) error {
 	return nil
 }
 
+// DeleteLocal removes a key without persisting.
+// This is used by Raft FSM when applying committed log entries.
+func (kv *KVStore) DeleteLocal(key string) {
+	kv.Mutex.Lock()
+	oldEntry, existed := kv.Data[key]
+	delete(kv.Data, key)
+	kv.Mutex.Unlock()
+
+	// Notify watchers if key existed
+	if kv.watchManager != nil && existed {
+		event := watch.WatchEvent{
+			Type:      watch.EventTypeDelete,
+			Key:       key,
+			OldValue:  oldEntry.Value,
+			Timestamp: time.Now().Unix(),
+		}
+		kv.watchManager.Notify(event)
+	}
+}
+
 // BatchDeleteLocal deletes multiple keys without persisting.
 // This is used by Raft FSM when applying committed log entries.
 func (kv *KVStore) BatchDeleteLocal(keys []string) error {
