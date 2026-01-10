@@ -12,7 +12,7 @@ type Time time.Time
 // MarshalGQL implements the graphql.Marshaler interface
 func (t Time) MarshalGQL(w io.Writer) {
 	timestamp := time.Time(t).Format(time.RFC3339)
-	io.WriteString(w, fmt.Sprintf(`"%s"`, timestamp))
+	_, _ = io.WriteString(w, fmt.Sprintf(`"%s"`, timestamp))
 }
 
 // UnmarshalGQL implements the graphql.Unmarshaler interface

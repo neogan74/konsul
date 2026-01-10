@@ -37,14 +37,14 @@ func NewKonsulClient(addr string, log logger.Logger) *KonsulClient {
 // KVStore returns the KV store interface
 func (c *KonsulClient) KVStore() template.KVStoreReader {
 	// Fetch initial data
-	c.refreshKV()
+	_ = c.refreshKV()
 	return c.kvCache
 }
 
 // ServiceStore returns the service store interface
 func (c *KonsulClient) ServiceStore() template.ServiceStoreReader {
 	// Fetch initial data
-	c.refreshServices()
+	_ = c.refreshServices()
 	return c.svcCache
 }
 

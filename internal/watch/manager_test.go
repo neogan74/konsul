@@ -256,7 +256,9 @@ func TestManager_Notify_ACLFiltering(t *testing.T) {
 			},
 		},
 	}
-	evaluator.AddPolicy(policy)
+	if err := evaluator.AddPolicy(policy); err != nil {
+		t.Fatalf("Failed to add policy: %v", err)
+	}
 
 	manager := NewManager(evaluator, log, 10, 0)
 
@@ -390,9 +392,15 @@ func TestManager_GetWatcherCountByTransport(t *testing.T) {
 	log := logger.GetDefault()
 	manager := NewManager(nil, log, 10, 0)
 
-	manager.AddWatcher("app/config", []string{}, TransportWebSocket, "user1")
-	manager.AddWatcher("app/data", []string{}, TransportWebSocket, "user2")
-	manager.AddWatcher("app/cache", []string{}, TransportSSE, "user3")
+	if _, err := manager.AddWatcher("app/config", []string{}, TransportWebSocket, "user1"); err != nil {
+		t.Fatalf("Failed to add watcher 1: %v", err)
+	}
+	if _, err := manager.AddWatcher("app/data", []string{}, TransportWebSocket, "user2"); err != nil {
+		t.Fatalf("Failed to add watcher 2: %v", err)
+	}
+	if _, err := manager.AddWatcher("app/cache", []string{}, TransportSSE, "user3"); err != nil {
+		t.Fatalf("Failed to add watcher 3: %v", err)
+	}
 
 	wsCount := manager.GetWatcherCountByTransport(TransportWebSocket)
 	if wsCount != 2 {
@@ -409,9 +417,15 @@ func TestManager_GetWatchersByUser(t *testing.T) {
 	log := logger.GetDefault()
 	manager := NewManager(nil, log, 10, 0)
 
-	manager.AddWatcher("app/config", []string{}, TransportWebSocket, "user1")
-	manager.AddWatcher("app/data", []string{}, TransportWebSocket, "user1")
-	manager.AddWatcher("app/cache", []string{}, TransportSSE, "user2")
+	if _, err := manager.AddWatcher("app/config", []string{}, TransportWebSocket, "user1"); err != nil {
+		t.Fatalf("Failed to add watcher 1: %v", err)
+	}
+	if _, err := manager.AddWatcher("app/data", []string{}, TransportWebSocket, "user1"); err != nil {
+		t.Fatalf("Failed to add watcher 2: %v", err)
+	}
+	if _, err := manager.AddWatcher("app/cache", []string{}, TransportSSE, "user2"); err != nil {
+		t.Fatalf("Failed to add watcher 3: %v", err)
+	}
 
 	user1Count := manager.GetWatchersByUser("user1")
 	if user1Count != 2 {
