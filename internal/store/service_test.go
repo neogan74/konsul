@@ -12,7 +12,9 @@ import (
 func TestServiceStore_RegisterAndGet(t *testing.T) {
 	s := NewServiceStore()
 	service := Service{Name: "auth", Address: "10.0.0.1", Port: 8080}
-	s.Register(service)
+	if err := s.Register(service); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
 	got, ok := s.Get("auth")
 	if !ok {
 		t.Fatalf("expected service to be registered")
@@ -40,7 +42,9 @@ func TestServiceStore_List(t *testing.T) {
 func TestServiceStore_Deregister(t *testing.T) {
 	s := NewServiceStore()
 	service := Service{Name: "auth", Address: "10.0.0.1", Port: 8080}
-	s.Register(service)
+	if err := s.Register(service); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
 	s.Deregister("auth")
 	_, ok := s.Get("auth")
 	if ok {
@@ -58,7 +62,9 @@ func TestServiceStore_Heartbeat(t *testing.T) {
 	}
 
 	// Register service and test successful heartbeat
-	s.Register(service)
+	if err := s.Register(service); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
 	if !s.Heartbeat("auth") {
 		t.Errorf("expected heartbeat to succeed for registered service")
 	}
@@ -78,7 +84,9 @@ func TestServiceStore_TTLExpiration(t *testing.T) {
 	service := Service{Name: "auth", Address: "10.0.0.1", Port: 8080}
 
 	// Register service
-	s.Register(service)
+	if err := s.Register(service); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
 
 	// Service should be available immediately
 	_, ok := s.Get("auth")
@@ -112,8 +120,12 @@ func TestServiceStore_CleanupExpired(t *testing.T) {
 	service2 := Service{Name: "db", Address: "10.0.0.2", Port: 5432}
 
 	// Register both services
-	s.Register(service1)
-	s.Register(service2)
+	if err := s.Register(service1); err != nil {
+		t.Fatalf("Register service1 failed: %v", err)
+	}
+	if err := s.Register(service2); err != nil {
+		t.Fatalf("Register service2 failed: %v", err)
+	}
 
 	// Manually expire one service
 	s.Mutex.Lock()
@@ -149,7 +161,9 @@ func TestServiceStore_HeartbeatExtendsExpiration(t *testing.T) {
 	service := Service{Name: "auth", Address: "10.0.0.1", Port: 8080}
 
 	// Register service
-	s.Register(service)
+	if err := s.Register(service); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
 
 	// Get initial expiration time
 	s.Mutex.RLock()
@@ -181,7 +195,9 @@ func TestServiceStore_NewServiceStoreWithTTL(t *testing.T) {
 
 	// Register service and verify TTL is used
 	service := Service{Name: "auth", Address: "10.0.0.1", Port: 8080}
-	s.Register(service)
+	if err := s.Register(service); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
 
 	s.Mutex.RLock()
 	entry := s.Data["auth"]
@@ -200,8 +216,12 @@ func TestServiceStore_ListAll(t *testing.T) {
 	service1 := Service{Name: "auth", Address: "10.0.0.1", Port: 8080}
 	service2 := Service{Name: "db", Address: "10.0.0.2", Port: 5432}
 
-	s.Register(service1)
-	s.Register(service2)
+	if err := s.Register(service1); err != nil {
+		t.Fatalf("Register service1 failed: %v", err)
+	}
+	if err := s.Register(service2); err != nil {
+		t.Fatalf("Register service2 failed: %v", err)
+	}
 
 	// Manually expire one service
 	s.Mutex.Lock()
@@ -236,7 +256,9 @@ func TestServiceStore_GetExpired(t *testing.T) {
 	s := NewServiceStore()
 	service := Service{Name: "auth", Address: "10.0.0.1", Port: 8080}
 
-	s.Register(service)
+	if err := s.Register(service); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
 
 	// Manually expire the service
 	s.Mutex.Lock()
@@ -260,7 +282,9 @@ func TestServiceStore_DeregisterNonExistent(t *testing.T) {
 
 	// Store should still work
 	service := Service{Name: "test", Address: "10.0.0.1", Port: 8080}
-	s.Register(service)
+	if err := s.Register(service); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
 	got, ok := s.Get("test")
 	if !ok || got.Name != "test" {
 		t.Error("store should still work after deregistering non-existent service")
@@ -279,7 +303,9 @@ func TestServiceStore_CleanupExpiredMultiple(t *testing.T) {
 	}
 
 	for _, svc := range services {
-		s.Register(svc)
+		if err := s.Register(svc); err != nil {
+			t.Fatalf("Register failed: %v", err)
+		}
 	}
 
 	// Expire half of them
@@ -316,8 +342,12 @@ func TestServiceStore_CleanupExpiredNone(t *testing.T) {
 	s := NewServiceStore()
 
 	// Register services
-	s.Register(Service{Name: "service1", Address: "10.0.0.1", Port: 8081})
-	s.Register(Service{Name: "service2", Address: "10.0.0.2", Port: 8082})
+	if err := s.Register(Service{Name: "service1", Address: "10.0.0.1", Port: 8081}); err != nil {
+		t.Fatalf("Register service1 failed: %v", err)
+	}
+	if err := s.Register(Service{Name: "service2", Address: "10.0.0.2", Port: 8082}); err != nil {
+		t.Fatalf("Register service2 failed: %v", err)
+	}
 
 	// None expired
 	count := s.CleanupExpired()
@@ -358,7 +388,7 @@ func TestServiceStore_ConcurrentRegister(t *testing.T) {
 				Address: fmt.Sprintf("10.0.0.%d", id%255),
 				Port:    8000 + id,
 			}
-			s.Register(service)
+			_ = s.Register(service)
 		}(i)
 	}
 	wg.Wait()
@@ -381,7 +411,9 @@ func TestServiceStore_ConcurrentHeartbeat(t *testing.T) {
 			Address: fmt.Sprintf("10.0.0.%d", i%255),
 			Port:    8000 + i,
 		}
-		s.Register(service)
+		if err := s.Register(service); err != nil {
+			t.Fatalf("Register failed: %v", err)
+		}
 	}
 
 	var wg sync.WaitGroup
@@ -429,7 +461,7 @@ func TestServiceStore_ConcurrentMixedOperations(t *testing.T) {
 			}
 
 			// Register
-			s.Register(service)
+			_ = s.Register(service)
 
 			// Get
 			got, ok := s.Get(name)
@@ -466,11 +498,15 @@ func TestServiceStore_RegisterOverwrite(t *testing.T) {
 
 	// Register service
 	service1 := Service{Name: "auth", Address: "10.0.0.1", Port: 8080}
-	s.Register(service1)
+	if err := s.Register(service1); err != nil {
+		t.Fatalf("Register service1 failed: %v", err)
+	}
 
 	// Register again with different address
 	service2 := Service{Name: "auth", Address: "10.0.0.2", Port: 9090}
-	s.Register(service2)
+	if err := s.Register(service2); err != nil {
+		t.Fatalf("Register service2 failed: %v", err)
+	}
 
 	// Should get the updated service
 	got, ok := s.Get("auth")
@@ -501,7 +537,9 @@ func TestServiceStore_MultipleDeregister(t *testing.T) {
 	s := NewServiceStore()
 	service := Service{Name: "auth", Address: "10.0.0.1", Port: 8080}
 
-	s.Register(service)
+	if err := s.Register(service); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
 
 	// Deregister multiple times should not error
 	s.Deregister("auth")
@@ -534,7 +572,9 @@ func TestServiceStore_RegisterWithHealthChecks(t *testing.T) {
 		},
 	}
 
-	s.Register(service)
+	if err := s.Register(service); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
 
 	// Verify service is registered
 	got, ok := s.Get("web")
@@ -575,7 +615,9 @@ func TestServiceStore_GetHealthChecks(t *testing.T) {
 		},
 	}
 
-	s.Register(service)
+	if err := s.Register(service); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
 
 	// Get health checks for the service
 	checks := s.GetHealthChecks("api")
@@ -631,8 +673,12 @@ func TestServiceStore_GetAllHealthChecks(t *testing.T) {
 		},
 	}
 
-	s.Register(service1)
-	s.Register(service2)
+	if err := s.Register(service1); err != nil {
+		t.Fatalf("Register service1 failed: %v", err)
+	}
+	if err := s.Register(service2); err != nil {
+		t.Fatalf("Register service2 failed: %v", err)
+	}
 
 	// Get all health checks
 	allChecks := s.GetAllHealthChecks()
@@ -659,7 +705,9 @@ func TestServiceStore_UpdateTTLCheck(t *testing.T) {
 		},
 	}
 
-	s.Register(service)
+	if err := s.Register(service); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
 
 	// Update the TTL check
 	err := s.UpdateTTLCheck("worker-ttl")
@@ -707,7 +755,9 @@ func TestServiceStore_HealthCheckDefaultName(t *testing.T) {
 		},
 	}
 
-	s.Register(service)
+	if err := s.Register(service); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
 
 	// Health check should have default name
 	checks := s.GetHealthChecks("api")
@@ -738,7 +788,9 @@ func TestServiceStore_HealthCheckServiceID(t *testing.T) {
 		},
 	}
 
-	s.Register(service)
+	if err := s.Register(service); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
 
 	// Health check should have service ID set
 	checks := s.GetHealthChecks("backend")

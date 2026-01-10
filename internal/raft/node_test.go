@@ -76,6 +76,22 @@ func (m *MockKVStore) BatchDeleteLocal(keys []string) error {
 	return nil
 }
 
+func (m *MockKVStore) SetCASLocal(key, value string, expectedIndex uint64) (uint64, error) {
+	return 0, nil
+}
+
+func (m *MockKVStore) DeleteCASLocal(key string, expectedIndex uint64) error {
+	return nil
+}
+
+func (m *MockKVStore) BatchSetCASLocal(items map[string]string, expectedIndices map[string]uint64) (map[string]uint64, error) {
+	return nil, nil
+}
+
+func (m *MockKVStore) BatchDeleteCASLocal(keys []string, expectedIndices map[string]uint64) error {
+	return nil
+}
+
 func (m *MockKVStore) GetAllData() map[string]store.KVEntrySnapshot {
 	result := make(map[string]store.KVEntrySnapshot, len(m.data))
 	for k, v := range m.data {
@@ -90,6 +106,11 @@ func (m *MockKVStore) RestoreFromSnapshot(data map[string]store.KVEntrySnapshot)
 		m.data[k] = v.Value
 	}
 	return nil
+}
+
+func (m *MockKVStore) GetEntrySnapshot(key string) (store.KVEntrySnapshot, bool) {
+	val, ok := m.data[key]
+	return store.KVEntrySnapshot{Value: val}, ok
 }
 
 // MockServiceStore is a simple in-memory implementation for testing
@@ -137,6 +158,22 @@ func (m *MockServiceStore) DeregisterLocal(name string) {
 
 func (m *MockServiceStore) HeartbeatLocal(name string) bool {
 	return true
+}
+
+func (m *MockServiceStore) RegisterCASLocal(service store.ServiceDataSnapshot, expectedIndex uint64) (uint64, error) {
+	return 0, nil
+}
+
+func (m *MockServiceStore) DeregisterCASLocal(name string, expectedIndex uint64) error {
+	return nil
+}
+
+func (m *MockServiceStore) UpdateTTLCheck(checkID string) error {
+	return nil
+}
+
+func (m *MockServiceStore) GetEntrySnapshot(name string) (store.ServiceEntrySnapshot, bool) {
+	return store.ServiceEntrySnapshot{}, false
 }
 
 func (m *MockServiceStore) GetAllData() map[string]store.ServiceEntrySnapshot {

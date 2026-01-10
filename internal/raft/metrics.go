@@ -262,27 +262,3 @@ func (m *Metrics) ObserveCommitLatency(seconds float64) {
 func (m *Metrics) ObserveSnapshotLatency(seconds float64) {
 	m.snapshotLatency.Observe(seconds)
 }
-
-// CommandTypeName returns a human-readable name for a command type.
-func CommandTypeName(cmdType CommandType) string {
-	switch cmdType {
-	case CmdKVSet:
-		return "kv_set"
-	case CmdKVSetWithFlags:
-		return "kv_set_flags"
-	case CmdKVDelete:
-		return "kv_delete"
-	case CmdKVBatchSet:
-		return "kv_batch_set"
-	case CmdKVBatchDelete:
-		return "kv_batch_delete"
-	case CmdServiceRegister:
-		return "service_register"
-	case CmdServiceDeregister:
-		return "service_deregister"
-	case CmdServiceHeartbeat:
-		return "service_heartbeat"
-	default:
-		return "unknown"
-	}
-}

@@ -155,9 +155,15 @@ func TestManager_ListChecks(t *testing.T) {
 	def2 := &CheckDefinition{Name: "check2", TCP: "localhost:8082"}
 	def3 := &CheckDefinition{Name: "check3", TTL: "60s"}
 
-	manager.AddCheck(def1)
-	manager.AddCheck(def2)
-	manager.AddCheck(def3)
+	if _, err := manager.AddCheck(def1); err != nil {
+		t.Fatalf("AddCheck def1 failed: %v", err)
+	}
+	if _, err := manager.AddCheck(def2); err != nil {
+		t.Fatalf("AddCheck def2 failed: %v", err)
+	}
+	if _, err := manager.AddCheck(def3); err != nil {
+		t.Fatalf("AddCheck def3 failed: %v", err)
+	}
 
 	checks := manager.ListChecks()
 	if len(checks) != 3 {
@@ -412,7 +418,9 @@ func TestManager_TTLCheckExpiration(t *testing.T) {
 	manager.AddCheck(def)
 
 	// Update to make it passing
-	manager.UpdateTTLCheck("ttl-check")
+	if err := manager.UpdateTTLCheck("ttl-check"); err != nil {
+		t.Fatalf("UpdateTTLCheck failed: %v", err)
+	}
 
 	// Get immediately - should be passing
 	check, _ := manager.GetCheck("ttl-check")
@@ -505,7 +513,9 @@ func TestManager_CheckTypePrecedence(t *testing.T) {
 			}
 
 			// Clean up
-			manager.RemoveCheck(check.ID)
+			if err := manager.RemoveCheck(check.ID); err != nil {
+				t.Fatalf("RemoveCheck failed: %v", err)
+			}
 		})
 	}
 }

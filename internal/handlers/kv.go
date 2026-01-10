@@ -142,16 +142,16 @@ func (h *KVHandler) Set(c *fiber.Ctx) error {
 		var newIndex uint64
 		var err error
 		if h.raftNode != nil {
-			entry, marshalErr := konsulraft.NewLogEntry(konsulraft.EntryKVSetCAS, konsulraft.KVSetCASPayload{
+			cmd, marshalErr := konsulraft.NewCommand(konsulraft.CmdKVSetCAS, konsulraft.KVSetCASPayload{
 				Key:           key,
 				Value:         body.Value,
 				ExpectedIndex: *body.CAS,
 			})
 			if marshalErr != nil {
-				log.Error("Failed to build raft log entry", logger.Error(marshalErr))
+				log.Error("Failed to build raft command", logger.Error(marshalErr))
 				return middleware.InternalError(c, "Failed to set key")
 			}
-			resp, applyErr := h.raftNode.ApplyEntry(entry, 5*time.Second)
+			resp, applyErr := h.raftNode.ApplyEntry(cmd, 5*time.Second)
 			if applyErr != nil {
 				if errors.Is(applyErr, hashiraft.ErrNotLeader) {
 					return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
@@ -254,15 +254,15 @@ func (h *KVHandler) Delete(c *fiber.Ctx) error {
 
 		var err error
 		if h.raftNode != nil {
-			entry, marshalErr := konsulraft.NewLogEntry(konsulraft.EntryKVDeleteCAS, konsulraft.KVDeleteCASPayload{
+			cmd, marshalErr := konsulraft.NewCommand(konsulraft.CmdKVDeleteCAS, konsulraft.KVDeleteCASPayload{
 				Key:           key,
 				ExpectedIndex: expectedIndex,
 			})
 			if marshalErr != nil {
-				log.Error("Failed to build raft log entry", logger.Error(marshalErr))
+				log.Error("Failed to build raft command", logger.Error(marshalErr))
 				return middleware.InternalError(c, "Failed to delete key")
 			}
-			if _, applyErr := h.raftNode.ApplyEntry(entry, 5*time.Second); applyErr != nil {
+			if _, applyErr := h.raftNode.ApplyEntry(cmd, 5*time.Second); applyErr != nil {
 				if errors.Is(applyErr, hashiraft.ErrNotLeader) {
 					return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
 						"error":  "not leader",

@@ -58,14 +58,14 @@ func (h *HealthCheckHandler) UpdateTTLCheck(c *fiber.Ctx) error {
 
 	var err error
 	if h.raftNode != nil {
-		entry, marshalErr := konsulraft.NewLogEntry(konsulraft.EntryHealthTTLUpdate, konsulraft.HealthTTLUpdatePayload{
+		cmd, marshalErr := konsulraft.NewCommand(konsulraft.CmdHealthTTLUpdate, konsulraft.HealthTTLUpdatePayload{
 			CheckID: checkID,
 		})
 		if marshalErr != nil {
 			log.Error("Failed to build raft log entry", logger.Error(marshalErr))
 			return middleware.InternalError(c, "Failed to update TTL check")
 		}
-		if _, applyErr := h.raftNode.ApplyEntry(entry, 5*time.Second); applyErr != nil {
+		if _, applyErr := h.raftNode.ApplyEntry(cmd, 5*time.Second); applyErr != nil {
 			if errors.Is(applyErr, hashiraft.ErrNotLeader) {
 				return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
 					"error":  "not leader",
