@@ -21,21 +21,21 @@ func setupLoadBalancerHandler() (*LoadBalancerHandler, *fiber.App) {
 		Name:    "test-service",
 		Address: "10.0.1.1",
 		Port:    8080,
-		Tags:    []string{"web", "api"},
+		Tags:    []string{"test-service", "web", "api"},
 		Meta:    map[string]string{"env": "test", "version": "1.0"},
 	})
 	serviceStore.Register(store.Service{
 		Name:    "test-service",
 		Address: "10.0.1.2",
 		Port:    8080,
-		Tags:    []string{"web", "api"},
+		Tags:    []string{"test-service", "web", "api"},
 		Meta:    map[string]string{"env": "test", "version": "1.0"},
 	})
 	serviceStore.Register(store.Service{
 		Name:    "db-service",
 		Address: "10.0.2.1",
 		Port:    5432,
-		Tags:    []string{"database", "postgres"},
+		Tags:    []string{"db-service", "database", "postgres"},
 		Meta:    map[string]string{"env": "prod", "version": "14"},
 	})
 
