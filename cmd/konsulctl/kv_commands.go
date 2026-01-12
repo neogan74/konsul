@@ -280,7 +280,9 @@ func (k *KVCommands) watchWebSocket(config *ClientConfig, pattern string) {
 
 	conn, _, err := dialer.Dial(wsURL, headers)
 	k.cli.HandleError(err, "connecting to WebSocket")
-	defer conn.Close()
+	defer func() {
+		_ = conn.Close()
+	}()
 
 	// Read events
 	for {
@@ -334,7 +336,9 @@ func (k *KVCommands) watchSSE(config *ClientConfig, pattern string) {
 	client := k.newWatchHTTPClient(config)
 	resp, err := client.Do(req)
 	k.cli.HandleError(err, "connecting to SSE endpoint")
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))

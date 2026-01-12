@@ -56,7 +56,9 @@ func (c *KonsulClient) refreshKV() error {
 		c.log.Warn("Failed to fetch KV data", logger.Error(err))
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		c.log.Warn("KV endpoint returned non-200 status",
@@ -86,7 +88,9 @@ func (c *KonsulClient) refreshServices() error {
 		c.log.Warn("Failed to fetch service data", logger.Error(err))
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		c.log.Warn("Services endpoint returned non-200 status",

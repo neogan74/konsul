@@ -34,7 +34,9 @@ func TestAuditMiddleware_DisabledManager(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 200 {
 		t.Errorf("expected status 200, got %d", resp.StatusCode)
@@ -81,7 +83,9 @@ func TestAuditMiddleware_RecordsEvent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	// Give time for async flush
 	time.Sleep(50 * time.Millisecond)

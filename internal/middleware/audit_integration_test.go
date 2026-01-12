@@ -111,7 +111,9 @@ func TestAuditIntegration_KVOperations(t *testing.T) {
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
 			}
-			defer resp.Body.Close()
+			defer func() {
+		_ = resp.Body.Close()
+	}()
 
 			if resp.StatusCode != tt.expectedStatus {
 				t.Errorf("expected status %d, got %d", tt.expectedStatus, resp.StatusCode)
@@ -240,7 +242,9 @@ func TestAuditIntegration_ServiceOperations(t *testing.T) {
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
 			}
-			defer resp.Body.Close()
+			defer func() {
+		_ = resp.Body.Close()
+	}()
 
 			if resp.StatusCode != tt.expectedStatus {
 				t.Errorf("expected status %d, got %d", tt.expectedStatus, resp.StatusCode)
@@ -341,7 +345,9 @@ func TestAuditIntegration_ACLOperations(t *testing.T) {
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
 			}
-			defer resp.Body.Close()
+			defer func() {
+		_ = resp.Body.Close()
+	}()
 		})
 	}
 
@@ -437,7 +443,9 @@ func TestAuditIntegration_BackupOperations(t *testing.T) {
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
 			}
-			defer resp.Body.Close()
+			defer func() {
+		_ = resp.Body.Close()
+	}()
 		})
 	}
 
@@ -494,7 +502,9 @@ func TestAuditIntegration_DisabledManager(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 200 {
 		t.Errorf("expected status 200, got %d", resp.StatusCode)
@@ -557,7 +567,9 @@ func TestAuditIntegration_EventFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	// Flush and shutdown
 	time.Sleep(50 * time.Millisecond)

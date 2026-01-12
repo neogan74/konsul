@@ -40,7 +40,9 @@ func TestBatchKVGet_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 200 {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -82,7 +84,9 @@ func TestBatchKVGet_EmptyKeys(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 400 {
 		t.Errorf("Expected status 400, got %d", resp.StatusCode)
@@ -109,7 +113,9 @@ func TestBatchKVSet_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 200 {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -154,7 +160,9 @@ func TestBatchKVSet_EmptyItems(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 400 {
 		t.Errorf("Expected status 400, got %d", resp.StatusCode)
@@ -183,7 +191,9 @@ func TestBatchKVDelete_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 200 {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -232,7 +242,9 @@ func TestBatchKVDelete_EmptyKeys(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 400 {
 		t.Errorf("Expected status 400, got %d", resp.StatusCode)
@@ -268,7 +280,9 @@ func TestBatchServiceRegister_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 200 {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -341,7 +355,9 @@ func TestBatchServiceRegister_WithFailures(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 200 {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -380,7 +396,9 @@ func TestBatchServiceRegister_EmptyServices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 400 {
 		t.Errorf("Expected status 400, got %d", resp.StatusCode)
@@ -409,7 +427,9 @@ func TestBatchServiceDeregister_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 200 {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -458,7 +478,9 @@ func TestBatchServiceDeregister_EmptyNames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 400 {
 		t.Errorf("Expected status 400, got %d", resp.StatusCode)
@@ -486,7 +508,9 @@ func TestBatchServiceGet_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 200 {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -528,7 +552,9 @@ func TestBatchServiceGet_EmptyNames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 400 {
 		t.Errorf("Expected status 400, got %d", resp.StatusCode)
@@ -546,7 +572,9 @@ func TestBatchKVGet_InvalidJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 400 {
 		t.Errorf("Expected status 400, got %d", resp.StatusCode)
@@ -579,7 +607,9 @@ func TestBatchKVSetCAS_CreateOnly_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 200 {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -645,7 +675,9 @@ func TestBatchKVSetCAS_ConditionalUpdate_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 200 {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -694,7 +726,9 @@ func TestBatchKVSetCAS_Conflict(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 409 {
 		t.Errorf("Expected status 409 (conflict), got %d", resp.StatusCode)
@@ -736,7 +770,9 @@ func TestBatchKVSetCAS_MissingIndices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 400 {
 		t.Errorf("Expected status 400, got %d", resp.StatusCode)
@@ -776,7 +812,9 @@ func TestBatchKVDeleteCAS_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 200 {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -842,7 +880,9 @@ func TestBatchKVDeleteCAS_Conflict(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 409 {
 		t.Errorf("Expected status 409 (conflict), got %d", resp.StatusCode)
@@ -886,7 +926,9 @@ func TestBatchKVDeleteCAS_MissingIndices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 400 {
 		t.Errorf("Expected status 400, got %d", resp.StatusCode)

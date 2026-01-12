@@ -65,7 +65,9 @@ func TestACLHandler_CreatePolicy(t *testing.T) {
 	}
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if result["message"] != "policy created" {
 		t.Errorf("unexpected response: %+v", result)
 	}
@@ -152,7 +154,7 @@ func TestACLHandler_GetPolicy(t *testing.T) {
 		Name:        "test-policy",
 		Description: "Test policy",
 	}
-	handler.evaluator.AddPolicy(policy)
+	_ = handler.evaluator.AddPolicy(policy)
 
 	// Get the policy
 	req := httptest.NewRequest(http.MethodGet, "/acl/policies/test-policy", nil)
@@ -166,7 +168,9 @@ func TestACLHandler_GetPolicy(t *testing.T) {
 	}
 
 	var result acl.Policy
-	_ = json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if result.Name != "test-policy" {
 		t.Errorf("expected policy name 'test-policy', got '%s'", result.Name)
 	}
@@ -206,7 +210,9 @@ func TestACLHandler_ListPolicies(t *testing.T) {
 	}
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 
 	count := int(result["count"].(float64))
 	if count != 2 {
@@ -233,7 +239,9 @@ func TestACLHandler_ListPolicies_Empty(t *testing.T) {
 	}
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 
 	count := int(result["count"].(float64))
 	if count != 0 {
@@ -271,7 +279,9 @@ func TestACLHandler_UpdatePolicy(t *testing.T) {
 	}
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if result["message"] != "policy updated" {
 		t.Errorf("unexpected response: %+v", result)
 	}
@@ -419,7 +429,9 @@ func TestACLHandler_TestPolicy_KV(t *testing.T) {
 	}
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 
 	if !result["allowed"].(bool) {
 		t.Error("expected access to be allowed")
@@ -463,7 +475,9 @@ func TestACLHandler_TestPolicy_Denied(t *testing.T) {
 	}
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 
 	if result["allowed"].(bool) {
 		t.Error("expected access to be denied")
@@ -557,7 +571,9 @@ func TestACLHandler_TestPolicy_AllResourceTypes(t *testing.T) {
 			}
 
 			var result map[string]interface{}
-			json.NewDecoder(resp.Body).Decode(&result)
+			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 
 			if result["allowed"].(bool) != tt.shouldAllow {
 				t.Errorf("expected allowed=%v, got %v", tt.shouldAllow, result["allowed"])

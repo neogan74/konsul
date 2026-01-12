@@ -99,7 +99,9 @@ func TestExtractResourceFromPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 }
 
 func TestHashRequestBody(t *testing.T) {
@@ -166,5 +168,7 @@ func TestBuildEvent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 }

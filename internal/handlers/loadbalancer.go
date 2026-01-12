@@ -225,7 +225,7 @@ func (h *LoadBalancerHandler) SelectServiceByQuery(c *fiber.Ctx) error {
 		logger.Int("port", svc.Port))
 
 	return c.JSON(fiber.Map{
-		"service": svc,
+		"service":  svc,
 		"strategy": h.balancer.GetStrategy(),
 		"query": fiber.Map{
 			"tags":     tagList,

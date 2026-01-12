@@ -11,12 +11,12 @@ import (
 )
 
 type Manager struct {
-	checks   map[string]*Check
-	mutex    sync.RWMutex
-	log      logger.Logger
-	ctx      context.Context
-	cancel   context.CancelFunc
-	stopCh   chan struct{}
+	checks map[string]*Check
+	mutex  sync.RWMutex
+	log    logger.Logger
+	ctx    context.Context
+	cancel context.CancelFunc
+	stopCh chan struct{}
 
 	httpChecker *HTTPChecker
 	tcpChecker  *TCPChecker

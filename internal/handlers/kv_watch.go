@@ -269,7 +269,10 @@ func (h *KVWatchHandler) WatchSSE(c *fiber.Ctx) error {
 
 			case <-keepAliveTicker.C:
 				// Send keep-alive comment
-				fmt.Fprintf(w, ": keep-alive\n\n")
+				if _, err := fmt.Fprintf(w, ": keep-alive\n\n"); err != nil {
+					h.log.Debug("Failed to write keep-alive", logger.Error(err))
+					return
+				}
 				if err := w.Flush(); err != nil {
 					h.log.Debug("Failed to send keep-alive", logger.Error(err))
 					return
@@ -292,8 +295,12 @@ func sendSSEEvent(w *bufio.Writer, event watch.WatchEvent) error {
 		return err
 	}
 
-	fmt.Fprintf(w, "event: kv-change\n")
-	fmt.Fprintf(w, "data: %s\n\n", string(data))
+	if _, err := fmt.Fprintf(w, "event: kv-change\n"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "data: %s\n\n", string(data)); err != nil {
+		return err
+	}
 	return w.Flush()
 }
 

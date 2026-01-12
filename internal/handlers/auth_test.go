@@ -323,8 +323,9 @@ func TestAuthHandler_GetAPIKey_Success(t *testing.T) {
 
 	createResp, _ := app.Test(createReq)
 	var createResult CreateAPIKeyResponse
-	json.NewDecoder(createResp.Body).Decode(&createResult)
-
+	if err := json.NewDecoder(createResp.Body).Decode(&createResult); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	// Get the API key
 	req := httptest.NewRequest(http.MethodGet, "/auth/api-keys/"+createResult.APIKey.ID, nil)
 	resp, err := app.Test(req)
@@ -361,8 +362,9 @@ func TestAuthHandler_UpdateAPIKey_Success(t *testing.T) {
 
 	createResp, _ := app.Test(createReq)
 	var createResult CreateAPIKeyResponse
-	json.NewDecoder(createResp.Body).Decode(&createResult)
-
+	if err := json.NewDecoder(createResp.Body).Decode(&createResult); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	// Update the API key
 	updateBody := bytes.NewReader([]byte(`{"name": "updated-key-name", "permissions": ["admin"]}`))
 	req := httptest.NewRequest(http.MethodPut, "/auth/api-keys/"+createResult.APIKey.ID, updateBody)
@@ -405,8 +407,9 @@ func TestAuthHandler_RevokeAPIKey_Success(t *testing.T) {
 
 	createResp, _ := app.Test(createReq)
 	var createResult CreateAPIKeyResponse
-	json.NewDecoder(createResp.Body).Decode(&createResult)
-
+	if err := json.NewDecoder(createResp.Body).Decode(&createResult); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	// Revoke the API key
 	req := httptest.NewRequest(http.MethodPost, "/auth/api-keys/"+createResult.APIKey.ID+"/revoke", nil)
 	resp, err := app.Test(req)
@@ -443,8 +446,9 @@ func TestAuthHandler_DeleteAPIKey_Success(t *testing.T) {
 
 	createResp, _ := app.Test(createReq)
 	var createResult CreateAPIKeyResponse
-	json.NewDecoder(createResp.Body).Decode(&createResult)
-
+	if err := json.NewDecoder(createResp.Body).Decode(&createResult); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	// Delete the API key
 	req := httptest.NewRequest(http.MethodDelete, "/auth/api-keys/"+createResult.APIKey.ID, nil)
 	resp, err := app.Test(req)

@@ -42,7 +42,9 @@ func TestServiceHandler_Register(t *testing.T) {
 	}
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if result["message"] != "service registered" {
 		t.Errorf("unexpected response: %+v", result)
 	}
@@ -92,7 +94,9 @@ func TestServiceHandler_List(t *testing.T) {
 	}
 
 	var services []store.Service
-	json.NewDecoder(resp.Body).Decode(&services)
+	if err := json.NewDecoder(resp.Body).Decode(&services); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if len(services) != 2 {
 		t.Errorf("expected 2 services, got %d", len(services))
 	}
@@ -126,7 +130,9 @@ func TestServiceHandler_Get(t *testing.T) {
 	}
 
 	var result store.Service
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if result.Name != service.Name || result.Address != service.Address || result.Port != service.Port {
 		t.Errorf("expected %+v, got %+v", service, result)
 	}
@@ -150,7 +156,9 @@ func TestServiceHandler_Deregister(t *testing.T) {
 	}
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if result["message"] != "service deregistered" || result["name"] != "test-service" {
 		t.Errorf("unexpected response: %+v", result)
 	}
@@ -190,7 +198,9 @@ func TestServiceHandler_Heartbeat(t *testing.T) {
 	}
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if result["message"] != "heartbeat updated" || result["service"] != "test-service" {
 		t.Errorf("unexpected response: %+v", result)
 	}
