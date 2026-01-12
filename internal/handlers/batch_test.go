@@ -41,7 +41,9 @@ func TestBatchKVGet_Success(t *testing.T) {
 		t.Fatalf("Request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 
 	if resp.StatusCode != 200 {
@@ -85,7 +87,9 @@ func TestBatchKVGet_EmptyKeys(t *testing.T) {
 		t.Fatalf("Request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 
 	if resp.StatusCode != 400 {
@@ -114,7 +118,9 @@ func TestBatchKVSet_Success(t *testing.T) {
 		t.Fatalf("Request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 
 	if resp.StatusCode != 200 {
@@ -161,7 +167,9 @@ func TestBatchKVSet_EmptyItems(t *testing.T) {
 		t.Fatalf("Request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 
 	if resp.StatusCode != 400 {
@@ -192,7 +200,9 @@ func TestBatchKVDelete_Success(t *testing.T) {
 		t.Fatalf("Request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 
 	if resp.StatusCode != 200 {
@@ -243,7 +253,9 @@ func TestBatchKVDelete_EmptyKeys(t *testing.T) {
 		t.Fatalf("Request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 
 	if resp.StatusCode != 400 {
@@ -281,7 +293,9 @@ func TestBatchServiceRegister_Success(t *testing.T) {
 		t.Fatalf("Request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 
 	if resp.StatusCode != 200 {
@@ -356,7 +370,9 @@ func TestBatchServiceRegister_WithFailures(t *testing.T) {
 		t.Fatalf("Request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 
 	if resp.StatusCode != 200 {
@@ -397,7 +413,9 @@ func TestBatchServiceRegister_EmptyServices(t *testing.T) {
 		t.Fatalf("Request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 
 	if resp.StatusCode != 400 {
@@ -410,11 +428,18 @@ func TestBatchServiceDeregister_Success(t *testing.T) {
 	app.Post("/batch/services/deregister", handler.BatchServiceDeregister)
 
 	// Register some services first
-	_ = handler.serviceStore.Register(store.Service{Name: "svc1", Address: "127.0.0.1", Port: 8001})
-	_ = handler.serviceStore.Register(store.Service{Name: "svc2", Address: "127.0.0.2", Port: 8002})
-	_ = handler.serviceStore.Register(store.Service{Name: "svc3", Address: "127.0.0.3", Port: 8003})
-	_ = handler.serviceStore.Register(store.Service{Name: "keep", Address: "127.0.0.4", Port: 8004})
-
+	if err := handler.serviceStore.Register(store.Service{Name: "svc1", Address: "127.0.0.1", Port: 8001}); err != nil {
+		t.Fatalf("register service: %v", err)
+	}
+	if err := handler.serviceStore.Register(store.Service{Name: "svc2", Address: "127.0.0.2", Port: 8002}); err != nil {
+		t.Fatalf("register service: %v", err)
+	}
+	if err := handler.serviceStore.Register(store.Service{Name: "svc3", Address: "127.0.0.3", Port: 8003}); err != nil {
+		t.Fatalf("register service: %v", err)
+	}
+	if err := handler.serviceStore.Register(store.Service{Name: "keep", Address: "127.0.0.4", Port: 8004}); err != nil {
+		t.Fatalf("register service: %v", err)
+	}
 	reqBody := BatchServiceDeregisterRequest{
 		Names: []string{"svc1", "svc2", "svc3"},
 	}
@@ -428,7 +453,9 @@ func TestBatchServiceDeregister_Success(t *testing.T) {
 		t.Fatalf("Request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 
 	if resp.StatusCode != 200 {
@@ -479,7 +506,9 @@ func TestBatchServiceDeregister_EmptyNames(t *testing.T) {
 		t.Fatalf("Request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 
 	if resp.StatusCode != 400 {
@@ -492,10 +521,15 @@ func TestBatchServiceGet_Success(t *testing.T) {
 	app.Post("/batch/services/get", handler.BatchServiceGet)
 
 	// Register some services
-	handler.serviceStore.Register(store.Service{Name: "web", Address: "127.0.0.1", Port: 8001})
-	handler.serviceStore.Register(store.Service{Name: "api", Address: "127.0.0.2", Port: 8002})
-	handler.serviceStore.Register(store.Service{Name: "db", Address: "127.0.0.3", Port: 8003})
-
+	if err := handler.serviceStore.Register(store.Service{Name: "web", Address: "127.0.0.1", Port: 8001}); err != nil {
+		t.Fatalf("register service: %v", err)
+	}
+	if err := handler.serviceStore.Register(store.Service{Name: "api", Address: "127.0.0.2", Port: 8002}); err != nil {
+		t.Fatalf("register service: %v", err)
+	}
+	if err := handler.serviceStore.Register(store.Service{Name: "db", Address: "127.0.0.3", Port: 8003}); err != nil {
+		t.Fatalf("register service: %v", err)
+	}
 	reqBody := BatchServiceGetRequest{
 		Names: []string{"web", "api", "nonexistent"},
 	}
@@ -509,7 +543,9 @@ func TestBatchServiceGet_Success(t *testing.T) {
 		t.Fatalf("Request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 
 	if resp.StatusCode != 200 {
@@ -553,7 +589,9 @@ func TestBatchServiceGet_EmptyNames(t *testing.T) {
 		t.Fatalf("Request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 
 	if resp.StatusCode != 400 {
@@ -573,7 +611,9 @@ func TestBatchKVGet_InvalidJSON(t *testing.T) {
 		t.Fatalf("Request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 
 	if resp.StatusCode != 400 {
@@ -608,7 +648,9 @@ func TestBatchKVSetCAS_CreateOnly_Success(t *testing.T) {
 		t.Fatalf("Request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 
 	if resp.StatusCode != 200 {
@@ -676,7 +718,9 @@ func TestBatchKVSetCAS_ConditionalUpdate_Success(t *testing.T) {
 		t.Fatalf("Request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 
 	if resp.StatusCode != 200 {
@@ -727,7 +771,9 @@ func TestBatchKVSetCAS_Conflict(t *testing.T) {
 		t.Fatalf("Request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 
 	if resp.StatusCode != 409 {
@@ -771,7 +817,9 @@ func TestBatchKVSetCAS_MissingIndices(t *testing.T) {
 		t.Fatalf("Request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 
 	if resp.StatusCode != 400 {
@@ -813,7 +861,9 @@ func TestBatchKVDeleteCAS_Success(t *testing.T) {
 		t.Fatalf("Request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 
 	if resp.StatusCode != 200 {
@@ -881,7 +931,9 @@ func TestBatchKVDeleteCAS_Conflict(t *testing.T) {
 		t.Fatalf("Request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 
 	if resp.StatusCode != 409 {
@@ -927,7 +979,9 @@ func TestBatchKVDeleteCAS_MissingIndices(t *testing.T) {
 		t.Fatalf("Request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 
 	if resp.StatusCode != 400 {

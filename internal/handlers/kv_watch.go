@@ -101,7 +101,7 @@ func (h *KVWatchHandler) WatchWebSocket(c *websocket.Conn) {
 	// Send initial value if exact key match (not a wildcard)
 	if pattern != "*" && pattern != "**" && !containsWildcard(pattern) {
 		if value, ok := h.store.Get(pattern); ok {
-			initialEvent := watch.WatchEvent{
+			initialEvent := watch.Event{
 				Type:      watch.EventTypeSet,
 				Key:       pattern,
 				Value:     value,
@@ -233,7 +233,7 @@ func (h *KVWatchHandler) WatchSSE(c *fiber.Ctx) error {
 		// Send initial value if exact key match
 		if pattern != "*" && pattern != "**" && !containsWildcard(pattern) {
 			if value, ok := h.store.Get(pattern); ok {
-				initialEvent := watch.WatchEvent{
+				initialEvent := watch.Event{
 					Type:      watch.EventTypeSet,
 					Key:       pattern,
 					Value:     value,
@@ -289,7 +289,7 @@ func (h *KVWatchHandler) WatchSSE(c *fiber.Ctx) error {
 }
 
 // sendSSEEvent sends a watch event in SSE format
-func sendSSEEvent(w *bufio.Writer, event watch.WatchEvent) error {
+func sendSSEEvent(w *bufio.Writer, event watch.Event) error {
 	data, err := json.Marshal(event)
 	if err != nil {
 		return err

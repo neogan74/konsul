@@ -24,7 +24,7 @@ func NewRenderer(ctx *RenderContext) *Renderer {
 }
 
 // Render renders a template with the given configuration
-func (r *Renderer) Render(config TemplateConfig) (*RenderResult, error) {
+func (r *Renderer) Render(config Config) (*RenderResult, error) {
 	start := time.Now()
 	result := &RenderResult{
 		Template: config,
@@ -88,7 +88,7 @@ func (r *Renderer) Render(config TemplateConfig) (*RenderResult, error) {
 }
 
 // writeFile writes the rendered content to the destination file
-func (r *Renderer) writeFile(config TemplateConfig) error {
+func (r *Renderer) writeFile(config Config) error {
 	// Ensure destination directory exists
 	destDir := filepath.Dir(config.Destination)
 	if err := os.MkdirAll(destDir, 0755); err != nil {
@@ -127,7 +127,7 @@ func (r *Renderer) writeFile(config TemplateConfig) error {
 
 // getRenderedContent retrieves the rendered content for a config
 // This is a placeholder - in practice, the content would be passed through
-func (r *Renderer) getRenderedContent(config TemplateConfig) string {
+func (r *Renderer) getRenderedContent(config Config) string {
 	// This will be replaced with proper content passing
 	// For now, re-render (not ideal, but works for initial implementation)
 	templateContent, err := os.ReadFile(config.Source)
@@ -151,7 +151,7 @@ func (r *Renderer) getRenderedContent(config TemplateConfig) string {
 }
 
 // executeCommand executes the post-render command
-func (r *Renderer) executeCommand(config TemplateConfig) (string, error) {
+func (r *Renderer) executeCommand(config Config) (string, error) {
 	timeout := config.CommandTimeout
 	if timeout == 0 {
 		timeout = 30 * time.Second // Default timeout

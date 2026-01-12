@@ -100,7 +100,9 @@ func TestExtractResourceFromPath(t *testing.T) {
 		t.Fatalf("request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 }
 
@@ -169,6 +171,8 @@ func TestBuildEvent(t *testing.T) {
 		t.Fatalf("request failed: %v", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
 	}()
 }

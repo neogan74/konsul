@@ -49,7 +49,7 @@ func main() {
 	client := NewKonsulClient(*konsulAddr, log)
 
 	// Build configuration
-	config := template.Config{
+	config := template.ConfigEngine{
 		Once:       *once,
 		DryRun:     *dryRun,
 		KonsulAddr: *konsulAddr,
@@ -62,7 +62,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		config.Templates = []template.TemplateConfig{
+		config.Templates = []template.Config{
 			{
 				Source:      *templateSrc,
 				Destination: *dest,

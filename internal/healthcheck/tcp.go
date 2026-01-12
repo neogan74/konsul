@@ -38,7 +38,9 @@ func (t *TCPChecker) Check(ctx context.Context, check *Check) (Status, string, e
 	}
 
 	// Immediately close the connection since we only need to test connectivity
-	conn.Close()
+	if err := conn.Close(); err != nil {
+		// Best-effort close; connection already validated.
+	}
 
 	output := fmt.Sprintf("TCP connection to %s successful (%.3fs)", check.TCP, duration.Seconds())
 	return StatusPassing, output, nil

@@ -72,7 +72,9 @@ func (h *HTTPChecker) Check(ctx context.Context, check *Check) (Status, string, 
 		return StatusCritical, fmt.Sprintf("Request failed after %v: %v", duration, err), err
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			// Best-effort close; response body already consumed.
+		}
 	}()
 
 	// Check status code

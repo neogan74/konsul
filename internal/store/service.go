@@ -12,6 +12,7 @@ import (
 	"github.com/neogan74/konsul/internal/persistence"
 )
 
+// Service represents a service registered in the service store
 type Service struct {
 	Name    string                         `json:"name"`
 	Address string                         `json:"address"`
@@ -21,6 +22,7 @@ type Service struct {
 	Checks  []*healthcheck.CheckDefinition `json:"checks,omitempty"`
 }
 
+// ServiceEntry represents a service entry in the service store
 type ServiceEntry struct {
 	Service     Service   `json:"service"`
 	ExpiresAt   time.Time `json:"expires_at"`
@@ -28,6 +30,7 @@ type ServiceEntry struct {
 	CreateIndex uint64    `json:"create_index"`
 }
 
+// ServiceStore represents the service store
 type ServiceStore struct {
 	Data          map[string]ServiceEntry
 	TagIndex      map[string]map[string]bool     // Tag → {ServiceName: true} - for fast tag queries
@@ -40,6 +43,7 @@ type ServiceStore struct {
 	healthManager *healthcheck.Manager
 }
 
+// NewServiceStore creates a new service store
 func NewServiceStore() *ServiceStore {
 	return &ServiceStore{
 		Data:          make(map[string]ServiceEntry),
@@ -52,6 +56,7 @@ func NewServiceStore() *ServiceStore {
 	}
 }
 
+// NewServiceStoreWithTTL creates a new service store with a custom TTL
 func NewServiceStoreWithTTL(ttl time.Duration) *ServiceStore {
 	return &ServiceStore{
 		Data:          make(map[string]ServiceEntry),
@@ -92,6 +97,7 @@ func (s *ServiceStore) nextIndex() uint64 {
 	return atomic.AddUint64(&s.globalIndex, 1)
 }
 
+// loadFromPersistence loads service data from persistence
 func (s *ServiceStore) loadFromPersistence() error {
 	if s.engine == nil {
 		return nil
@@ -149,6 +155,7 @@ func (s *ServiceStore) loadFromPersistence() error {
 	return nil
 }
 
+// Register registers a new service
 func (s *ServiceStore) Register(service Service) error {
 	// Validate service including tags and metadata
 	if err := ValidateService(&service); err != nil {
@@ -345,6 +352,7 @@ func (s *ServiceStore) RegisterCAS(service Service, expectedIndex uint64) (uint6
 	return newIndex, nil
 }
 
+// List returns a list of all non-expired services
 func (s *ServiceStore) List() []Service {
 	s.Mutex.RLock()
 	defer s.Mutex.RUnlock()
@@ -359,6 +367,7 @@ func (s *ServiceStore) List() []Service {
 	return services
 }
 
+// ListAll returns a list of all services, including expired ones
 func (s *ServiceStore) ListAll() []ServiceEntry {
 	s.Mutex.RLock()
 	defer s.Mutex.RUnlock()
@@ -370,6 +379,7 @@ func (s *ServiceStore) ListAll() []ServiceEntry {
 	return entries
 }
 
+// Get returns a service by name
 func (s *ServiceStore) Get(name string) (Service, bool) {
 	s.Mutex.RLock()
 	defer s.Mutex.RUnlock()
@@ -393,6 +403,7 @@ func (s *ServiceStore) GetEntry(name string) (ServiceEntry, bool) {
 	return entry, true
 }
 
+// Heartbeat extends the TTL of a service
 func (s *ServiceStore) Heartbeat(name string) bool {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
@@ -427,6 +438,7 @@ func (s *ServiceStore) Heartbeat(name string) bool {
 	return true
 }
 
+// Deregister removes a service by name
 func (s *ServiceStore) Deregister(name string) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
@@ -493,6 +505,7 @@ func (s *ServiceStore) DeregisterCAS(name string, expectedIndex uint64) error {
 	return nil
 }
 
+// CleanupExpired removes expired services
 func (s *ServiceStore) CleanupExpired() int {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()

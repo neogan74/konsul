@@ -154,8 +154,9 @@ func TestACLHandler_GetPolicy(t *testing.T) {
 		Name:        "test-policy",
 		Description: "Test policy",
 	}
-	_ = handler.evaluator.AddPolicy(policy)
-
+	if err := handler.evaluator.AddPolicy(policy); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
 	// Get the policy
 	req := httptest.NewRequest(http.MethodGet, "/acl/policies/test-policy", nil)
 	resp, err := app.Test(req)
@@ -196,9 +197,12 @@ func TestACLHandler_ListPolicies(t *testing.T) {
 	// Create some policies
 	policy1 := &acl.Policy{Name: "policy1", Description: "Test 1"}
 	policy2 := &acl.Policy{Name: "policy2", Description: "Test 2"}
-	_ = handler.evaluator.AddPolicy(policy1)
-	_ = handler.evaluator.AddPolicy(policy2)
-
+	if err := handler.evaluator.AddPolicy(policy1); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
+	if err := handler.evaluator.AddPolicy(policy2); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
 	req := httptest.NewRequest(http.MethodGet, "/acl/policies", nil)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -258,8 +262,9 @@ func TestACLHandler_UpdatePolicy(t *testing.T) {
 		Name:        "test-policy",
 		Description: "Original description",
 	}
-	handler.evaluator.AddPolicy(policy)
-
+	if err := handler.evaluator.AddPolicy(policy); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
 	// Update the policy
 	updatedPolicy := acl.Policy{
 		Name:        "test-policy",
@@ -319,8 +324,9 @@ func TestACLHandler_UpdatePolicy_NameMismatch(t *testing.T) {
 
 	// Create a policy first
 	policy := &acl.Policy{Name: "test-policy", Description: "Test"}
-	handler.evaluator.AddPolicy(policy)
-
+	if err := handler.evaluator.AddPolicy(policy); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
 	// Try to update with different name in body
 	updatedPolicy := acl.Policy{
 		Name:        "different-name",
@@ -346,7 +352,9 @@ func TestACLHandler_DeletePolicy(t *testing.T) {
 
 	// Create a policy and save it to file
 	policy := &acl.Policy{Name: "test-policy", Description: "Test"}
-	_ = handler.evaluator.AddPolicy(policy)
+	if err := handler.evaluator.AddPolicy(policy); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
 	_ = handler.savePolicyToFile(policy)
 
 	// Verify file exists
@@ -406,8 +414,9 @@ func TestACLHandler_TestPolicy_KV(t *testing.T) {
 			},
 		},
 	}
-	handler.evaluator.AddPolicy(policy)
-
+	if err := handler.evaluator.AddPolicy(policy); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
 	// Test allowed access
 	testReq := map[string]interface{}{
 		"policies":   []string{"test-policy"},
@@ -452,8 +461,9 @@ func TestACLHandler_TestPolicy_Denied(t *testing.T) {
 			},
 		},
 	}
-	handler.evaluator.AddPolicy(policy)
-
+	if err := handler.evaluator.AddPolicy(policy); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
 	// Test denied access (wrong path)
 	testReq := map[string]interface{}{
 		"policies":   []string{"test-policy"},
@@ -532,12 +542,23 @@ func TestACLHandler_TestPolicy_AllResourceTypes(t *testing.T) {
 		Admin: []acl.AdminRule{{Capabilities: []acl.Capability{acl.CapabilityRead}}},
 	}
 
-	handler.evaluator.AddPolicy(kvPolicy)
-	handler.evaluator.AddPolicy(servicePolicy)
-	handler.evaluator.AddPolicy(healthPolicy)
-	handler.evaluator.AddPolicy(backupPolicy)
-	handler.evaluator.AddPolicy(adminPolicy)
+	if err := handler.evaluator.AddPolicy(kvPolicy); err != nil {
 
+		t.Fatalf("add policy: %v", err)
+
+	}
+	if err := handler.evaluator.AddPolicy(servicePolicy); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
+	if err := handler.evaluator.AddPolicy(healthPolicy); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
+	if err := handler.evaluator.AddPolicy(backupPolicy); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
+	if err := handler.evaluator.AddPolicy(adminPolicy); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
 	tests := []struct {
 		name         string
 		resourceType string
@@ -572,8 +593,8 @@ func TestACLHandler_TestPolicy_AllResourceTypes(t *testing.T) {
 
 			var result map[string]interface{}
 			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+				t.Fatalf("decode response: %v", err)
+			}
 
 			if result["allowed"].(bool) != tt.shouldAllow {
 				t.Errorf("expected allowed=%v, got %v", tt.shouldAllow, result["allowed"])

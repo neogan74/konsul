@@ -52,7 +52,11 @@ func (g *GRPCChecker) Check(ctx context.Context, check *Check) (Status, string, 
 		output := fmt.Sprintf("gRPC connection to %s failed after %v: %v", check.GRPC, duration, err)
 		return StatusCritical, output, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			// Best-effort close; connection already used for health check.
+		}
+	}()
 
 	// Create health client
 	client := grpc_health_v1.NewHealthClient(conn)

@@ -20,6 +20,7 @@ type KVEntry struct {
 	Flags       uint64 `json:"flags,omitempty"`
 }
 
+// KVStore represents the key-value store
 type KVStore struct {
 	Data         map[string]KVEntry
 	Mutex        sync.RWMutex
@@ -62,6 +63,7 @@ func (kv *KVStore) SetWatchManager(wm *watch.Manager) {
 	kv.watchManager = wm
 }
 
+// loadFromPersistence loads existing data from persistence if available
 func (kv *KVStore) loadFromPersistence() error {
 	if kv.engine == nil {
 		return nil
@@ -106,6 +108,7 @@ func (kv *KVStore) loadFromPersistence() error {
 	return nil
 }
 
+// Get retrieves a value by key
 func (kv *KVStore) Get(key string) (string, bool) {
 	kv.Mutex.RLock()
 	defer kv.Mutex.RUnlock()
@@ -129,6 +132,7 @@ func (kv *KVStore) nextIndex() uint64 {
 	return atomic.AddUint64(&kv.globalIndex, 1)
 }
 
+// Set sets a value with a new index
 func (kv *KVStore) Set(key, value string) {
 	kv.Mutex.Lock()
 	oldEntry, existed := kv.Data[key]
@@ -163,7 +167,7 @@ func (kv *KVStore) Set(key, value string) {
 
 	// Notify watchers
 	if kv.watchManager != nil {
-		event := watch.WatchEvent{
+		event := watch.Event{
 			Type:      watch.EventTypeSet,
 			Key:       key,
 			Value:     value,
@@ -244,7 +248,7 @@ func (kv *KVStore) SetCAS(key, value string, expectedIndex uint64) (uint64, erro
 
 	// Notify watchers
 	if kv.watchManager != nil {
-		event := watch.WatchEvent{
+		event := watch.Event{
 			Type:      watch.EventTypeSet,
 			Key:       key,
 			Value:     value,
@@ -294,7 +298,7 @@ func (kv *KVStore) SetWithFlags(key, value string, flags uint64) {
 
 	// Notify watchers
 	if kv.watchManager != nil {
-		event := watch.WatchEvent{
+		event := watch.Event{
 			Type:      watch.EventTypeSet,
 			Key:       key,
 			Value:     value,
@@ -307,6 +311,7 @@ func (kv *KVStore) SetWithFlags(key, value string, flags uint64) {
 	}
 }
 
+// Delete removes a key-value pair
 func (kv *KVStore) Delete(key string) {
 	kv.Mutex.Lock()
 	oldEntry, existed := kv.Data[key]
@@ -324,7 +329,7 @@ func (kv *KVStore) Delete(key string) {
 
 	// Notify watchers if key existed
 	if kv.watchManager != nil && existed {
-		event := watch.WatchEvent{
+		event := watch.Event{
 			Type:      watch.EventTypeDelete,
 			Key:       key,
 			OldValue:  oldEntry.Value,
@@ -369,7 +374,7 @@ func (kv *KVStore) DeleteCAS(key string, expectedIndex uint64) error {
 
 	// Notify watchers
 	if kv.watchManager != nil {
-		event := watch.WatchEvent{
+		event := watch.Event{
 			Type:      watch.EventTypeDelete,
 			Key:       key,
 			OldValue:  oldEntry.Value,
@@ -381,6 +386,7 @@ func (kv *KVStore) DeleteCAS(key string, expectedIndex uint64) error {
 	return nil
 }
 
+// List returns all keys in the store
 func (kv *KVStore) List() []string {
 	kv.Mutex.RLock()
 	defer kv.Mutex.RUnlock()
@@ -490,7 +496,7 @@ func (kv *KVStore) BatchSet(items map[string]string) error {
 	if kv.watchManager != nil {
 		timestamp := time.Now().Unix()
 		for key, value := range items {
-			event := watch.WatchEvent{
+			event := watch.Event{
 				Type:      watch.EventTypeSet,
 				Key:       key,
 				Value:     value,
@@ -588,7 +594,7 @@ func (kv *KVStore) BatchSetCAS(items map[string]string, expectedIndices map[stri
 	if kv.watchManager != nil {
 		timestamp := time.Now().Unix()
 		for key, value := range items {
-			event := watch.WatchEvent{
+			event := watch.Event{
 				Type:      watch.EventTypeSet,
 				Key:       key,
 				Value:     value,
@@ -629,7 +635,7 @@ func (kv *KVStore) BatchDelete(keys []string) error {
 	if kv.watchManager != nil {
 		timestamp := time.Now().Unix()
 		for key, oldEntry := range oldEntries {
-			event := watch.WatchEvent{
+			event := watch.Event{
 				Type:      watch.EventTypeDelete,
 				Key:       key,
 				OldValue:  oldEntry.Value,
@@ -685,7 +691,7 @@ func (kv *KVStore) BatchDeleteCAS(keys []string, expectedIndices map[string]uint
 	if kv.watchManager != nil {
 		timestamp := time.Now().Unix()
 		for key, oldEntry := range oldEntries {
-			event := watch.WatchEvent{
+			event := watch.Event{
 				Type:      watch.EventTypeDelete,
 				Key:       key,
 				OldValue:  oldEntry.Value,
@@ -734,7 +740,7 @@ func (kv *KVStore) SetLocal(key, value string) {
 
 	// Notify watchers (watchers still work in Raft mode)
 	if kv.watchManager != nil {
-		event := watch.WatchEvent{
+		event := watch.Event{
 			Type:      watch.EventTypeSet,
 			Key:       key,
 			Value:     value,
@@ -769,7 +775,7 @@ func (kv *KVStore) SetWithFlagsLocal(key, value string, flags uint64) {
 
 	// Notify watchers
 	if kv.watchManager != nil {
-		event := watch.WatchEvent{
+		event := watch.Event{
 			Type:      watch.EventTypeSet,
 			Key:       key,
 			Value:     value,
@@ -828,7 +834,7 @@ func (kv *KVStore) SetCASLocal(key, value string, expectedIndex uint64) (uint64,
 
 	// Notify watchers
 	if kv.watchManager != nil {
-		event := watch.WatchEvent{
+		event := watch.Event{
 			Type:      watch.EventTypeSet,
 			Key:       key,
 			Value:     value,
@@ -866,7 +872,7 @@ func (kv *KVStore) DeleteCASLocal(key string, expectedIndex uint64) error {
 
 	// Notify watchers
 	if kv.watchManager != nil {
-		event := watch.WatchEvent{
+		event := watch.Event{
 			Type:      watch.EventTypeDelete,
 			Key:       key,
 			OldValue:  oldEntry.Value,
@@ -941,7 +947,7 @@ func (kv *KVStore) BatchSetCASLocal(items map[string]string, expectedIndices map
 	if kv.watchManager != nil {
 		timestamp := time.Now().Unix()
 		for key, value := range items {
-			event := watch.WatchEvent{
+			event := watch.Event{
 				Type:      watch.EventTypeSet,
 				Key:       key,
 				Value:     value,
@@ -991,7 +997,7 @@ func (kv *KVStore) BatchDeleteCASLocal(keys []string, expectedIndices map[string
 	if kv.watchManager != nil {
 		timestamp := time.Now().Unix()
 		for key, oldEntry := range oldEntries {
-			event := watch.WatchEvent{
+			event := watch.Event{
 				Type:      watch.EventTypeDelete,
 				Key:       key,
 				OldValue:  oldEntry.Value,
@@ -1050,7 +1056,7 @@ func (kv *KVStore) BatchSetLocal(items map[string]string) error {
 	if kv.watchManager != nil {
 		timestamp := time.Now().Unix()
 		for key, value := range items {
-			event := watch.WatchEvent{
+			event := watch.Event{
 				Type:      watch.EventTypeSet,
 				Key:       key,
 				Value:     value,
@@ -1076,7 +1082,7 @@ func (kv *KVStore) DeleteLocal(key string) {
 
 	// Notify watchers if key existed
 	if kv.watchManager != nil && existed {
-		event := watch.WatchEvent{
+		event := watch.Event{
 			Type:      watch.EventTypeDelete,
 			Key:       key,
 			OldValue:  oldEntry.Value,
@@ -1105,7 +1111,7 @@ func (kv *KVStore) BatchDeleteLocal(keys []string) error {
 	if kv.watchManager != nil {
 		timestamp := time.Now().Unix()
 		for key, oldEntry := range oldEntries {
-			event := watch.WatchEvent{
+			event := watch.Event{
 				Type:      watch.EventTypeDelete,
 				Key:       key,
 				OldValue:  oldEntry.Value,

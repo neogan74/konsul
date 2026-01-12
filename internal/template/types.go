@@ -4,10 +4,10 @@ import (
 	"time"
 )
 
-// Config holds the configuration for the template engine
-type Config struct {
+// ConfigEngine holds the configuration for the template engine
+type ConfigEngine struct {
 	// Templates is the list of templates to render
-	Templates []TemplateConfig `json:"templates"`
+	Templates []Config `json:"templates"`
 
 	// KonsulAddr is the address of the Konsul server
 	KonsulAddr string `json:"konsul_addr"`
@@ -25,8 +25,8 @@ type Config struct {
 	Wait *WaitConfig `json:"wait,omitempty"`
 }
 
-// TemplateConfig defines a single template configuration
-type TemplateConfig struct {
+// Config defines a single template configuration
+type Config struct {
 	// Source is the path to the template file
 	Source string `json:"source"`
 
@@ -89,14 +89,14 @@ type Service struct {
 	Port    int    `json:"port"`
 }
 
-// TemplateData holds the data available in templates
-type TemplateData struct {
+// Data holds the data available in templates
+type Data struct {
 }
 
 // RenderResult contains the result of template rendering
 type RenderResult struct {
 	// Template is the template configuration that was rendered
-	Template TemplateConfig
+	Template Config
 
 	// Content is the rendered content
 	Content string

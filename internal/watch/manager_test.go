@@ -89,7 +89,7 @@ func TestManager_Notify_ExactMatch(t *testing.T) {
 	watcher, _ := manager.AddWatcher("app/config", []string{}, TransportWebSocket, "user1")
 
 	// Send matching event
-	event := WatchEvent{
+	event := Event{
 		Type:      EventTypeSet,
 		Key:       "app/config",
 		Value:     "test-value",
@@ -122,7 +122,7 @@ func TestManager_Notify_NoMatch(t *testing.T) {
 	watcher, _ := manager.AddWatcher("app/config", []string{}, TransportWebSocket, "user1")
 
 	// Send non-matching event
-	event := WatchEvent{
+	event := Event{
 		Type:      EventTypeSet,
 		Key:       "other/key",
 		Value:     "test-value",
@@ -159,7 +159,7 @@ func TestManager_Notify_SingleLevelWildcard(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			event := WatchEvent{
+			event := Event{
 				Type:      EventTypeSet,
 				Key:       tt.key,
 				Value:     "test",
@@ -208,7 +208,7 @@ func TestManager_Notify_MultiLevelWildcard(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			event := WatchEvent{
+			event := Event{
 				Type:      EventTypeSet,
 				Key:       tt.key,
 				Value:     "test",
@@ -277,7 +277,7 @@ func TestManager_Notify_ACLFiltering(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			event := WatchEvent{
+			event := Event{
 				Type:      EventTypeSet,
 				Key:       tt.key,
 				Value:     "test",
@@ -315,7 +315,7 @@ func TestManager_Notify_MultipleWatchers(t *testing.T) {
 	watcher2, _ := manager.AddWatcher("app/*", []string{}, TransportWebSocket, "user2")
 	watcher3, _ := manager.AddWatcher("other/key", []string{}, TransportWebSocket, "user3")
 
-	event := WatchEvent{
+	event := Event{
 		Type:      EventTypeSet,
 		Key:       "app/config",
 		Value:     "test",
@@ -357,7 +357,7 @@ func TestManager_Notify_BufferFull(t *testing.T) {
 
 	// Fill buffer
 	for i := 0; i < 2; i++ {
-		event := WatchEvent{
+		event := Event{
 			Type:      EventTypeSet,
 			Key:       "app/config",
 			Value:     "test",
@@ -367,7 +367,7 @@ func TestManager_Notify_BufferFull(t *testing.T) {
 	}
 
 	// Send one more (should be dropped)
-	event := WatchEvent{
+	event := Event{
 		Type:      EventTypeSet,
 		Key:       "app/config",
 		Value:     "dropped",

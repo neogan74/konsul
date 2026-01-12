@@ -57,7 +57,9 @@ func (c *KonsulClient) refreshKV() error {
 		return err
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			c.log.Warn("Failed to close KV response body", logger.Error(err))
+		}
 	}()
 
 	if resp.StatusCode != http.StatusOK {
@@ -89,7 +91,9 @@ func (c *KonsulClient) refreshServices() error {
 		return err
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			c.log.Warn("Failed to close service response body", logger.Error(err))
+		}
 	}()
 
 	if resp.StatusCode != http.StatusOK {

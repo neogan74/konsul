@@ -91,7 +91,9 @@ func NewNode(cfg *Config, kvStore KVStoreInterface, serviceStore ServiceStoreInt
 	logStorePath := filepath.Join(cfg.DataDir, "raft-log.db")
 	logStore, err := raftboltdb.NewBoltStore(logStorePath)
 	if err != nil {
-		transport.Close()
+		if closeErr := transport.Close(); closeErr != nil {
+			logger.Warn("failed to close transport", "error", closeErr)
+		}
 		return nil, fmt.Errorf("failed to create log store: %w", err)
 	}
 
@@ -99,26 +101,42 @@ func NewNode(cfg *Config, kvStore KVStoreInterface, serviceStore ServiceStoreInt
 	stablePath := filepath.Join(cfg.DataDir, "raft-stable.db")
 	stable, err := raftboltdb.NewBoltStore(stablePath)
 	if err != nil {
-		_ = logStore.Close()
-		_ = transport.Close()
+		if closeErr := logStore.Close(); closeErr != nil {
+			logger.Warn("failed to close log store", "error", closeErr)
+		}
+		if closeErr := transport.Close(); closeErr != nil {
+			logger.Warn("failed to close transport", "error", closeErr)
+		}
 		return nil, fmt.Errorf("failed to create stable store: %w", err)
 	}
 
 	// Create snapshot store
 	snapshots, err := raft.NewFileSnapshotStore(cfg.DataDir, cfg.SnapshotRetention, os.Stderr)
 	if err != nil {
-		stable.Close()
-		logStore.Close()
-		transport.Close()
+		if closeErr := stable.Close(); closeErr != nil {
+			logger.Warn("failed to close stable store", "error", closeErr)
+		}
+		if closeErr := logStore.Close(); closeErr != nil {
+			logger.Warn("failed to close log store", "error", closeErr)
+		}
+		if closeErr := transport.Close(); closeErr != nil {
+			logger.Warn("failed to close transport", "error", closeErr)
+		}
 		return nil, fmt.Errorf("failed to create snapshot store: %w", err)
 	}
 
 	// Create Raft instance
 	r, err := raft.NewRaft(raftConfig, fsm, logStore, stable, snapshots, transport)
 	if err != nil {
-		stable.Close()
-		logStore.Close()
-		transport.Close()
+		if closeErr := stable.Close(); closeErr != nil {
+			logger.Warn("failed to close stable store", "error", closeErr)
+		}
+		if closeErr := logStore.Close(); closeErr != nil {
+			logger.Warn("failed to close log store", "error", closeErr)
+		}
+		if closeErr := transport.Close(); closeErr != nil {
+			logger.Warn("failed to close transport", "error", closeErr)
+		}
 		return nil, fmt.Errorf("failed to create raft: %w", err)
 	}
 

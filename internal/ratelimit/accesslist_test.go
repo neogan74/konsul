@@ -1,3 +1,4 @@
+// Package ratelinit represents rate limit implementation
 package ratelimit
 
 import (

@@ -1,3 +1,4 @@
+// Package template provides the template engine for rendering templates
 package template
 
 import (
@@ -10,7 +11,7 @@ import (
 
 // Engine is the main template engine orchestrator
 type Engine struct {
-	config   Config
+	config   ConfigEngine
 	renderer *Renderer
 	watchers []*Watcher
 	log      logger.Logger
@@ -20,7 +21,7 @@ type Engine struct {
 }
 
 // New creates a new template engine
-func New(config Config, kvStore KVStoreReader, serviceStore ServiceStoreReader, log logger.Logger) *Engine {
+func New(config ConfigEngine, kvStore KVStoreReader, serviceStore ServiceStoreReader, log logger.Logger) *Engine {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	renderCtx := &RenderContext{
@@ -103,7 +104,7 @@ func (e *Engine) Stop() {
 }
 
 // RenderTemplate renders a single template
-func (e *Engine) RenderTemplate(tmpl TemplateConfig) (*RenderResult, error) {
+func (e *Engine) RenderTemplate(tmpl Config) (*RenderResult, error) {
 	return e.renderer.Render(tmpl)
 }
 

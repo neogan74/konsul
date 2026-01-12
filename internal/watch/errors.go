@@ -1,3 +1,4 @@
+// Package watch represents the watch API
 package watch
 
 import "errors"
