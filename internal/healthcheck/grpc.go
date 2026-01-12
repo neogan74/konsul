@@ -43,17 +43,16 @@ func (g *GRPCChecker) Check(ctx context.Context, check *Check) (Status, string, 
 	// Dial options
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(creds),
-		grpc.WithBlock(), // Wait for connection to be established
 	}
 
 	start := time.Now()
-	conn, err := grpc.DialContext(ctxWithTimeout, check.GRPC, opts...)
+	conn, err := grpc.NewClient(check.GRPC, opts...)
 	if err != nil {
 		duration := time.Since(start)
 		output := fmt.Sprintf("gRPC connection to %s failed after %v: %v", check.GRPC, duration, err)
 		return StatusCritical, output, err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	// Create health client
 	client := grpc_health_v1.NewHealthClient(conn)

@@ -135,7 +135,7 @@ func (m *MockPersistenceEngine) BeginTx() (persistence.Transaction, error) {
 	return nil, nil
 }
 
-func setupBackupHandler(engine *MockPersistenceEngine) (*BackupHandler, *fiber.App) {
+func setupBackupHandler(engine persistence.Engine) (*BackupHandler, *fiber.App) {
 	log := logger.New(zapcore.InfoLevel, "json")
 	handler := NewBackupHandler(engine, log)
 

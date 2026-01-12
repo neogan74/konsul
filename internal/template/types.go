@@ -91,7 +91,6 @@ type Service struct {
 
 // TemplateData holds the data available in templates
 type TemplateData struct {
-	ctx *RenderContext
 }
 
 // RenderResult contains the result of template rendering

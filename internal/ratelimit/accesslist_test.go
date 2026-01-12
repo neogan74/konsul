@@ -70,7 +70,9 @@ func TestAccessList_RemoveFromWhitelist(t *testing.T) {
 		AddedBy:    "admin",
 	}
 
-	al.AddToWhitelist(entry)
+	if err := al.AddToWhitelist(entry); err != nil {
+		t.Fatalf("Failed to add to whitelist: %v", err)
+	}
 
 	if !al.IsWhitelisted("192.168.1.100") {
 		t.Fatal("Expected IP to be whitelisted")
@@ -158,7 +160,9 @@ func TestAccessList_RemoveFromBlacklist(t *testing.T) {
 		ExpiresAt:  time.Now().Add(1 * time.Hour),
 	}
 
-	al.AddToBlacklist(entry)
+	if err := al.AddToBlacklist(entry); err != nil {
+		t.Fatalf("Failed to add to blacklist: %v", err)
+	}
 
 	if !al.IsBlacklisted("192.168.1.200") {
 		t.Fatal("Expected IP to be blacklisted")
@@ -184,7 +188,9 @@ func TestAccessList_GetWhitelist(t *testing.T) {
 	}
 
 	for _, entry := range entries {
-		al.AddToWhitelist(entry)
+		if err := al.AddToWhitelist(entry); err != nil {
+			t.Fatalf("Failed to add to whitelist: %v", err)
+		}
 	}
 
 	list := al.GetWhitelist()
@@ -204,7 +210,9 @@ func TestAccessList_GetWhitelist_ExcludesExpired(t *testing.T) {
 	}
 
 	for _, entry := range entries {
-		al.AddToWhitelist(entry)
+		if err := al.AddToWhitelist(entry); err != nil {
+			t.Fatalf("Failed to add to whitelist: %v", err)
+		}
 	}
 
 	// Initially should have 2
@@ -236,7 +244,9 @@ func TestAccessList_GetBlacklist(t *testing.T) {
 	}
 
 	for _, entry := range entries {
-		al.AddToBlacklist(entry)
+		if err := al.AddToBlacklist(entry); err != nil {
+			t.Fatalf("Failed to add to blacklist: %v", err)
+		}
 	}
 
 	list := al.GetBlacklist()
@@ -250,13 +260,13 @@ func TestAccessList_Count(t *testing.T) {
 	al := NewAccessList()
 
 	// Add whitelist entries
-	al.AddToWhitelist(WhitelistEntry{
+	_ = al.AddToWhitelist(WhitelistEntry{
 		Identifier: "white1",
 		Type:       "ip",
 		Reason:     "Test",
 		AddedBy:    "admin",
 	})
-	al.AddToWhitelist(WhitelistEntry{
+	_ = al.AddToWhitelist(WhitelistEntry{
 		Identifier: "white2",
 		Type:       "ip",
 		Reason:     "Test",
@@ -264,7 +274,7 @@ func TestAccessList_Count(t *testing.T) {
 	})
 
 	// Add blacklist entries
-	al.AddToBlacklist(BlacklistEntry{
+	_ = al.AddToBlacklist(BlacklistEntry{
 		Identifier: "black1",
 		Type:       "ip",
 		Reason:     "Test",
@@ -347,7 +357,9 @@ func TestAccessList_GetEntry(t *testing.T) {
 		AddedBy:    "admin",
 	}
 
-	al.AddToWhitelist(entry)
+	if err := al.AddToWhitelist(entry); err != nil {
+		t.Fatalf("Failed to add to whitelist: %v", err)
+	}
 
 	retrieved := al.GetWhitelistEntry("test-id")
 	if retrieved == nil {
@@ -373,8 +385,9 @@ func TestAccessList_CleanupExpiredEntries(t *testing.T) {
 	al := NewAccessList()
 
 	// Add expired whitelist entry
+	// Add expired whitelist entry
 	pastTime := time.Now().Add(-1 * time.Hour)
-	al.AddToWhitelist(WhitelistEntry{
+	_ = al.AddToWhitelist(WhitelistEntry{
 		Identifier: "expired-white",
 		Type:       "ip",
 		Reason:     "Test",
@@ -383,7 +396,7 @@ func TestAccessList_CleanupExpiredEntries(t *testing.T) {
 	})
 
 	// Add expired blacklist entry
-	al.AddToBlacklist(BlacklistEntry{
+	_ = al.AddToBlacklist(BlacklistEntry{
 		Identifier: "expired-black",
 		Type:       "ip",
 		Reason:     "Test",
@@ -392,14 +405,14 @@ func TestAccessList_CleanupExpiredEntries(t *testing.T) {
 	})
 
 	// Add non-expired entries
-	al.AddToWhitelist(WhitelistEntry{
+	_ = al.AddToWhitelist(WhitelistEntry{
 		Identifier: "active-white",
 		Type:       "ip",
 		Reason:     "Test",
 		AddedBy:    "admin",
 	})
 
-	al.AddToBlacklist(BlacklistEntry{
+	_ = al.AddToBlacklist(BlacklistEntry{
 		Identifier: "active-black",
 		Type:       "ip",
 		Reason:     "Test",

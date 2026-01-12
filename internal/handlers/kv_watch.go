@@ -75,11 +75,11 @@ func (h *KVWatchHandler) WatchWebSocket(c *websocket.Conn) {
 	resource := acl.NewKVResource(pattern)
 	if h.aclEval != nil && !h.aclEval.Evaluate(policies, resource, acl.CapabilityRead) {
 		h.log.Warn("WebSocket watch: ACL check failed")
-		c.WriteJSON(fiber.Map{
+		_ = c.WriteJSON(fiber.Map{
 			"error":   "forbidden",
 			"message": "insufficient permissions to watch this key pattern",
 		})
-		c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "forbidden"))
+		_ = c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "forbidden"))
 		return
 	}
 
@@ -87,11 +87,11 @@ func (h *KVWatchHandler) WatchWebSocket(c *websocket.Conn) {
 	watcher, err := h.watchManager.AddWatcher(pattern, policies, watch.TransportWebSocket, userID)
 	if err != nil {
 		h.log.Error("Failed to add watcher", logger.Error(err))
-		c.WriteJSON(fiber.Map{
+		_ = c.WriteJSON(fiber.Map{
 			"error":   "failed to add watcher",
 			"message": err.Error(),
 		})
-		c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, err.Error()))
+		_ = c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, err.Error()))
 		return
 	}
 	defer h.watchManager.RemoveWatcher(watcher.ID)
@@ -116,9 +116,9 @@ func (h *KVWatchHandler) WatchWebSocket(c *websocket.Conn) {
 	}
 
 	// Setup ping/pong for connection health
-	c.SetReadDeadline(time.Now().Add(60 * time.Second))
+	_ = c.SetReadDeadline(time.Now().Add(60 * time.Second))
 	c.SetPongHandler(func(string) error {
-		c.SetReadDeadline(time.Now().Add(60 * time.Second))
+		_ = c.SetReadDeadline(time.Now().Add(60 * time.Second))
 		return nil
 	})
 
@@ -239,7 +239,7 @@ func (h *KVWatchHandler) WatchSSE(c *fiber.Ctx) error {
 					Value:     value,
 					Timestamp: time.Now().Unix(),
 				}
-				sendSSEEvent(w, initialEvent)
+				_ = sendSSEEvent(w, initialEvent)
 				h.log.Debug("Sent initial value")
 			}
 		}

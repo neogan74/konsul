@@ -142,7 +142,7 @@ func TestDeriveAction_DefaultMapping(t *testing.T) {
 			})
 
 			req := httptest.NewRequest(tt.method, tt.path, nil)
-			app.Test(req)
+			_, _ = app.Test(req)
 		})
 	}
 }

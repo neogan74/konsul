@@ -207,8 +207,8 @@ func TestEnvFunction(t *testing.T) {
 	// Set test environment variable
 	key := "TEST_KONSUL_VAR"
 	value := "test-value"
-	os.Setenv(key, value)
-	defer os.Unsetenv(key)
+	_ = os.Setenv(key, value)
+	defer func() { _ = os.Unsetenv(key) }()
 
 	got := env(key)
 	if got != value {
@@ -228,13 +228,13 @@ func TestFileFunction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 	content := "test file content\n"
 	if _, err := tmpFile.WriteString(content); err != nil {
 		t.Fatalf("Failed to write to temp file: %v", err)
 	}
-	tmpFile.Close()
+	_ = tmpFile.Close()
 
 	// Test reading the file
 	got, err := file(tmpFile.Name())

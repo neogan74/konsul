@@ -28,7 +28,7 @@ func TestNewAPIKeyService(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			service := NewAPIKeyService(tt.prefix)
 			if service == nil {
-				t.Error("NewAPIKeyService() returned nil")
+				t.Fatal("NewAPIKeyService() returned nil")
 			}
 			if service.prefix != tt.wantPrefix {
 				t.Errorf("NewAPIKeyService() prefix = %v, want %v", service.prefix, tt.wantPrefix)
@@ -90,7 +90,7 @@ func TestAPIKeyService_GenerateAPIKey(t *testing.T) {
 					t.Errorf("GenerateAPIKey() key doesn't have correct prefix, got %v", keyString)
 				}
 				if apiKey == nil {
-					t.Error("GenerateAPIKey() returned nil API key")
+					t.Fatal("GenerateAPIKey() returned nil API key")
 				}
 				if apiKey.Name != tt.keyName {
 					t.Errorf("GenerateAPIKey() name = %v, want %v", apiKey.Name, tt.keyName)
@@ -127,7 +127,9 @@ func TestAPIKeyService_ValidateAPIKey(t *testing.T) {
 	// Find and disable the key
 	for _, key := range service.ListAPIKeys() {
 		if key.Name == "disabled-key" {
-			service.RevokeAPIKey(key.ID)
+			if err := service.RevokeAPIKey(key.ID); err != nil {
+				t.Fatalf("Failed to revoke API key: %v", err)
+			}
 			break
 		}
 	}
@@ -174,7 +176,7 @@ func TestAPIKeyService_ValidateAPIKey(t *testing.T) {
 
 			if tt.wantErr == nil {
 				if result == nil {
-					t.Error("ValidateAPIKey() returned nil for valid key")
+					t.Fatal("ValidateAPIKey() returned nil for valid key")
 				}
 				if result.ID != apiKey.ID {
 					t.Errorf("ValidateAPIKey() ID = %v, want %v", result.ID, apiKey.ID)
@@ -309,10 +311,10 @@ func TestAPIKeyService_GetAPIKey(t *testing.T) {
 
 			if tt.wantErr == nil {
 				if result == nil {
-					t.Error("GetAPIKey() returned nil")
+					t.Fatal("GetAPIKey() returned nil")
 				}
 				if result.KeyHash != "" {
-					t.Error("GetAPIKey() should not include KeyHash")
+					t.Fatal("GetAPIKey() should not include KeyHash")
 				}
 				if result.Name != apiKey.Name {
 					t.Errorf("GetAPIKey() name = %v, want %v", result.Name, apiKey.Name)

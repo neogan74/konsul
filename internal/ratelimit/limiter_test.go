@@ -356,12 +356,14 @@ func TestService_IsWhitelisted(t *testing.T) {
 	})
 
 	// Add to whitelist
-	service.GetAccessList().AddToWhitelist(WhitelistEntry{
+	if err := service.GetAccessList().AddToWhitelist(WhitelistEntry{
 		Identifier: "192.168.1.10",
 		Type:       "ip",
 		Reason:     "Test",
 		AddedBy:    "admin",
-	})
+	}); err != nil {
+		t.Fatalf("Failed to add to whitelist: %v", err)
+	}
 
 	if !service.IsWhitelisted("192.168.1.10") {
 		t.Error("Expected IP to be whitelisted")
@@ -383,13 +385,15 @@ func TestService_IsBlacklisted(t *testing.T) {
 	})
 
 	// Add to blacklist
-	service.GetAccessList().AddToBlacklist(BlacklistEntry{
+	if err := service.GetAccessList().AddToBlacklist(BlacklistEntry{
 		Identifier: "192.168.1.20",
 		Type:       "ip",
 		Reason:     "Abuse",
 		AddedBy:    "admin",
 		ExpiresAt:  time.Now().Add(1 * time.Hour),
-	})
+	}); err != nil {
+		t.Fatalf("Failed to add to blacklist: %v", err)
+	}
 
 	if !service.IsBlacklisted("192.168.1.20") {
 		t.Error("Expected IP to be blacklisted")

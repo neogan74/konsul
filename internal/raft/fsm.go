@@ -54,18 +54,32 @@ func (f *KonsulFSM) Apply(log *raft.Log) interface{} {
 		applyErr = f.applyKVSet(cmd.Payload)
 	case CmdKVSetWithFlags:
 		applyErr = f.applyKVSetWithFlags(cmd.Payload)
+	case CmdKVSetCAS:
+		applyErr = f.applyKVSetCAS(cmd.Payload)
 	case CmdKVDelete:
 		applyErr = f.applyKVDelete(cmd.Payload)
+	case CmdKVDeleteCAS:
+		applyErr = f.applyKVDeleteCAS(cmd.Payload)
 	case CmdKVBatchSet:
 		applyErr = f.applyKVBatchSet(cmd.Payload)
+	case CmdKVBatchSetCAS:
+		applyErr = f.applyKVBatchSetCAS(cmd.Payload)
 	case CmdKVBatchDelete:
 		applyErr = f.applyKVBatchDelete(cmd.Payload)
+	case CmdKVBatchDeleteCAS:
+		applyErr = f.applyKVBatchDeleteCAS(cmd.Payload)
 	case CmdServiceRegister:
 		applyErr = f.applyServiceRegister(cmd.Payload)
+	case CmdServiceRegisterCAS:
+		applyErr = f.applyServiceRegisterCAS(cmd.Payload)
 	case CmdServiceDeregister:
 		applyErr = f.applyServiceDeregister(cmd.Payload)
+	case CmdServiceDeregisterCAS:
+		applyErr = f.applyServiceDeregisterCAS(cmd.Payload)
 	case CmdServiceHeartbeat:
 		applyErr = f.applyServiceHeartbeat(cmd.Payload)
+	case CmdHealthTTLUpdate:
+		applyErr = f.applyHealthTTLUpdate(cmd.Payload)
 	default:
 		applyErr = fmt.Errorf("unknown command type: %d", cmd.Type)
 	}
@@ -138,6 +152,56 @@ func (f *KonsulFSM) applyKVBatchDelete(payload []byte) error {
 	return f.kvStore.BatchDeleteLocal(p.Keys)
 }
 
+func (f *KonsulFSM) applyKVSetCAS(payload []byte) error {
+	var p KVSetCASPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal KVSetCASPayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	_, err := f.kvStore.SetCASLocal(p.Key, p.Value, p.ExpectedIndex)
+	return err
+}
+
+func (f *KonsulFSM) applyKVDeleteCAS(payload []byte) error {
+	var p KVDeleteCASPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal KVDeleteCASPayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.kvStore.DeleteCASLocal(p.Key, p.ExpectedIndex)
+}
+
+func (f *KonsulFSM) applyKVBatchSetCAS(payload []byte) error {
+	var p KVBatchSetCASPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal KVBatchSetCASPayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	_, err := f.kvStore.BatchSetCASLocal(p.Items, p.ExpectedIndices)
+	return err
+}
+
+func (f *KonsulFSM) applyKVBatchDeleteCAS(payload []byte) error {
+	var p KVBatchDeleteCASPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal KVBatchDeleteCASPayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.kvStore.BatchDeleteCASLocal(p.Keys, p.ExpectedIndices)
+}
+
 // --- Service Apply Methods ---
 
 func (f *KonsulFSM) applyServiceRegister(payload []byte) error {
@@ -186,6 +250,51 @@ func (f *KonsulFSM) applyServiceHeartbeat(payload []byte) error {
 	return nil
 }
 
+func (f *KonsulFSM) applyServiceRegisterCAS(payload []byte) error {
+	var p ServiceRegisterCASPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal ServiceRegisterCASPayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	service := store.ServiceDataSnapshot{
+		Name:    p.Service.Name,
+		Address: p.Service.Address,
+		Port:    p.Service.Port,
+		Tags:    p.Service.Tags,
+		Meta:    p.Service.Meta,
+	}
+
+	_, err := f.serviceStore.RegisterCASLocal(service, p.ExpectedIndex)
+	return err
+}
+
+func (f *KonsulFSM) applyServiceDeregisterCAS(payload []byte) error {
+	var p ServiceDeregisterCASPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal ServiceDeregisterCASPayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.serviceStore.DeregisterCASLocal(p.Name, p.ExpectedIndex)
+}
+
+func (f *KonsulFSM) applyHealthTTLUpdate(payload []byte) error {
+	var p HealthTTLUpdatePayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal HealthTTLUpdatePayload: %w", err)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.serviceStore.UpdateTTLCheck(p.CheckID)
+}
+
 // Snapshot implements raft.FSM.Snapshot.
 // It returns a snapshot of the current state for persistence.
 // Raft calls this periodically to compact the log.
@@ -207,7 +316,7 @@ func (f *KonsulFSM) Snapshot() (raft.FSMSnapshot, error) {
 // It restores the FSM state from a snapshot.
 // This is called when a node joins the cluster or recovers from a crash.
 func (f *KonsulFSM) Restore(rc io.ReadCloser) error {
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 
 	var snapshot SnapshotData
 	if err := json.NewDecoder(rc).Decode(&snapshot); err != nil {
@@ -253,7 +362,7 @@ func (s *KonsulSnapshot) Persist(sink raft.SnapshotSink) error {
 
 	// Encode the snapshot as JSON
 	if err := json.NewEncoder(sink).Encode(data); err != nil {
-		sink.Cancel()
+		_ = sink.Cancel()
 		return fmt.Errorf("failed to encode snapshot: %w", err)
 	}
 

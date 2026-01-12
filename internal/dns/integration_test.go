@@ -62,14 +62,14 @@ func TestDNSServer_RealQuery(t *testing.T) {
 
 	// Register test service
 	service := store.Service{Name: "test", Address: "10.0.0.1", Port: 8080}
-	serviceStore.Register(service)
+	_ = serviceStore.Register(service)
 
 	// Start server
 	err = server.Start()
 	if err != nil {
 		t.Fatalf("Failed to start DNS server: %v", err)
 	}
-	defer server.Stop()
+	defer func() { _ = server.Stop() }()
 
 	// Give server time to start
 	time.Sleep(100 * time.Millisecond)
@@ -146,7 +146,7 @@ func TestDNSServer_ServiceLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to start DNS server: %v", err)
 	}
-	defer server.Stop()
+	defer func() { _ = server.Stop() }()
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -168,7 +168,7 @@ func TestDNSServer_ServiceLifecycle(t *testing.T) {
 
 	// Test 2: Register service - should get records
 	service := store.Service{Name: "web", Address: "192.168.1.100", Port: 80}
-	serviceStore.Register(service)
+	_ = serviceStore.Register(service)
 
 	response, _, err = client.Exchange(query, net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", port)))
 	if err != nil {
@@ -218,16 +218,22 @@ func TestDNSServer_MultipleServiceQueries(t *testing.T) {
 	service2 := store.Service{Name: "api", Address: "10.0.0.2", Port: 8080}
 	service3 := store.Service{Name: "db", Address: "10.0.0.3", Port: 5432}
 
-	serviceStore.Register(service1)
-	serviceStore.Register(service2)
-	serviceStore.Register(service3)
+	if err := serviceStore.Register(service1); err != nil {
+		t.Fatalf("register failed: %v", err)
+	}
+	if err := serviceStore.Register(service2); err != nil {
+		t.Fatalf("register failed: %v", err)
+	}
+	if err := serviceStore.Register(service3); err != nil {
+		t.Fatalf("register failed: %v", err)
+	}
 
 	// Start server
 	err = server.Start()
 	if err != nil {
 		t.Fatalf("Failed to start DNS server: %v", err)
 	}
-	defer server.Stop()
+	defer func() { _ = server.Stop() }()
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -311,14 +317,14 @@ func TestDNSServer_ConcurrentQueries(t *testing.T) {
 
 	// Register test service
 	service := store.Service{Name: "concurrent", Address: "10.0.0.1", Port: 8080}
-	serviceStore.Register(service)
+	_ = serviceStore.Register(service)
 
 	// Start server
 	err = server.Start()
 	if err != nil {
 		t.Fatalf("Failed to start DNS server: %v", err)
 	}
-	defer server.Stop()
+	defer func() { _ = server.Stop() }()
 
 	time.Sleep(100 * time.Millisecond)
 

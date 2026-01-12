@@ -29,10 +29,7 @@ func AuditMiddleware(cfg AuditConfig) fiber.Handler {
 
 		// Record audit event with the final status
 		statusCode := c.Response().StatusCode()
-		if auditErr := audit.RecordHTTPEvent(c.Context(), cfg.Manager, c, action, cfg.ResourceType, statusCode); auditErr != nil {
-			// Log but don't fail the request if audit recording fails
-			// The audit manager already increments error metrics
-		}
+		_ = audit.RecordHTTPEvent(c.Context(), cfg.Manager, c, action, cfg.ResourceType, statusCode)
 
 		return err
 	}

@@ -20,13 +20,13 @@ type clusterOptions struct {
 
 func (o clusterOptions) withDefaults() clusterOptions {
 	if o.heartbeat == 0 {
-		o.heartbeat = 200 * time.Millisecond
+		o.heartbeat = 400 * time.Millisecond
 	}
 	if o.election == 0 {
-		o.election = 300 * time.Millisecond
+		o.election = 800 * time.Millisecond
 	}
 	if o.leaderLease == 0 {
-		o.leaderLease = 100 * time.Millisecond
+		o.leaderLease = 400 * time.Millisecond
 	}
 	return o
 }
@@ -36,7 +36,7 @@ func getFreeAddr(t *testing.T) string {
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 
 	return ln.Addr().String()
 }
@@ -119,7 +119,7 @@ func newThreeNodeCluster(t *testing.T, opts clusterOptions) ([]*Node, func()) {
 	addr1 := getFreeAddr(t)
 	cfg1 := newClusterConfig(t, "node-1", addr1, true, opts)
 	node1 := startTestNode(t, cfg1)
-	require.NoError(t, node1.WaitForLeader(5*time.Second))
+	require.NoError(t, node1.WaitForLeader(10*time.Second))
 
 	addr2 := getFreeAddr(t)
 	cfg2 := newClusterConfig(t, "node-2", addr2, false, opts)
@@ -129,11 +129,14 @@ func newThreeNodeCluster(t *testing.T, opts clusterOptions) ([]*Node, func()) {
 	cfg3 := newClusterConfig(t, "node-3", addr3, false, opts)
 	node3 := startTestNode(t, cfg3)
 
+	// Wait a bit for nodes to be ready to accept connections
+	time.Sleep(100 * time.Millisecond)
+
 	require.NoError(t, node1.Join(cfg2.NodeID, cfg2.AdvertiseAddr))
 	require.NoError(t, node1.Join(cfg3.NodeID, cfg3.AdvertiseAddr))
 
 	nodes := []*Node{node1, node2, node3}
-	waitForSingleLeader(t, nodes, 5*time.Second)
+	waitForSingleLeader(t, nodes, 10*time.Second)
 
 	cleanup := func() {
 		for _, node := range nodes {

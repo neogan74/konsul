@@ -118,7 +118,7 @@ func (s *Server) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 		msg.Rcode = dns.RcodeNameError
 	}
 
-	w.WriteMsg(msg)
+	_ = w.WriteMsg(msg)
 }
 
 func (s *Server) handleSRVQuery(msg *dns.Msg, question dns.Question) {

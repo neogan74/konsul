@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"sync"
 	"time"
 
@@ -401,6 +400,6 @@ func (ra *RegisteredAgent) MarshalJSON() ([]byte, error) {
 		LastSeen:      ra.LastSeen,
 		LastSyncIndex: ra.LastSyncIndex,
 		RegisteredAt:  ra.RegisteredAt,
-		Uptime:        fmt.Sprintf("%s", time.Since(ra.RegisteredAt)),
+		Uptime:        time.Since(ra.RegisteredAt).String(),
 	})
 }
