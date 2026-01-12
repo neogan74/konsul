@@ -392,10 +392,10 @@ func TestBatchServiceDeregister_Success(t *testing.T) {
 	app.Post("/batch/services/deregister", handler.BatchServiceDeregister)
 
 	// Register some services first
-	handler.serviceStore.Register(store.Service{Name: "svc1", Address: "127.0.0.1", Port: 8001})
-	handler.serviceStore.Register(store.Service{Name: "svc2", Address: "127.0.0.2", Port: 8002})
-	handler.serviceStore.Register(store.Service{Name: "svc3", Address: "127.0.0.3", Port: 8003})
-	handler.serviceStore.Register(store.Service{Name: "keep", Address: "127.0.0.4", Port: 8004})
+	_ = handler.serviceStore.Register(store.Service{Name: "svc1", Address: "127.0.0.1", Port: 8001})
+	_ = handler.serviceStore.Register(store.Service{Name: "svc2", Address: "127.0.0.2", Port: 8002})
+	_ = handler.serviceStore.Register(store.Service{Name: "svc3", Address: "127.0.0.3", Port: 8003})
+	_ = handler.serviceStore.Register(store.Service{Name: "keep", Address: "127.0.0.4", Port: 8004})
 
 	reqBody := BatchServiceDeregisterRequest{
 		Names: []string{"svc1", "svc2", "svc3"},

@@ -78,8 +78,8 @@ func TestServiceHandler_List(t *testing.T) {
 	// Register some services
 	service1 := store.Service{Name: "service1", Address: "127.0.0.1", Port: 8080}
 	service2 := store.Service{Name: "service2", Address: "127.0.0.2", Port: 8081}
-	handler.store.Register(service1)
-	handler.store.Register(service2)
+	_ = handler.store.Register(service1)
+	_ = handler.store.Register(service2)
 
 	// Test list
 	req := httptest.NewRequest(http.MethodGet, "/services/", nil)
@@ -113,7 +113,7 @@ func TestServiceHandler_Get(t *testing.T) {
 
 	// Register a service
 	service := store.Service{Name: "test-service", Address: "127.0.0.1", Port: 8080}
-	handler.store.Register(service)
+	_ = handler.store.Register(service)
 
 	// Test existing service
 	req = httptest.NewRequest(http.MethodGet, "/services/test-service", nil)
@@ -137,7 +137,7 @@ func TestServiceHandler_Deregister(t *testing.T) {
 
 	// Register a service
 	service := store.Service{Name: "test-service", Address: "127.0.0.1", Port: 8080}
-	handler.store.Register(service)
+	_ = handler.store.Register(service)
 
 	// Test deregister
 	req := httptest.NewRequest(http.MethodDelete, "/deregister/test-service", nil)
@@ -177,7 +177,7 @@ func TestServiceHandler_Heartbeat(t *testing.T) {
 
 	// Register a service
 	service := store.Service{Name: "test-service", Address: "127.0.0.1", Port: 8080}
-	handler.store.Register(service)
+	_ = handler.store.Register(service)
 
 	// Test successful heartbeat
 	req = httptest.NewRequest(http.MethodPut, "/heartbeat/test-service", nil)

@@ -286,7 +286,7 @@ func TestAuthHandler_ListAPIKeys(t *testing.T) {
 		body := bytes.NewReader([]byte(`{"name": "key-` + string(rune('a'+i)) + `"}`))
 		req := httptest.NewRequest(http.MethodPost, "/auth/api-keys", body)
 		req.Header.Set("Content-Type", "application/json")
-		app.Test(req)
+		_, _ = app.Test(req)
 	}
 
 	// List all keys

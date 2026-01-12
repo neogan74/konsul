@@ -166,7 +166,7 @@ func TestACLHandler_GetPolicy(t *testing.T) {
 	}
 
 	var result acl.Policy
-	json.NewDecoder(resp.Body).Decode(&result)
+	_ = json.NewDecoder(resp.Body).Decode(&result)
 	if result.Name != "test-policy" {
 		t.Errorf("expected policy name 'test-policy', got '%s'", result.Name)
 	}
@@ -192,8 +192,8 @@ func TestACLHandler_ListPolicies(t *testing.T) {
 	// Create some policies
 	policy1 := &acl.Policy{Name: "policy1", Description: "Test 1"}
 	policy2 := &acl.Policy{Name: "policy2", Description: "Test 2"}
-	handler.evaluator.AddPolicy(policy1)
-	handler.evaluator.AddPolicy(policy2)
+	_ = handler.evaluator.AddPolicy(policy1)
+	_ = handler.evaluator.AddPolicy(policy2)
 
 	req := httptest.NewRequest(http.MethodGet, "/acl/policies", nil)
 	resp, err := app.Test(req)
@@ -336,8 +336,8 @@ func TestACLHandler_DeletePolicy(t *testing.T) {
 
 	// Create a policy and save it to file
 	policy := &acl.Policy{Name: "test-policy", Description: "Test"}
-	handler.evaluator.AddPolicy(policy)
-	handler.savePolicyToFile(policy)
+	_ = handler.evaluator.AddPolicy(policy)
+	_ = handler.savePolicyToFile(policy)
 
 	// Verify file exists
 	policyFile := filepath.Join(tmpDir, "test-policy.json")
@@ -585,8 +585,8 @@ func TestACLHandler_LoadPolicies(t *testing.T) {
 	// Save policies to files
 	data1, _ := json.MarshalIndent(policy1, "", "  ")
 	data2, _ := json.MarshalIndent(policy2, "", "  ")
-	os.WriteFile(filepath.Join(tmpDir, "policy1.json"), data1, 0644)
-	os.WriteFile(filepath.Join(tmpDir, "policy2.json"), data2, 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, "policy1.json"), data1, 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, "policy2.json"), data2, 0644)
 
 	// Load policies
 	err := handler.LoadPolicies()
@@ -622,7 +622,7 @@ func TestACLHandler_LoadPolicies_InvalidJSON(t *testing.T) {
 	handler, _ := setupACLHandler(tmpDir)
 
 	// Create an invalid policy file
-	os.WriteFile(filepath.Join(tmpDir, "invalid.json"), []byte("invalid json"), 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, "invalid.json"), []byte("invalid json"), 0644)
 
 	// Load policies - should not fail, just log error
 	err := handler.LoadPolicies()

@@ -54,7 +54,7 @@ func setupApp() *fiber.App {
 		if svc.Name == "" || svc.Address == "" || svc.Port == 0 {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "missing fields"})
 		}
-		svcStore.Register(svc)
+		_ = svcStore.Register(svc)
 		return c.JSON(fiber.Map{"message": "service registered", "service": svc})
 	})
 	app.Get("/services/", func(c *fiber.Ctx) error {
