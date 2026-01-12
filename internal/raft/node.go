@@ -564,16 +564,16 @@ func (n *Node) GetClusterInfo() (*ClusterInfo, error) {
 		NumPeers: len(peers),
 	}
 	// Parse stats (they're all strings)
-	fmt.Sscanf(stats["term"], "%d", &raftStats.Term)
-	fmt.Sscanf(stats["last_log_index"], "%d", &raftStats.LastLogIndex)
-	fmt.Sscanf(stats["last_log_term"], "%d", &raftStats.LastLogTerm)
-	fmt.Sscanf(stats["commit_index"], "%d", &raftStats.CommitIndex)
-	fmt.Sscanf(stats["applied_index"], "%d", &raftStats.AppliedIndex)
-	fmt.Sscanf(stats["fsm_pending"], "%d", &raftStats.FSMPending)
-	fmt.Sscanf(stats["last_snapshot_index"], "%d", &raftStats.LastSnapshotIndex)
-	fmt.Sscanf(stats["last_snapshot_term"], "%d", &raftStats.LastSnapshotTerm)
-	fmt.Sscanf(stats["protocol_version"], "%d", &raftStats.ProtocolVersion)
-	fmt.Sscanf(stats["snapshot_version_max"], "%d", &raftStats.SnapshotVersionMax)
+	_, _ = fmt.Sscanf(stats["term"], "%d", &raftStats.Term)
+	_, _ = fmt.Sscanf(stats["last_log_index"], "%d", &raftStats.LastLogIndex)
+	_, _ = fmt.Sscanf(stats["last_log_term"], "%d", &raftStats.LastLogTerm)
+	_, _ = fmt.Sscanf(stats["commit_index"], "%d", &raftStats.CommitIndex)
+	_, _ = fmt.Sscanf(stats["applied_index"], "%d", &raftStats.AppliedIndex)
+	_, _ = fmt.Sscanf(stats["fsm_pending"], "%d", &raftStats.FSMPending)
+	_, _ = fmt.Sscanf(stats["last_snapshot_index"], "%d", &raftStats.LastSnapshotIndex)
+	_, _ = fmt.Sscanf(stats["last_snapshot_term"], "%d", &raftStats.LastSnapshotTerm)
+	_, _ = fmt.Sscanf(stats["protocol_version"], "%d", &raftStats.ProtocolVersion)
+	_, _ = fmt.Sscanf(stats["snapshot_version_max"], "%d", &raftStats.SnapshotVersionMax)
 
 	return &ClusterInfo{
 		NodeID:      n.config.NodeID,

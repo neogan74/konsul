@@ -362,7 +362,7 @@ func (s *KonsulSnapshot) Persist(sink raft.SnapshotSink) error {
 
 	// Encode the snapshot as JSON
 	if err := json.NewEncoder(sink).Encode(data); err != nil {
-		sink.Cancel()
+		_ = sink.Cancel()
 		return fmt.Errorf("failed to encode snapshot: %w", err)
 	}
 
