@@ -316,7 +316,7 @@ func (f *KonsulFSM) Snapshot() (raft.FSMSnapshot, error) {
 // It restores the FSM state from a snapshot.
 // This is called when a node joins the cluster or recovers from a crash.
 func (f *KonsulFSM) Restore(rc io.ReadCloser) error {
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 
 	var snapshot SnapshotData
 	if err := json.NewDecoder(rc).Decode(&snapshot); err != nil {

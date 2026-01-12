@@ -233,7 +233,7 @@ func (b *BadgerEngine) Backup(path string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create backup file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	_, err = b.db.Backup(file, 0)
 	if err != nil {
@@ -249,7 +249,7 @@ func (b *BadgerEngine) Restore(path string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open backup file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	err = b.db.Load(file, 256)
 	if err != nil {

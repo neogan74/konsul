@@ -222,7 +222,7 @@ func TestNodeCreation(t *testing.T) {
 	node, err := NewNode(cfg, kvStore, serviceStore)
 	require.NoError(t, err)
 	require.NotNil(t, node)
-	defer node.Shutdown()
+	defer func() { _ = node.Shutdown() }()
 
 	// Check that metrics are initialized
 	assert.NotNil(t, node.metrics)
@@ -247,7 +247,7 @@ func TestMetricsMonitoring(t *testing.T) {
 	node, err := NewNode(cfg, kvStore, serviceStore)
 	require.NoError(t, err)
 	require.NotNil(t, node)
-	defer node.Shutdown()
+	defer func() { _ = node.Shutdown() }()
 
 	// Wait for leader election
 	err = node.WaitForLeader(5 * time.Second)
@@ -294,7 +294,7 @@ func TestWaitForLeaderTimeout(t *testing.T) {
 	node, err := NewNode(cfg, kvStore, serviceStore)
 	require.NoError(t, err)
 	require.NotNil(t, node)
-	defer node.Shutdown()
+	defer func() { _ = node.Shutdown() }()
 
 	// Wait for leader with short timeout - should timeout
 	err = node.WaitForLeader(500 * time.Millisecond)

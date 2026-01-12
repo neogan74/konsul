@@ -1014,12 +1014,7 @@ func (kv *KVStore) GetEntrySnapshot(key string) (KVEntrySnapshot, bool) {
 		return KVEntrySnapshot{}, false
 	}
 
-	return KVEntrySnapshot{
-		Value:       entry.Value,
-		Flags:       entry.Flags,
-		ModifyIndex: entry.ModifyIndex,
-		CreateIndex: entry.CreateIndex,
-	}, true
+	return KVEntrySnapshot(entry), true
 }
 
 // BatchSetLocal sets multiple key-value pairs without persisting.
@@ -1139,12 +1134,7 @@ func (kv *KVStore) GetAllData() map[string]KVEntrySnapshot {
 
 	result := make(map[string]KVEntrySnapshot, len(kv.Data))
 	for key, entry := range kv.Data {
-		result[key] = KVEntrySnapshot{
-			Value:       entry.Value,
-			ModifyIndex: entry.ModifyIndex,
-			CreateIndex: entry.CreateIndex,
-			Flags:       entry.Flags,
-		}
+		result[key] = KVEntrySnapshot(entry)
 	}
 	return result
 }
@@ -1161,12 +1151,7 @@ func (kv *KVStore) RestoreFromSnapshot(data map[string]KVEntrySnapshot) error {
 	// Restore from snapshot
 	var maxIndex uint64
 	for key, snapshot := range data {
-		kv.Data[key] = KVEntry{
-			Value:       snapshot.Value,
-			ModifyIndex: snapshot.ModifyIndex,
-			CreateIndex: snapshot.CreateIndex,
-			Flags:       snapshot.Flags,
-		}
+		kv.Data[key] = KVEntry(snapshot)
 		if snapshot.ModifyIndex > maxIndex {
 			maxIndex = snapshot.ModifyIndex
 		}

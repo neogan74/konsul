@@ -617,10 +617,8 @@ func (r *queryResolver) ServicesByQuery(ctx context.Context, tags []string, meta
 
 	// Convert GraphQL filters to map
 	metaMap := make(map[string]string)
-	if metadata != nil {
-		for _, filter := range metadata {
-			metaMap[filter.Key] = filter.Value
-		}
+	for _, filter := range metadata {
+		metaMap[filter.Key] = filter.Value
 	}
 
 	r.logger.Info("GraphQL: querying services by tags and metadata",

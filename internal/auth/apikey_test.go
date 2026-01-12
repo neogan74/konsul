@@ -311,10 +311,10 @@ func TestAPIKeyService_GetAPIKey(t *testing.T) {
 
 			if tt.wantErr == nil {
 				if result == nil {
-					t.Error("GetAPIKey() returned nil")
+					t.Fatal("GetAPIKey() returned nil")
 				}
 				if result.KeyHash != "" {
-					t.Error("GetAPIKey() should not include KeyHash")
+					t.Fatal("GetAPIKey() should not include KeyHash")
 				}
 				if result.Name != apiKey.Name {
 					t.Errorf("GetAPIKey() name = %v, want %v", result.Name, apiKey.Name)

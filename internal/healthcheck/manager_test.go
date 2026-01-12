@@ -193,7 +193,9 @@ func TestManager_RemoveCheck(t *testing.T) {
 		HTTP: "http://localhost:8080",
 	}
 
-	manager.AddCheck(def)
+	if _, err := manager.AddCheck(def); err != nil {
+		t.Fatalf("AddCheck failed: %v", err)
+	}
 
 	// Verify it exists
 	_, exists := manager.GetCheck("test-id")
@@ -347,7 +349,10 @@ func TestManager_UpdateTTLCheck(t *testing.T) {
 		TTL:  "60s",
 	}
 
-	check, _ := manager.AddCheck(def)
+	check, err := manager.AddCheck(def)
+	if err != nil {
+		t.Fatalf("AddCheck failed: %v", err)
+	}
 
 	// Initial status should be critical
 	if check.Status != StatusCritical {
@@ -355,7 +360,7 @@ func TestManager_UpdateTTLCheck(t *testing.T) {
 	}
 
 	// Update TTL
-	err := manager.UpdateTTLCheck("ttl-check")
+	err = manager.UpdateTTLCheck("ttl-check")
 	if err != nil {
 		t.Fatalf("UpdateTTLCheck failed: %v", err)
 	}
@@ -392,7 +397,9 @@ func TestManager_UpdateTTLCheck_NotTTLType(t *testing.T) {
 		HTTP: "http://localhost:8080",
 	}
 
-	manager.AddCheck(def)
+	if _, err := manager.AddCheck(def); err != nil {
+		t.Fatalf("AddCheck failed: %v", err)
+	}
 
 	err := manager.UpdateTTLCheck("http-check")
 	if err == nil {
@@ -415,7 +422,9 @@ func TestManager_TTLCheckExpiration(t *testing.T) {
 		TTL:  "100ms",
 	}
 
-	manager.AddCheck(def)
+	if _, err := manager.AddCheck(def); err != nil {
+		t.Fatalf("AddCheck failed: %v", err)
+	}
 
 	// Update to make it passing
 	if err := manager.UpdateTTLCheck("ttl-check"); err != nil {
@@ -450,7 +459,9 @@ func TestManager_Stop(t *testing.T) {
 		HTTP: "http://localhost:8080",
 	}
 
-	manager.AddCheck(def)
+	if _, err := manager.AddCheck(def); err != nil {
+		t.Fatalf("AddCheck failed: %v", err)
+	}
 
 	// Stop should not panic
 	manager.Stop()

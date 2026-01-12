@@ -218,11 +218,12 @@ func (k *KVCommands) Watch(args []string) {
 		config.Token = strings.TrimSpace(os.Getenv("KONSUL_TOKEN"))
 	}
 
-	if *transport == "websocket" {
+	switch *transport {
+	case "websocket":
 		k.watchWebSocket(config, pattern)
-	} else if *transport == "sse" {
+	case "sse":
 		k.watchSSE(config, pattern)
-	} else {
+	default:
 		k.cli.Errorf("Unknown transport: %s (must be websocket or sse)\n", *transport)
 		k.cli.Exit(1)
 	}

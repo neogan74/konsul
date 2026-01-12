@@ -118,7 +118,7 @@ func (r *Renderer) writeFile(config TemplateConfig) error {
 
 	// Atomic rename
 	if err := os.Rename(tempPath, config.Destination); err != nil {
-		os.Remove(tempPath) // Clean up temp file
+		_ = os.Remove(tempPath) // Clean up temp file
 		return fmt.Errorf("failed to rename file: %w", err)
 	}
 

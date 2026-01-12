@@ -31,7 +31,9 @@ func TestServiceStore_List(t *testing.T) {
 		{Name: "db", Address: "10.0.0.2", Port: 5432},
 	}
 	for _, svc := range services {
-		s.Register(svc)
+		if err := s.Register(svc); err != nil {
+			t.Fatalf("Register failed: %v", err)
+		}
 	}
 	list := s.List()
 	if len(list) != 2 {
@@ -555,7 +557,7 @@ func TestServiceStore_MultipleDeregister(t *testing.T) {
 
 func TestServiceStore_RegisterWithHealthChecks(t *testing.T) {
 	s := NewServiceStore()
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	// Register service with health check
 	service := Service{
@@ -594,7 +596,7 @@ func TestServiceStore_RegisterWithHealthChecks(t *testing.T) {
 
 func TestServiceStore_GetHealthChecks(t *testing.T) {
 	s := NewServiceStore()
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	// Register service with multiple health checks
 	service := Service{
@@ -635,7 +637,7 @@ func TestServiceStore_GetHealthChecks(t *testing.T) {
 
 func TestServiceStore_GetHealthChecksNonExistent(t *testing.T) {
 	s := NewServiceStore()
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	// Get health checks for non-existent service
 	checks := s.GetHealthChecks("nonexistent")
@@ -646,7 +648,7 @@ func TestServiceStore_GetHealthChecksNonExistent(t *testing.T) {
 
 func TestServiceStore_GetAllHealthChecks(t *testing.T) {
 	s := NewServiceStore()
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	// Register multiple services with health checks
 	service1 := Service{
@@ -689,7 +691,7 @@ func TestServiceStore_GetAllHealthChecks(t *testing.T) {
 
 func TestServiceStore_UpdateTTLCheck(t *testing.T) {
 	s := NewServiceStore()
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	// Register service with TTL check
 	service := Service{
@@ -729,7 +731,7 @@ func TestServiceStore_UpdateTTLCheck(t *testing.T) {
 
 func TestServiceStore_UpdateTTLCheckNonExistent(t *testing.T) {
 	s := NewServiceStore()
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	// Update non-existent check
 	err := s.UpdateTTLCheck("nonexistent")
@@ -740,7 +742,7 @@ func TestServiceStore_UpdateTTLCheckNonExistent(t *testing.T) {
 
 func TestServiceStore_HealthCheckDefaultName(t *testing.T) {
 	s := NewServiceStore()
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	// Register service with health check without name
 	service := Service{
@@ -772,7 +774,7 @@ func TestServiceStore_HealthCheckDefaultName(t *testing.T) {
 
 func TestServiceStore_HealthCheckServiceID(t *testing.T) {
 	s := NewServiceStore()
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	// Register service with health check without explicit ServiceID
 	service := Service{

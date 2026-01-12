@@ -99,8 +99,8 @@ func NewNode(cfg *Config, kvStore KVStoreInterface, serviceStore ServiceStoreInt
 	stablePath := filepath.Join(cfg.DataDir, "raft-stable.db")
 	stable, err := raftboltdb.NewBoltStore(stablePath)
 	if err != nil {
-		logStore.Close()
-		transport.Close()
+		_ = logStore.Close()
+		_ = transport.Close()
 		return nil, fmt.Errorf("failed to create stable store: %w", err)
 	}
 
@@ -545,9 +545,10 @@ func (n *Node) GetClusterInfo() (*ClusterInfo, error) {
 	var peers []PeerInfo
 	for _, srv := range configFuture.Configuration().Servers {
 		state := "Voter"
-		if srv.Suffrage == raft.Nonvoter {
+		switch srv.Suffrage {
+		case raft.Nonvoter:
 			state = "Nonvoter"
-		} else if srv.Suffrage == raft.Staging {
+		case raft.Staging:
 			state = "Staging"
 		}
 		peers = append(peers, PeerInfo{
