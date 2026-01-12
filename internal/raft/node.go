@@ -648,7 +648,7 @@ func (n *Node) monitorState() {
 			// Get commit index from stats
 			stats := n.raft.Stats()
 			var commitIndex uint64
-			fmt.Sscanf(stats["commit_index"], "%d", &commitIndex)
+			_, _ = fmt.Sscanf(stats["commit_index"], "%d", &commitIndex)
 
 			n.metrics.SetIndices(lastIndex, commitIndex, appliedIndex)
 
@@ -660,7 +660,7 @@ func (n *Node) monitorState() {
 
 			// Update FSM pending
 			var fsmPending uint64
-			fmt.Sscanf(stats["fsm_pending"], "%d", &fsmPending)
+			_, _ = fmt.Sscanf(stats["fsm_pending"], "%d", &fsmPending)
 			n.metrics.SetFSMPending(fsmPending)
 
 		case <-n.shutdownCh:

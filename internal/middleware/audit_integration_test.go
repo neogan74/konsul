@@ -32,7 +32,7 @@ func TestAuditIntegration_KVOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create audit manager: %v", err)
 	}
-	defer mgr.Shutdown(context.Background())
+	defer func() { _ = mgr.Shutdown(context.Background()) }()
 
 	app := fiber.New()
 
@@ -174,7 +174,7 @@ func TestAuditIntegration_ServiceOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create audit manager: %v", err)
 	}
-	defer mgr.Shutdown(context.Background())
+	defer func() { _ = mgr.Shutdown(context.Background()) }()
 
 	app := fiber.New()
 
@@ -252,7 +252,7 @@ func TestAuditIntegration_ServiceOperations(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	mgr.Shutdown(ctx)
+	_ = mgr.Shutdown(ctx)
 
 	// Verify audit log
 	data, err := os.ReadFile(auditPath)

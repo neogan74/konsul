@@ -62,7 +62,7 @@ func TestDNSServer_RealQuery(t *testing.T) {
 
 	// Register test service
 	service := store.Service{Name: "test", Address: "10.0.0.1", Port: 8080}
-	serviceStore.Register(service)
+	_ = serviceStore.Register(service)
 
 	// Start server
 	err = server.Start()
@@ -168,7 +168,7 @@ func TestDNSServer_ServiceLifecycle(t *testing.T) {
 
 	// Test 2: Register service - should get records
 	service := store.Service{Name: "web", Address: "192.168.1.100", Port: 80}
-	serviceStore.Register(service)
+	_ = serviceStore.Register(service)
 
 	response, _, err = client.Exchange(query, net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", port)))
 	if err != nil {
@@ -317,7 +317,7 @@ func TestDNSServer_ConcurrentQueries(t *testing.T) {
 
 	// Register test service
 	service := store.Service{Name: "concurrent", Address: "10.0.0.1", Port: 8080}
-	serviceStore.Register(service)
+	_ = serviceStore.Register(service)
 
 	// Start server
 	err = server.Start()
