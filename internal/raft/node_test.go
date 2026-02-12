@@ -27,7 +27,7 @@ func (m *MockKVStore) Set(key, value string) error {
 	return nil
 }
 
-func (m *MockKVStore) SetWithFlags(key, value string, flags uint64) error {
+func (m *MockKVStore) SetWithFlags(key, value string, _ uint64) error {
 	m.data[key] = value
 	return nil
 }
@@ -42,7 +42,7 @@ func (m *MockKVStore) Delete(key string) error {
 	return nil
 }
 
-func (m *MockKVStore) List(prefix string) (map[string]string, error) {
+func (m *MockKVStore) List(_ string) (map[string]string, error) {
 	result := make(map[string]string)
 	for k, v := range m.data {
 		result[k] = v
@@ -54,7 +54,7 @@ func (m *MockKVStore) SetLocal(key, value string) {
 	m.data[key] = value
 }
 
-func (m *MockKVStore) SetWithFlagsLocal(key, value string, flags uint64) {
+func (m *MockKVStore) SetWithFlagsLocal(key, value string, _ uint64) {
 	m.data[key] = value
 }
 
@@ -76,19 +76,19 @@ func (m *MockKVStore) BatchDeleteLocal(keys []string) error {
 	return nil
 }
 
-func (m *MockKVStore) SetCASLocal(key, value string, expectedIndex uint64) (uint64, error) {
+func (m *MockKVStore) SetCASLocal(_, _ string, _ uint64) (uint64, error) {
 	return 0, nil
 }
 
-func (m *MockKVStore) DeleteCASLocal(key string, expectedIndex uint64) error {
+func (m *MockKVStore) DeleteCASLocal(_ string, _ uint64) error {
 	return nil
 }
 
-func (m *MockKVStore) BatchSetCASLocal(items map[string]string, expectedIndices map[string]uint64) (map[string]uint64, error) {
+func (m *MockKVStore) BatchSetCASLocal(_ map[string]string, _ map[string]uint64) (map[string]uint64, error) {
 	return nil, nil
 }
 
-func (m *MockKVStore) BatchDeleteCASLocal(keys []string, expectedIndices map[string]uint64) error {
+func (m *MockKVStore) BatchDeleteCASLocal(_ []string, _ map[string]uint64) error {
 	return nil
 }
 
@@ -124,7 +124,7 @@ func NewMockServiceStore() *MockServiceStore {
 	}
 }
 
-func (m *MockServiceStore) Register(name, address string, port int, tags []string, meta map[string]string) error {
+func (m *MockServiceStore) Register(name, _ string, _ int, _ []string, _ map[string]string) error {
 	m.services[name] = struct{}{}
 	return nil
 }
@@ -143,7 +143,7 @@ func (m *MockServiceStore) List() (map[string]interface{}, error) {
 	return m.services, nil
 }
 
-func (m *MockServiceStore) Heartbeat(name string) error {
+func (m *MockServiceStore) Heartbeat(_ string) error {
 	return nil
 }
 
@@ -156,23 +156,23 @@ func (m *MockServiceStore) DeregisterLocal(name string) {
 	delete(m.services, name)
 }
 
-func (m *MockServiceStore) HeartbeatLocal(name string) bool {
+func (m *MockServiceStore) HeartbeatLocal(_ string) bool {
 	return true
 }
 
-func (m *MockServiceStore) RegisterCASLocal(service store.ServiceDataSnapshot, expectedIndex uint64) (uint64, error) {
+func (m *MockServiceStore) RegisterCASLocal(_ store.ServiceDataSnapshot, _ uint64) (uint64, error) {
 	return 0, nil
 }
 
-func (m *MockServiceStore) DeregisterCASLocal(name string, expectedIndex uint64) error {
+func (m *MockServiceStore) DeregisterCASLocal(_ string, _ uint64) error {
 	return nil
 }
 
-func (m *MockServiceStore) UpdateTTLCheck(checkID string) error {
+func (m *MockServiceStore) UpdateTTLCheck(_ string) error {
 	return nil
 }
 
-func (m *MockServiceStore) GetEntrySnapshot(name string) (store.ServiceEntrySnapshot, bool) {
+func (m *MockServiceStore) GetEntrySnapshot(_ string) (store.ServiceEntrySnapshot, bool) {
 	return store.ServiceEntrySnapshot{}, false
 }
 
