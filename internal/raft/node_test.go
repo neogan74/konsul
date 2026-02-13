@@ -172,8 +172,25 @@ func (m *MockServiceStore) UpdateTTLCheck(_ string) error {
 	return nil
 }
 
-func (m *MockServiceStore) GetEntrySnapshot(_ string) (store.ServiceEntrySnapshot, bool) {
-	return store.ServiceEntrySnapshot{}, false
+func (m *MockServiceStore) GetEntrySnapshot(name string) (store.ServiceEntrySnapshot, bool) {
+	val, ok := m.services[name]
+	if !ok {
+		return store.ServiceEntrySnapshot{}, false
+	}
+
+	if svc, ok := val.(store.ServiceDataSnapshot); ok {
+		return store.ServiceEntrySnapshot{
+			Service:     svc,
+			ModifyIndex: 1,
+			CreateIndex: 1,
+		}, true
+	}
+
+	return store.ServiceEntrySnapshot{
+		Service:     store.ServiceDataSnapshot{Name: name},
+		ModifyIndex: 1,
+		CreateIndex: 1,
+	}, true
 }
 
 func (m *MockServiceStore) GetAllData() map[string]store.ServiceEntrySnapshot {
