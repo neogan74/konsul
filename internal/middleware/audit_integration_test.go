@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +16,21 @@ import (
 	"github.com/neogan74/konsul/internal/audit"
 	"github.com/neogan74/konsul/internal/logger"
 )
+
+func shutdownAuditManager(t *testing.T, mgr *audit.Manager) func() {
+	t.Helper()
+
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			if err := mgr.Shutdown(ctx); err != nil {
+				t.Fatalf("shutdown audit manager: %v", err)
+			}
+		})
+	}
+}
 
 // TestAuditIntegration_KVOperations verifies audit events for KV operations
 func TestAuditIntegration_KVOperations(t *testing.T) {
@@ -32,6 +48,8 @@ func TestAuditIntegration_KVOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create audit manager: %v", err)
 	}
+	shutdown := shutdownAuditManager(t, mgr)
+	t.Cleanup(shutdown)
 
 	app := fiber.New()
 
@@ -126,11 +144,7 @@ func TestAuditIntegration_KVOperations(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	// Shutdown to flush remaining events
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	if err := mgr.Shutdown(ctx); err != nil {
-		t.Fatalf("shutdown audit manager: %v", err)
-	}
+	shutdown()
 
 	// Read and verify audit log
 	data, err := os.ReadFile(auditPath)
@@ -177,6 +191,8 @@ func TestAuditIntegration_ServiceOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create audit manager: %v", err)
 	}
+	shutdown := shutdownAuditManager(t, mgr)
+	t.Cleanup(shutdown)
 
 	app := fiber.New()
 
@@ -256,11 +272,7 @@ func TestAuditIntegration_ServiceOperations(t *testing.T) {
 
 	// Flush and shutdown
 	time.Sleep(50 * time.Millisecond)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	if err := mgr.Shutdown(ctx); err != nil {
-		t.Fatalf("shutdown audit manager: %v", err)
-	}
+	shutdown()
 
 	// Verify audit log
 	data, err := os.ReadFile(auditPath)
@@ -295,6 +307,8 @@ func TestAuditIntegration_ACLOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create audit manager: %v", err)
 	}
+	shutdown := shutdownAuditManager(t, mgr)
+	t.Cleanup(shutdown)
 
 	app := fiber.New()
 
@@ -358,11 +372,7 @@ func TestAuditIntegration_ACLOperations(t *testing.T) {
 
 	// Flush and shutdown
 	time.Sleep(50 * time.Millisecond)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	if err := mgr.Shutdown(ctx); err != nil {
-		t.Fatalf("shutdown audit manager: %v", err)
-	}
+	shutdown()
 
 	// Verify audit log
 	data, err := os.ReadFile(auditPath)
@@ -396,6 +406,8 @@ func TestAuditIntegration_BackupOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create audit manager: %v", err)
 	}
+	shutdown := shutdownAuditManager(t, mgr)
+	t.Cleanup(shutdown)
 
 	app := fiber.New()
 
@@ -459,11 +471,7 @@ func TestAuditIntegration_BackupOperations(t *testing.T) {
 
 	// Flush and shutdown
 	time.Sleep(50 * time.Millisecond)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	if err := mgr.Shutdown(ctx); err != nil {
-		t.Fatalf("shutdown audit manager: %v", err)
-	}
+	shutdown()
 
 	// Verify audit log
 	data, err := os.ReadFile(auditPath)
@@ -493,6 +501,8 @@ func TestAuditIntegration_DisabledManager(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create audit manager: %v", err)
 	}
+	shutdown := shutdownAuditManager(t, mgr)
+	t.Cleanup(shutdown)
 
 	app := fiber.New()
 
@@ -546,6 +556,8 @@ func TestAuditIntegration_EventFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create audit manager: %v", err)
 	}
+	shutdown := shutdownAuditManager(t, mgr)
+	t.Cleanup(shutdown)
 
 	app := fiber.New()
 
@@ -585,11 +597,7 @@ func TestAuditIntegration_EventFields(t *testing.T) {
 
 	// Flush and shutdown
 	time.Sleep(50 * time.Millisecond)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	if err := mgr.Shutdown(ctx); err != nil {
-		t.Fatalf("shutdown audit manager: %v", err)
-	}
+	shutdown()
 
 	// Read audit log
 	data, err := os.ReadFile(auditPath)
