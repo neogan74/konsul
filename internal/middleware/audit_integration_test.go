@@ -32,11 +32,6 @@ func TestAuditIntegration_KVOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create audit manager: %v", err)
 	}
-	defer func() {
-		if err := mgr.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown audit manager: %v", err)
-		}
-	}()
 
 	app := fiber.New()
 
@@ -182,11 +177,6 @@ func TestAuditIntegration_ServiceOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create audit manager: %v", err)
 	}
-	defer func() {
-		if err := mgr.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown audit manager: %v", err)
-		}
-	}()
 
 	app := fiber.New()
 
@@ -305,11 +295,6 @@ func TestAuditIntegration_ACLOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create audit manager: %v", err)
 	}
-	defer func() {
-		if err := mgr.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown audit manager: %v", err)
-		}
-	}()
 
 	app := fiber.New()
 
@@ -411,11 +396,6 @@ func TestAuditIntegration_BackupOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create audit manager: %v", err)
 	}
-	defer func() {
-		if err := mgr.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown audit manager: %v", err)
-		}
-	}()
 
 	app := fiber.New()
 
@@ -513,11 +493,6 @@ func TestAuditIntegration_DisabledManager(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create audit manager: %v", err)
 	}
-	defer func() {
-		if err := mgr.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown audit manager: %v", err)
-		}
-	}()
 
 	app := fiber.New()
 
@@ -571,11 +546,6 @@ func TestAuditIntegration_EventFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create audit manager: %v", err)
 	}
-	defer func() {
-		if err := mgr.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown audit manager: %v", err)
-		}
-	}()
 
 	app := fiber.New()
 
