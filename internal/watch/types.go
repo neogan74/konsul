@@ -7,13 +7,14 @@ import (
 // EventType represents the type of watch event
 type EventType string
 
+// EventTypeSet represents a set event
 const (
 	EventTypeSet    EventType = "set"
 	EventTypeDelete EventType = "delete"
 )
 
-// WatchEvent represents a change to a key
-type WatchEvent struct {
+// Event represents a change to a key
+type Event struct {
 	Type      EventType `json:"type"`
 	Key       string    `json:"key"`
 	Value     string    `json:"value,omitempty"`
@@ -24,6 +25,7 @@ type WatchEvent struct {
 // TransportType represents the transport protocol for watch connections
 type TransportType string
 
+// TransportWebSocket represents a WebSocket transport type
 const (
 	TransportWebSocket TransportType = "websocket"
 	TransportSSE       TransportType = "sse"
@@ -33,7 +35,7 @@ const (
 type Watcher struct {
 	ID          string
 	Pattern     string // Key or prefix to watch (supports * and **)
-	Events      chan WatchEvent
+	Events      chan Event
 	ACLPolicies []string // Policies for ACL checks
 	CreatedAt   time.Time
 	Transport   TransportType
@@ -45,7 +47,7 @@ func NewWatcher(id, pattern string, policies []string, transport TransportType, 
 	return &Watcher{
 		ID:          id,
 		Pattern:     pattern,
-		Events:      make(chan WatchEvent, bufferSize),
+		Events:      make(chan Event, bufferSize),
 		ACLPolicies: policies,
 		CreatedAt:   time.Now(),
 		Transport:   transport,

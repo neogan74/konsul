@@ -95,7 +95,7 @@ func (h *ServiceHandler) Register(c *fiber.Ctx) error {
 		var newIndex uint64
 		var err error
 		if h.raftNode != nil {
-			entry, marshalErr := konsulraft.NewLogEntry(konsulraft.EntryServiceRegisterCAS, konsulraft.ServiceRegisterCASPayload{
+			cmd, marshalErr := konsulraft.NewCommand(konsulraft.CmdServiceRegisterCAS, konsulraft.ServiceRegisterCASPayload{
 				Service:       svc,
 				ExpectedIndex: *body.CAS,
 			})
@@ -103,7 +103,7 @@ func (h *ServiceHandler) Register(c *fiber.Ctx) error {
 				log.Error("Failed to build raft log entry", logger.Error(marshalErr))
 				return middleware.InternalError(c, "Failed to register service")
 			}
-			resp, applyErr := h.raftNode.ApplyEntry(entry, 5*time.Second)
+			resp, applyErr := h.raftNode.ApplyEntry(cmd, 5*time.Second)
 			if applyErr != nil {
 				if errors.Is(applyErr, hashiraft.ErrNotLeader) {
 					return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
@@ -266,7 +266,7 @@ func (h *ServiceHandler) Deregister(c *fiber.Ctx) error {
 
 		var err error
 		if h.raftNode != nil {
-			entry, marshalErr := konsulraft.NewLogEntry(konsulraft.EntryServiceDeregisterCAS, konsulraft.ServiceDeregisterCASPayload{
+			cmd, marshalErr := konsulraft.NewCommand(konsulraft.CmdServiceDeregisterCAS, konsulraft.ServiceDeregisterCASPayload{
 				Name:          name,
 				ExpectedIndex: expectedIndex,
 			})
@@ -274,7 +274,7 @@ func (h *ServiceHandler) Deregister(c *fiber.Ctx) error {
 				log.Error("Failed to build raft log entry", logger.Error(marshalErr))
 				return middleware.InternalError(c, "Failed to deregister service")
 			}
-			if _, applyErr := h.raftNode.ApplyEntry(entry, 5*time.Second); applyErr != nil {
+			if _, applyErr := h.raftNode.ApplyEntry(cmd, 5*time.Second); applyErr != nil {
 				if errors.Is(applyErr, hashiraft.ErrNotLeader) {
 					return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
 						"error":  "not leader",

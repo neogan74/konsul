@@ -92,7 +92,7 @@ func RateLimitMiddleware(service *ratelimit.Service) fiber.Handler {
 			// Calculate Retry-After in seconds
 			if limiter != nil {
 				_, _, resetAt := limiter.GetHeaders()
-				retryAfter := int(time.Unix(resetAt, 0).Sub(time.Now()).Seconds())
+				retryAfter := int(time.Until(time.Unix(resetAt, 0)).Seconds())
 				if retryAfter < 1 {
 					retryAfter = 1
 				}
@@ -152,7 +152,7 @@ func RateLimitWithConfig(requestsPerSec float64, burst int) fiber.Handler {
 		// Check if request is allowed
 		if !limiter.Allow() {
 			// Calculate Retry-After in seconds
-			retryAfter := int(time.Unix(resetAt, 0).Sub(time.Now()).Seconds())
+			retryAfter := int(time.Until(time.Unix(resetAt, 0)).Seconds())
 			if retryAfter < 1 {
 				retryAfter = 1
 			}

@@ -27,7 +27,7 @@ func (m *MockKVStore) Set(key, value string) error {
 	return nil
 }
 
-func (m *MockKVStore) SetWithFlags(key, value string, flags uint64) error {
+func (m *MockKVStore) SetWithFlags(key, value string, _ uint64) error {
 	m.data[key] = value
 	return nil
 }
@@ -42,7 +42,7 @@ func (m *MockKVStore) Delete(key string) error {
 	return nil
 }
 
-func (m *MockKVStore) List(prefix string) (map[string]string, error) {
+func (m *MockKVStore) List(_ string) (map[string]string, error) {
 	result := make(map[string]string)
 	for k, v := range m.data {
 		result[k] = v
@@ -54,7 +54,7 @@ func (m *MockKVStore) SetLocal(key, value string) {
 	m.data[key] = value
 }
 
-func (m *MockKVStore) SetWithFlagsLocal(key, value string, flags uint64) {
+func (m *MockKVStore) SetWithFlagsLocal(key, value string, _ uint64) {
 	m.data[key] = value
 }
 
@@ -76,6 +76,22 @@ func (m *MockKVStore) BatchDeleteLocal(keys []string) error {
 	return nil
 }
 
+func (m *MockKVStore) SetCASLocal(_, _ string, _ uint64) (uint64, error) {
+	return 0, nil
+}
+
+func (m *MockKVStore) DeleteCASLocal(_ string, _ uint64) error {
+	return nil
+}
+
+func (m *MockKVStore) BatchSetCASLocal(_ map[string]string, _ map[string]uint64) (map[string]uint64, error) {
+	return nil, nil
+}
+
+func (m *MockKVStore) BatchDeleteCASLocal(_ []string, _ map[string]uint64) error {
+	return nil
+}
+
 func (m *MockKVStore) GetAllData() map[string]store.KVEntrySnapshot {
 	result := make(map[string]store.KVEntrySnapshot, len(m.data))
 	for k, v := range m.data {
@@ -92,6 +108,11 @@ func (m *MockKVStore) RestoreFromSnapshot(data map[string]store.KVEntrySnapshot)
 	return nil
 }
 
+func (m *MockKVStore) GetEntrySnapshot(key string) (store.KVEntrySnapshot, bool) {
+	val, ok := m.data[key]
+	return store.KVEntrySnapshot{Value: val}, ok
+}
+
 // MockServiceStore is a simple in-memory implementation for testing
 type MockServiceStore struct {
 	services map[string]interface{}
@@ -103,7 +124,7 @@ func NewMockServiceStore() *MockServiceStore {
 	}
 }
 
-func (m *MockServiceStore) Register(name, address string, port int, tags []string, meta map[string]string) error {
+func (m *MockServiceStore) Register(name, _ string, _ int, _ []string, _ map[string]string) error {
 	m.services[name] = struct{}{}
 	return nil
 }
@@ -122,7 +143,7 @@ func (m *MockServiceStore) List() (map[string]interface{}, error) {
 	return m.services, nil
 }
 
-func (m *MockServiceStore) Heartbeat(name string) error {
+func (m *MockServiceStore) Heartbeat(_ string) error {
 	return nil
 }
 
@@ -135,8 +156,41 @@ func (m *MockServiceStore) DeregisterLocal(name string) {
 	delete(m.services, name)
 }
 
-func (m *MockServiceStore) HeartbeatLocal(name string) bool {
+func (m *MockServiceStore) HeartbeatLocal(_ string) bool {
 	return true
+}
+
+func (m *MockServiceStore) RegisterCASLocal(_ store.ServiceDataSnapshot, _ uint64) (uint64, error) {
+	return 0, nil
+}
+
+func (m *MockServiceStore) DeregisterCASLocal(_ string, _ uint64) error {
+	return nil
+}
+
+func (m *MockServiceStore) UpdateTTLCheck(_ string) error {
+	return nil
+}
+
+func (m *MockServiceStore) GetEntrySnapshot(name string) (store.ServiceEntrySnapshot, bool) {
+	val, ok := m.services[name]
+	if !ok {
+		return store.ServiceEntrySnapshot{}, false
+	}
+
+	if svc, ok := val.(store.ServiceDataSnapshot); ok {
+		return store.ServiceEntrySnapshot{
+			Service:     svc,
+			ModifyIndex: 1,
+			CreateIndex: 1,
+		}, true
+	}
+
+	return store.ServiceEntrySnapshot{
+		Service:     store.ServiceDataSnapshot{Name: name},
+		ModifyIndex: 1,
+		CreateIndex: 1,
+	}, true
 }
 
 func (m *MockServiceStore) GetAllData() map[string]store.ServiceEntrySnapshot {
@@ -185,7 +239,7 @@ func TestNodeCreation(t *testing.T) {
 	node, err := NewNode(cfg, kvStore, serviceStore)
 	require.NoError(t, err)
 	require.NotNil(t, node)
-	defer node.Shutdown()
+	defer func() { _ = node.Shutdown() }()
 
 	// Check that metrics are initialized
 	assert.NotNil(t, node.metrics)
@@ -210,7 +264,7 @@ func TestMetricsMonitoring(t *testing.T) {
 	node, err := NewNode(cfg, kvStore, serviceStore)
 	require.NoError(t, err)
 	require.NotNil(t, node)
-	defer node.Shutdown()
+	defer func() { _ = node.Shutdown() }()
 
 	// Wait for leader election
 	err = node.WaitForLeader(5 * time.Second)
@@ -257,7 +311,7 @@ func TestWaitForLeaderTimeout(t *testing.T) {
 	node, err := NewNode(cfg, kvStore, serviceStore)
 	require.NoError(t, err)
 	require.NotNil(t, node)
-	defer node.Shutdown()
+	defer func() { _ = node.Shutdown() }()
 
 	// Wait for leader with short timeout - should timeout
 	err = node.WaitForLeader(500 * time.Millisecond)

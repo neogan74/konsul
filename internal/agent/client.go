@@ -22,6 +22,15 @@ type ServerClient struct {
 	agentID    string
 }
 
+func closeResponseBody(body io.ReadCloser) {
+	if body == nil {
+		return
+	}
+	if err := body.Close(); err != nil {
+		// Best-effort close; response body already consumed.
+	}
+}
+
 // NewServerClient creates a new server client
 func NewServerClient(serverURL string, tlsConfig TLSConfig, agentID string) (*ServerClient, error) {
 	client := &http.Client{
@@ -130,7 +139,7 @@ func (c *ServerClient) DeregisterService(ctx context.Context, name string) error
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -153,7 +162,7 @@ func (c *ServerClient) GetService(ctx context.Context, name string) ([]*store.Se
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -181,7 +190,7 @@ func (c *ServerClient) GetKV(ctx context.Context, key string) (*store.KVEntry, e
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp.Body)
 
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, nil
@@ -218,7 +227,7 @@ func (c *ServerClient) DeleteKV(ctx context.Context, key string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp.Body)
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
@@ -268,7 +277,7 @@ func (c *ServerClient) doRequest(ctx context.Context, method, url string, body i
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp.Body)
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		bodyBytes, _ := io.ReadAll(resp.Body)

@@ -75,11 +75,11 @@ func (h *KVWatchHandler) WatchWebSocket(c *websocket.Conn) {
 	resource := acl.NewKVResource(pattern)
 	if h.aclEval != nil && !h.aclEval.Evaluate(policies, resource, acl.CapabilityRead) {
 		h.log.Warn("WebSocket watch: ACL check failed")
-		c.WriteJSON(fiber.Map{
+		_ = c.WriteJSON(fiber.Map{
 			"error":   "forbidden",
 			"message": "insufficient permissions to watch this key pattern",
 		})
-		c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "forbidden"))
+		_ = c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "forbidden"))
 		return
 	}
 
@@ -87,11 +87,11 @@ func (h *KVWatchHandler) WatchWebSocket(c *websocket.Conn) {
 	watcher, err := h.watchManager.AddWatcher(pattern, policies, watch.TransportWebSocket, userID)
 	if err != nil {
 		h.log.Error("Failed to add watcher", logger.Error(err))
-		c.WriteJSON(fiber.Map{
+		_ = c.WriteJSON(fiber.Map{
 			"error":   "failed to add watcher",
 			"message": err.Error(),
 		})
-		c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, err.Error()))
+		_ = c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, err.Error()))
 		return
 	}
 	defer h.watchManager.RemoveWatcher(watcher.ID)
@@ -101,7 +101,7 @@ func (h *KVWatchHandler) WatchWebSocket(c *websocket.Conn) {
 	// Send initial value if exact key match (not a wildcard)
 	if pattern != "*" && pattern != "**" && !containsWildcard(pattern) {
 		if value, ok := h.store.Get(pattern); ok {
-			initialEvent := watch.WatchEvent{
+			initialEvent := watch.Event{
 				Type:      watch.EventTypeSet,
 				Key:       pattern,
 				Value:     value,
@@ -116,9 +116,9 @@ func (h *KVWatchHandler) WatchWebSocket(c *websocket.Conn) {
 	}
 
 	// Setup ping/pong for connection health
-	c.SetReadDeadline(time.Now().Add(60 * time.Second))
+	_ = c.SetReadDeadline(time.Now().Add(60 * time.Second))
 	c.SetPongHandler(func(string) error {
-		c.SetReadDeadline(time.Now().Add(60 * time.Second))
+		_ = c.SetReadDeadline(time.Now().Add(60 * time.Second))
 		return nil
 	})
 
@@ -233,13 +233,13 @@ func (h *KVWatchHandler) WatchSSE(c *fiber.Ctx) error {
 		// Send initial value if exact key match
 		if pattern != "*" && pattern != "**" && !containsWildcard(pattern) {
 			if value, ok := h.store.Get(pattern); ok {
-				initialEvent := watch.WatchEvent{
+				initialEvent := watch.Event{
 					Type:      watch.EventTypeSet,
 					Key:       pattern,
 					Value:     value,
 					Timestamp: time.Now().Unix(),
 				}
-				sendSSEEvent(w, initialEvent)
+				_ = sendSSEEvent(w, initialEvent)
 				h.log.Debug("Sent initial value")
 			}
 		}
@@ -269,7 +269,10 @@ func (h *KVWatchHandler) WatchSSE(c *fiber.Ctx) error {
 
 			case <-keepAliveTicker.C:
 				// Send keep-alive comment
-				fmt.Fprintf(w, ": keep-alive\n\n")
+				if _, err := fmt.Fprintf(w, ": keep-alive\n\n"); err != nil {
+					h.log.Debug("Failed to write keep-alive", logger.Error(err))
+					return
+				}
 				if err := w.Flush(); err != nil {
 					h.log.Debug("Failed to send keep-alive", logger.Error(err))
 					return
@@ -286,14 +289,18 @@ func (h *KVWatchHandler) WatchSSE(c *fiber.Ctx) error {
 }
 
 // sendSSEEvent sends a watch event in SSE format
-func sendSSEEvent(w *bufio.Writer, event watch.WatchEvent) error {
+func sendSSEEvent(w *bufio.Writer, event watch.Event) error {
 	data, err := json.Marshal(event)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(w, "event: kv-change\n")
-	fmt.Fprintf(w, "data: %s\n\n", string(data))
+	if _, err := fmt.Fprintf(w, "event: kv-change\n"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "data: %s\n\n", string(data)); err != nil {
+		return err
+	}
 	return w.Flush()
 }
 

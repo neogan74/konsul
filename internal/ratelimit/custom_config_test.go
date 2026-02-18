@@ -28,7 +28,7 @@ func TestLimiter_CustomConfigExpiry(t *testing.T) {
 	limiter.SetCustomConfig(20.0, 10, 10*time.Millisecond)
 
 	// Verify custom config is active
-	rate, burst := limiter.getEffectiveConfig()
+	rate, _ := limiter.getEffectiveConfig()
 	if rate != 20.0 {
 		t.Errorf("Expected custom rate 20.0, got %.1f", rate)
 	}
@@ -37,7 +37,7 @@ func TestLimiter_CustomConfigExpiry(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	// Verify reverted to default config
-	rate, burst = limiter.getEffectiveConfig()
+	rate, burst := limiter.getEffectiveConfig()
 	if rate != 10.0 {
 		t.Errorf("Expected default rate 10.0 after expiry, got %.1f", rate)
 	}

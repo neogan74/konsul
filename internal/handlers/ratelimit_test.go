@@ -44,8 +44,9 @@ func TestGetStats(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.True(t, result["success"].(bool))
 	assert.NotNil(t, result["data"])
 
@@ -65,8 +66,9 @@ func TestGetConfig(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.True(t, result["success"].(bool))
 	assert.NotNil(t, result["config"])
 
@@ -94,8 +96,9 @@ func TestResetIP(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.True(t, result["success"].(bool))
 	assert.Equal(t, "Rate limit reset successfully", result["message"])
 	assert.Equal(t, testIP, result["ip"])
@@ -128,8 +131,9 @@ func TestResetAPIKey(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.True(t, result["success"].(bool))
 	assert.Equal(t, "Rate limit reset successfully", result["message"])
 	assert.Equal(t, testKeyID, result["key_id"])
@@ -164,8 +168,9 @@ func TestResetAll(t *testing.T) {
 			assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 			var result map[string]interface{}
-			json.NewDecoder(resp.Body).Decode(&result)
-
+			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
 			assert.True(t, result["success"].(bool))
 			assert.Equal(t, tt.expectedMsg, result["message"])
 		})
@@ -183,8 +188,9 @@ func TestResetAllInvalidType(t *testing.T) {
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.False(t, result["success"].(bool))
 	assert.Contains(t, result["error"].(string), "Invalid type parameter")
 }
@@ -220,8 +226,9 @@ func TestGetActiveClients(t *testing.T) {
 			assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 			var result map[string]interface{}
-			json.NewDecoder(resp.Body).Decode(&result)
-
+			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
 			assert.True(t, result["success"].(bool))
 			assert.NotNil(t, result["clients"])
 
@@ -248,8 +255,9 @@ func TestGetClientStatus(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.True(t, result["success"].(bool))
 	assert.NotNil(t, result["client"])
 
@@ -270,8 +278,9 @@ func TestGetClientStatusNotFound(t *testing.T) {
 	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.False(t, result["success"].(bool))
 	assert.Equal(t, "Client not found", result["error"])
 }
@@ -294,8 +303,9 @@ func TestUpdateConfig(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.True(t, result["success"].(bool))
 	assert.Contains(t, result["message"], "Configuration updated successfully")
 
@@ -316,8 +326,9 @@ func TestUpdateConfigInvalidJSON(t *testing.T) {
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.False(t, result["success"].(bool))
 	assert.Contains(t, result["error"], "Invalid request body")
 }
@@ -363,8 +374,9 @@ func TestUpdateConfigInvalidValues(t *testing.T) {
 			assert.Equal(t, tt.expectedCode, resp.StatusCode)
 
 			var result map[string]interface{}
-			json.NewDecoder(resp.Body).Decode(&result)
-
+			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
 			assert.False(t, result["success"].(bool))
 			assert.Contains(t, result["error"], tt.errorMsg)
 		})
@@ -390,8 +402,9 @@ func TestUpdateConfigNoChanges(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.True(t, result["success"].(bool))
 	assert.Equal(t, "No changes applied", result["message"])
 }
@@ -401,13 +414,13 @@ func TestGetWhitelist(t *testing.T) {
 	app.Get("/admin/ratelimit/whitelist", handler.GetWhitelist)
 
 	// Add some whitelist entries
-	service.GetAccessList().AddToWhitelist(ratelimit.WhitelistEntry{
+	_ = service.GetAccessList().AddToWhitelist(ratelimit.WhitelistEntry{
 		Identifier: "192.168.1.100",
 		Type:       "ip",
 		Reason:     "Trusted IP",
 		AddedBy:    "admin",
 	})
-	service.GetAccessList().AddToWhitelist(ratelimit.WhitelistEntry{
+	_ = service.GetAccessList().AddToWhitelist(ratelimit.WhitelistEntry{
 		Identifier: "key123",
 		Type:       "apikey",
 		Reason:     "Premium customer",
@@ -421,8 +434,9 @@ func TestGetWhitelist(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.True(t, result["success"].(bool))
 	assert.Equal(t, float64(2), result["count"])
 	assert.NotNil(t, result["entries"])
@@ -450,8 +464,9 @@ func TestAddToWhitelist(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.True(t, result["success"].(bool))
 	assert.Equal(t, "Added to whitelist successfully", result["message"])
 	assert.NotNil(t, result["entry"])
@@ -483,8 +498,9 @@ func TestAddToWhitelistWithDuration(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.True(t, result["success"].(bool))
 
 	entry := result["entry"].(map[string]interface{})
@@ -511,8 +527,9 @@ func TestAddToWhitelistInvalidType(t *testing.T) {
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.False(t, result["success"].(bool))
 	assert.Contains(t, result["error"].(string), "type must be 'ip' or 'apikey'")
 }
@@ -535,8 +552,9 @@ func TestAddToWhitelistMissingIdentifier(t *testing.T) {
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.False(t, result["success"].(bool))
 	assert.Contains(t, result["error"].(string), "identifier is required")
 }
@@ -562,8 +580,9 @@ func TestAddToWhitelistInvalidDuration(t *testing.T) {
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.False(t, result["success"].(bool))
 	assert.Contains(t, result["error"].(string), "Invalid duration format")
 }
@@ -574,7 +593,7 @@ func TestRemoveFromWhitelist(t *testing.T) {
 
 	// Add entry first
 	identifier := "192.168.1.100"
-	service.GetAccessList().AddToWhitelist(ratelimit.WhitelistEntry{
+	_ = service.GetAccessList().AddToWhitelist(ratelimit.WhitelistEntry{
 		Identifier: identifier,
 		Type:       "ip",
 		Reason:     "Test",
@@ -588,8 +607,9 @@ func TestRemoveFromWhitelist(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.True(t, result["success"].(bool))
 	assert.Equal(t, "Removed from whitelist successfully", result["message"])
 	assert.Equal(t, identifier, result["identifier"])
@@ -609,8 +629,9 @@ func TestRemoveFromWhitelistNotFound(t *testing.T) {
 	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.False(t, result["success"].(bool))
 	assert.Equal(t, "Identifier not found in whitelist", result["error"])
 }
@@ -620,14 +641,14 @@ func TestGetBlacklist(t *testing.T) {
 	app.Get("/admin/ratelimit/blacklist", handler.GetBlacklist)
 
 	// Add some blacklist entries
-	service.GetAccessList().AddToBlacklist(ratelimit.BlacklistEntry{
+	_ = service.GetAccessList().AddToBlacklist(ratelimit.BlacklistEntry{
 		Identifier: "192.168.1.50",
 		Type:       "ip",
 		Reason:     "Abuse detected",
 		AddedBy:    "system",
 		ExpiresAt:  time.Now().Add(1 * time.Hour),
 	})
-	service.GetAccessList().AddToBlacklist(ratelimit.BlacklistEntry{
+	_ = service.GetAccessList().AddToBlacklist(ratelimit.BlacklistEntry{
 		Identifier: "badkey",
 		Type:       "apikey",
 		Reason:     "Suspicious activity",
@@ -642,8 +663,9 @@ func TestGetBlacklist(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.True(t, result["success"].(bool))
 	assert.Equal(t, float64(2), result["count"])
 	assert.NotNil(t, result["entries"])
@@ -672,8 +694,9 @@ func TestAddToBlacklist(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.True(t, result["success"].(bool))
 	assert.Equal(t, "Added to blacklist successfully", result["message"])
 	assert.NotNil(t, result["entry"])
@@ -703,8 +726,9 @@ func TestAddToBlacklistMissingDuration(t *testing.T) {
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.False(t, result["success"].(bool))
 	assert.Contains(t, result["error"].(string), "duration is required")
 }
@@ -729,8 +753,9 @@ func TestAddToBlacklistInvalidType(t *testing.T) {
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.False(t, result["success"].(bool))
 	assert.Contains(t, result["error"].(string), "type must be 'ip' or 'apikey'")
 }
@@ -741,7 +766,7 @@ func TestRemoveFromBlacklist(t *testing.T) {
 
 	// Add entry first
 	identifier := "192.168.1.77"
-	service.GetAccessList().AddToBlacklist(ratelimit.BlacklistEntry{
+	_ = service.GetAccessList().AddToBlacklist(ratelimit.BlacklistEntry{
 		Identifier: identifier,
 		Type:       "ip",
 		Reason:     "Test",
@@ -756,8 +781,9 @@ func TestRemoveFromBlacklist(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.True(t, result["success"].(bool))
 	assert.Equal(t, "Removed from blacklist successfully", result["message"])
 	assert.Equal(t, identifier, result["identifier"])
@@ -777,8 +803,9 @@ func TestRemoveFromBlacklistNotFound(t *testing.T) {
 	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.False(t, result["success"].(bool))
 	assert.Equal(t, "Identifier not found in blacklist", result["error"])
 }
@@ -806,8 +833,9 @@ func TestAdjustClientLimit(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.True(t, result["success"].(bool))
 	assert.Equal(t, "Rate limit adjusted successfully", result["message"])
 	assert.Equal(t, "ip", result["type"])
@@ -842,8 +870,9 @@ func TestAdjustClientLimitAPIKey(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.True(t, result["success"].(bool))
 	assert.Equal(t, "apikey", result["type"])
 	assert.Equal(t, testKey, result["identifier"])
@@ -868,8 +897,9 @@ func TestAdjustClientLimitInvalidType(t *testing.T) {
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.False(t, result["success"].(bool))
 	assert.Contains(t, result["error"].(string), "Invalid type")
 }
@@ -896,8 +926,9 @@ func TestAdjustClientLimitInvalidRate(t *testing.T) {
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.False(t, result["success"].(bool))
 	assert.Contains(t, result["error"].(string), "rate must be greater than 0")
 }
@@ -924,8 +955,9 @@ func TestAdjustClientLimitInvalidBurst(t *testing.T) {
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.False(t, result["success"].(bool))
 	assert.Contains(t, result["error"].(string), "burst must be greater than 0")
 }
@@ -952,8 +984,9 @@ func TestAdjustClientLimitInvalidDuration(t *testing.T) {
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.False(t, result["success"].(bool))
 	assert.Contains(t, result["error"].(string), "Invalid duration format")
 }
@@ -992,8 +1025,9 @@ func TestAdjustClientLimitStoreNotEnabled(t *testing.T) {
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	assert.False(t, result["success"].(bool))
 	assert.Contains(t, result["error"].(string), "not enabled")
 }

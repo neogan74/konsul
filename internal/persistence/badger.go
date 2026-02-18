@@ -36,10 +36,10 @@ func NewBadgerEngine(dataDir string, syncWrites bool, log logger.Logger) (*Badge
 	opts.Logger = nil // Disable BadgerDB internal logging or wrap it
 
 	// WAL configuration for crash recovery
-	opts.ValueLogFileSize = 64 << 20 // 64MB value log files
-	opts.MemTableSize = 64 << 20     // 64MB memtable
-	opts.NumMemtables = 5            // Keep 5 memtables in memory
-	opts.NumLevelZeroTables = 5      // Maximum L0 tables before compaction
+	opts.ValueLogFileSize = 64 << 20  // 64MB value log files
+	opts.MemTableSize = 64 << 20      // 64MB memtable
+	opts.NumMemtables = 5             // Keep 5 memtables in memory
+	opts.NumLevelZeroTables = 5       // Maximum L0 tables before compaction
 	opts.NumLevelZeroTablesStall = 10 // Stall writes when this many L0 tables
 
 	// Enable compression for better storage efficiency
@@ -233,7 +233,7 @@ func (b *BadgerEngine) Backup(path string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create backup file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	_, err = b.db.Backup(file, 0)
 	if err != nil {
@@ -249,7 +249,7 @@ func (b *BadgerEngine) Restore(path string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open backup file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	err = b.db.Load(file, 256)
 	if err != nil {

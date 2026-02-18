@@ -72,22 +72,22 @@ func (cli *CLI) CreateClient(config *GlobalConfig) *KonsulClient {
 
 // Printf writes formatted output to the output writer
 func (cli *CLI) Printf(format string, args ...interface{}) {
-	fmt.Fprintf(cli.Output, format, args...)
+	_, _ = fmt.Fprintf(cli.Output, format, args...)
 }
 
 // Println writes a line to the output writer
 func (cli *CLI) Println(args ...interface{}) {
-	fmt.Fprintln(cli.Output, args...)
+	_, _ = fmt.Fprintln(cli.Output, args...)
 }
 
 // Errorf writes formatted error to the error writer
 func (cli *CLI) Errorf(format string, args ...interface{}) {
-	fmt.Fprintf(cli.Error, format, args...)
+	_, _ = fmt.Fprintf(cli.Error, format, args...)
 }
 
 // Errorln writes an error line to the error writer
 func (cli *CLI) Errorln(args ...interface{}) {
-	fmt.Fprintln(cli.Error, args...)
+	_, _ = fmt.Fprintln(cli.Error, args...)
 }
 
 // ExitError prints an error message and exits

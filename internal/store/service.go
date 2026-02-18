@@ -12,6 +12,7 @@ import (
 	"github.com/neogan74/konsul/internal/persistence"
 )
 
+// Service represents a service registered in the service store
 type Service struct {
 	Name    string                         `json:"name"`
 	Address string                         `json:"address"`
@@ -21,6 +22,7 @@ type Service struct {
 	Checks  []*healthcheck.CheckDefinition `json:"checks,omitempty"`
 }
 
+// ServiceEntry represents a service entry in the service store
 type ServiceEntry struct {
 	Service     Service   `json:"service"`
 	ExpiresAt   time.Time `json:"expires_at"`
@@ -28,6 +30,7 @@ type ServiceEntry struct {
 	CreateIndex uint64    `json:"create_index"`
 }
 
+// ServiceStore represents the service store
 type ServiceStore struct {
 	Data          map[string]ServiceEntry
 	TagIndex      map[string]map[string]bool     // Tag → {ServiceName: true} - for fast tag queries
@@ -40,6 +43,7 @@ type ServiceStore struct {
 	healthManager *healthcheck.Manager
 }
 
+// NewServiceStore creates a new service store
 func NewServiceStore() *ServiceStore {
 	return &ServiceStore{
 		Data:          make(map[string]ServiceEntry),
@@ -52,6 +56,7 @@ func NewServiceStore() *ServiceStore {
 	}
 }
 
+// NewServiceStoreWithTTL creates a new service store with a custom TTL
 func NewServiceStoreWithTTL(ttl time.Duration) *ServiceStore {
 	return &ServiceStore{
 		Data:          make(map[string]ServiceEntry),
@@ -92,6 +97,7 @@ func (s *ServiceStore) nextIndex() uint64 {
 	return atomic.AddUint64(&s.globalIndex, 1)
 }
 
+// loadFromPersistence loads service data from persistence
 func (s *ServiceStore) loadFromPersistence() error {
 	if s.engine == nil {
 		return nil
@@ -149,6 +155,7 @@ func (s *ServiceStore) loadFromPersistence() error {
 	return nil
 }
 
+// Register registers a new service
 func (s *ServiceStore) Register(service Service) error {
 	// Validate service including tags and metadata
 	if err := ValidateService(&service); err != nil {
@@ -345,6 +352,7 @@ func (s *ServiceStore) RegisterCAS(service Service, expectedIndex uint64) (uint6
 	return newIndex, nil
 }
 
+// List returns a list of all non-expired services
 func (s *ServiceStore) List() []Service {
 	s.Mutex.RLock()
 	defer s.Mutex.RUnlock()
@@ -359,6 +367,7 @@ func (s *ServiceStore) List() []Service {
 	return services
 }
 
+// ListAll returns a list of all services, including expired ones
 func (s *ServiceStore) ListAll() []ServiceEntry {
 	s.Mutex.RLock()
 	defer s.Mutex.RUnlock()
@@ -370,6 +379,7 @@ func (s *ServiceStore) ListAll() []ServiceEntry {
 	return entries
 }
 
+// Get returns a service by name
 func (s *ServiceStore) Get(name string) (Service, bool) {
 	s.Mutex.RLock()
 	defer s.Mutex.RUnlock()
@@ -393,6 +403,7 @@ func (s *ServiceStore) GetEntry(name string) (ServiceEntry, bool) {
 	return entry, true
 }
 
+// Heartbeat extends the TTL of a service
 func (s *ServiceStore) Heartbeat(name string) bool {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
@@ -427,6 +438,7 @@ func (s *ServiceStore) Heartbeat(name string) bool {
 	return true
 }
 
+// Deregister removes a service by name
 func (s *ServiceStore) Deregister(name string) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
@@ -493,6 +505,7 @@ func (s *ServiceStore) DeregisterCAS(name string, expectedIndex uint64) error {
 	return nil
 }
 
+// CleanupExpired removes expired services
 func (s *ServiceStore) CleanupExpired() int {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
@@ -654,6 +667,156 @@ func (s *ServiceStore) DeregisterLocal(name string) {
 
 	s.log.Debug("Service deregistered via Raft",
 		logger.String("service", name))
+}
+
+// RegisterCASLocal performs Compare-And-Swap registration without persistence.
+func (s *ServiceStore) RegisterCASLocal(serviceData ServiceDataSnapshot, expectedIndex uint64) (uint64, error) {
+	// Convert to internal Service type
+	service := Service{
+		Name:    serviceData.Name,
+		Address: serviceData.Address,
+		Port:    serviceData.Port,
+		Tags:    serviceData.Tags,
+		Meta:    serviceData.Meta,
+	}
+
+	// Validate service
+	if err := ValidateService(&service); err != nil {
+		s.log.Error("Service validation failed",
+			logger.String("service", service.Name),
+			logger.Error(err))
+		return 0, err
+	}
+
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	oldEntry, existed := s.Data[service.Name]
+
+	// Check CAS condition
+	if expectedIndex == 0 {
+		if existed {
+			return 0, &CASConflictError{
+				Key:           service.Name,
+				ExpectedIndex: 0,
+				CurrentIndex:  oldEntry.ModifyIndex,
+				OperationType: "service",
+			}
+		}
+	} else {
+		if !existed {
+			return 0, &NotFoundError{Type: "service", Key: service.Name}
+		}
+		if oldEntry.ModifyIndex != expectedIndex {
+			return 0, &CASConflictError{
+				Key:           service.Name,
+				ExpectedIndex: expectedIndex,
+				CurrentIndex:  oldEntry.ModifyIndex,
+				OperationType: "service",
+			}
+		}
+	}
+
+	// Remove old indexes if service exists
+	if existed {
+		s.removeFromTagIndex(service.Name, oldEntry.Service.Tags)
+		s.removeFromMetaIndex(service.Name, oldEntry.Service.Meta)
+	}
+
+	newIndex := s.nextIndex()
+	entry := ServiceEntry{
+		Service:     service,
+		ExpiresAt:   time.Now().Add(s.TTL),
+		ModifyIndex: newIndex,
+	}
+	if existed {
+		entry.CreateIndex = oldEntry.CreateIndex
+	} else {
+		entry.CreateIndex = newIndex
+	}
+	s.Data[service.Name] = entry
+
+	// Add to tag and metadata indexes
+	s.addToTagIndex(service.Name, service.Tags)
+	s.addToMetaIndex(service.Name, service.Meta)
+
+	s.log.Debug("Service registered via Raft CAS",
+		logger.String("service", service.Name),
+		logger.String("new_index", fmt.Sprintf("%d", newIndex)))
+
+	return newIndex, nil
+}
+
+// DeregisterCASLocal performs Compare-And-Swap deregistration without persistence.
+func (s *ServiceStore) DeregisterCASLocal(name string, expectedIndex uint64) error {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	entry, existed := s.Data[name]
+	if !existed {
+		return &NotFoundError{Type: "service", Key: name}
+	}
+
+	if entry.ModifyIndex != expectedIndex {
+		return &CASConflictError{
+			Key:           name,
+			ExpectedIndex: expectedIndex,
+			CurrentIndex:  entry.ModifyIndex,
+			OperationType: "service",
+		}
+	}
+
+	// Remove from indexes before deleting
+	s.removeFromTagIndex(name, entry.Service.Tags)
+	s.removeFromMetaIndex(name, entry.Service.Meta)
+
+	delete(s.Data, name)
+
+	s.log.Debug("Service deregistered via Raft CAS",
+		logger.String("service", name),
+		logger.String("index", fmt.Sprintf("%d", expectedIndex)))
+
+	return nil
+}
+
+// GetEntrySnapshot returns a snapshot of a service entry.
+func (s *ServiceStore) GetEntrySnapshot(name string) (ServiceEntrySnapshot, bool) {
+	s.Mutex.RLock()
+	defer s.Mutex.RUnlock()
+
+	entry, ok := s.Data[name]
+	if !ok || entry.ExpiresAt.Before(time.Now()) {
+		return ServiceEntrySnapshot{}, false
+	}
+
+	// Deep copy tags
+	var tags []string
+	if len(entry.Service.Tags) > 0 {
+		tags = make([]string, len(entry.Service.Tags))
+		copy(tags, entry.Service.Tags)
+	}
+
+	// Deep copy meta
+	var meta map[string]string
+	if len(entry.Service.Meta) > 0 {
+		meta = make(map[string]string, len(entry.Service.Meta))
+		for k, v := range entry.Service.Meta {
+			meta[k] = v
+		}
+	}
+
+	return ServiceEntrySnapshot{
+		Service: ServiceDataSnapshot{
+			Name:    entry.Service.Name,
+			Address: entry.Service.Address,
+			Port:    entry.Service.Port,
+			Tags:    tags,
+			Meta:    meta,
+		},
+		ExpiresAt:   entry.ExpiresAt,
+		ModifyIndex: entry.ModifyIndex,
+		CreateIndex: entry.CreateIndex,
+	}, true
 }
 
 // HeartbeatLocal updates service TTL without persisting.

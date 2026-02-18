@@ -1,3 +1,4 @@
+// Package telemetry provides OpenTelemetry tracing functionality
 package telemetry
 
 import (

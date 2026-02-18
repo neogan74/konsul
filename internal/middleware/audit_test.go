@@ -34,7 +34,11 @@ func TestAuditMiddleware_DisabledManager(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != 200 {
 		t.Errorf("expected status 200, got %d", resp.StatusCode)
@@ -56,7 +60,11 @@ func TestAuditMiddleware_RecordsEvent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create audit manager: %v", err)
 	}
-	defer mgr.Shutdown(context.Background())
+	defer func() {
+		if err := mgr.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown audit manager: %v", err)
+		}
+	}()
 
 	app := fiber.New()
 
@@ -81,7 +89,11 @@ func TestAuditMiddleware_RecordsEvent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
+	}()
 
 	// Give time for async flush
 	time.Sleep(50 * time.Millisecond)
@@ -90,7 +102,7 @@ func TestAuditMiddleware_RecordsEvent(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	if err := mgr.Shutdown(ctx); err != nil {
-		t.Fatalf("shutdown failed: %v", err)
+		t.Fatalf("shutdown audit manager: %v", err)
 	}
 
 	// Read audit log
@@ -142,7 +154,7 @@ func TestDeriveAction_DefaultMapping(t *testing.T) {
 			})
 
 			req := httptest.NewRequest(tt.method, tt.path, nil)
-			app.Test(req)
+			_, _ = app.Test(req)
 		})
 	}
 }

@@ -1,0 +1,248 @@
+# golangci-lint configuration
+# See: https://golangci-lint.run/usage/configuration/
+
+version: 2
+
+# Formatters configuration
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+run:
+  # Timeout for analysis
+  timeout: 5m
+  
+  # Include test files
+  tests: true
+  
+  # Skip directories
+  skip-dirs:
+    - vendor
+    - third_party
+
+# Output configuration
+output:
+  # Colored output
+  format: colored-line-number
+  
+  # Print linter name at the end of lines
+  print-linter-name: true
+  
+  # Sort results by file, line, column
+  sort-results: true
+
+# Linter settings
+linters-settings:
+  errcheck:
+    # Report about not checking errors in type assertions: `a := b.(MyType)`
+    check-type-assertions: false
+    
+    # Report about assignment of errors to blank identifier
+    check-blank: false
+    
+    # Ignore specific functions where unchecked errors are acceptable
+    exclude-functions:
+      # Common patterns where errors are often intentionally ignored
+      - (io.Closer).Close
+      - (*os.File).Close
+      - (net.Conn).Close
+      - (*bufio.Writer).Flush
+      - fmt.Fprintf
+      - fmt.Fprint
+      - fmt.Fprintln
+      - (github.com/gofiber/fiber/v2.Ctx).JSON
+      - (github.com/gofiber/fiber/v2.Ctx).SendStatus
+      - (*testing.T).Run
+      - (*testing.B).Run
+  
+  govet:
+    # Enable all analyzers
+    enable-all: true
+    
+    # Disable specific analyzers
+    disable:
+      - shadow   # Sometimes shadow is intentional
+      - fieldalignment  # Not critical for correctness
+
+  staticcheck:
+    # Select the Go version to target
+    go: "1.24"
+
+    # SA1019: package is deprecated - still report
+    # SA5001: ineffectual assignment - still report
+    checks:
+      - all
+      - "-SA1029"  # Disable string key context warning (common pattern)
+
+  unused:
+    # Check exported functions/types
+    check-exported: false
+
+  revive:
+    # Sets the default severity
+    severity: warning
+    
+    # Set to quiet to remove total number of issues
+    confidence: 0.8
+    
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+        disabled: true  # Too verbose for many projects
+      - name: increment-decrement
+      - name: indent-error-flow
+      - name: package-comments
+        disabled: true  # Not all packages need comments
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: var-declaration
+      - name: var-naming
+
+  gofmt:
+    # Simplify code (gofmt -s)
+    simplify: true
+
+  goimports:
+    # Group imports by local prefix
+    local-prefixes: github.com/neogan74/konsul
+
+  misspell:
+    locale: US
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+    disabled-checks:
+      - hugeParam         # Allow large struct parameters
+      - rangeValCopy      # Sometimes acceptable
+      - commentedOutCode  # Sometimes useful during development
+
+  gosec:
+    # Exclude specific rules
+    excludes:
+      - G104  # Audit errors not checked - covered by errcheck
+      - G304  # File inclusion via variable - often intentional
+      - G404  # Weak random number generator - ok for non-crypto use
+
+  prealloc:
+    # Report preallocation suggestions on for loops
+    for-loops: true
+    # Report preallocation suggestions for range loops
+    range-loops: true
+    # Report preallocation suggestions on simple loops
+    simple: true
+
+# Linters to enable
+linters:
+  enable:
+    # Default linters
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+    # Additional linters
+    - revive
+    - misspell
+    - gocritic
+    - gosec
+    - prealloc
+    
+  disable:
+    # Disabled linters (too noisy or not useful for this project)
+    - exhaustive       # Requires exhaustive switch statements
+    - exhaustruct      # Requires all struct fields to be initialized
+    - gochecknoglobals # Globals are sometimes necessary
+    - gochecknoinits   # init() functions are sometimes necessary
+    - godot            # Requires periods at end of comments
+    - godox            # Flags TODO/FIXME - we want these
+    - mnd              # Magic number detection - too noisy
+    - lll              # Line length limit - gofmt handles this
+    - nlreturn         # Requires newline before return - style choice
+    - wsl              # Whitespace linter - too opinionated
+    - wrapcheck        # Error wrapping - too strict
+    - varnamelen       # Variable name length - too strict
+    - testpackage      # Requires _test package - not always wanted
+    - paralleltest     # Not all tests should be parallel
+    - tparallel        # Too strict on parallel tests
+
+# Issues configuration
+issues:
+  # Maximum issues per linter per file (0 = unlimited)
+  max-issues-per-linter: 0
+  
+  # Maximum same issues (0 = unlimited)
+  max-same-issues: 0
+  
+  # Show all issues
+  new: false
+  
+  # Exclude specific patterns
+  exclude-rules:
+    # Disable errcheck completely in test files (too noisy)
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+        - revive
+
+    # Exclude errcheck for test helper functions
+    - path: _test\.go
+      text: "Error return value"
+      linters:
+        - errcheck
+
+    # Allow empty branches in switch (sometimes intentional)
+    - linters:
+        - staticcheck
+      text: "SA9003"
+
+    # Exclude errcheck for specific patterns in benchmarks
+    - path: benchmark
+      linters:
+        - errcheck
+
+    # Allow shadowing in tests (common pattern)
+    - path: _test\.go
+      linters:
+        - govet
+      text: "shadow"
+
+    # Exclude fmt.Sscanf errors - parsing failures are handled via default values
+    - text: "Error return value of `fmt.Sscanf`"
+      linters:
+        - errcheck
+
+    # Exclude defer close errors - commonly ok to ignore
+    - text: "Error return value of .*.Close"
+      linters:
+        - errcheck
+
+    # Exclude JSON decode errors in test assertions
+    - path: _test\.go
+      text: "Error return value of `json.NewDecoder"
+      linters:
+        - errcheck
+
+    # Defer function calls - commonly ok to ignore
+    - source: "defer "
+      linters:
+        - errcheck
+
+  # Independently from option `exclude-rules`, use default exclude patterns
+  exclude-use-default: true
+  
+  # Fix issues automatically where possible
+  fix: false

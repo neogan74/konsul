@@ -241,7 +241,7 @@ func (cmd *ACLCommands) deletePolicy(args []string) {
 	// Confirm deletion
 	cmd.cli.Printf("Are you sure you want to delete policy '%s'? (yes/no): ", name)
 	var confirm string
-	fmt.Scanln(&confirm)
+	_, _ = fmt.Scanln(&confirm)
 
 	if strings.ToLower(confirm) != "yes" && strings.ToLower(confirm) != "y" {
 		cmd.cli.Printf("Deletion cancelled\n")

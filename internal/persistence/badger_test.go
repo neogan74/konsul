@@ -18,7 +18,7 @@ func TestBadgerEngine_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create BadgerEngine: %v", err)
 	}
-	defer engine.Close()
+	defer func() { _ = engine.Close() }()
 
 	// Test KV operations
 	key := "test-key"
@@ -71,7 +71,7 @@ func TestBadgerEngine_Services(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create BadgerEngine: %v", err)
 	}
-	defer engine.Close()
+	defer func() { _ = engine.Close() }()
 
 	serviceName := "test-service"
 	serviceData := []byte(`{"name":"test-service","address":"localhost","port":8080}`)
@@ -131,7 +131,7 @@ func TestBadgerEngine_BatchOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create BadgerEngine: %v", err)
 	}
-	defer engine.Close()
+	defer func() { _ = engine.Close() }()
 
 	// Test BatchSet
 	items := map[string][]byte{
@@ -214,7 +214,7 @@ func TestBadgerEngine_BackupRestore(t *testing.T) {
 	}
 
 	// Close original engine
-	engine.Close()
+	defer func() { _ = engine.Close() }()
 
 	// Create new engine with different directory
 	restoreDir := filepath.Join(tempDir, "restore")
@@ -222,7 +222,7 @@ func TestBadgerEngine_BackupRestore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create new BadgerEngine: %v", err)
 	}
-	defer newEngine.Close()
+	defer func() { _ = newEngine.Close() }()
 
 	// Restore backup
 	err = newEngine.Restore(backupPath)
@@ -250,7 +250,7 @@ func TestBadgerEngine_Transactions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create BadgerEngine: %v", err)
 	}
-	defer engine.Close()
+	defer func() { _ = engine.Close() }()
 
 	// Test successful transaction
 	tx, err := engine.BeginTx()

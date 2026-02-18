@@ -91,7 +91,9 @@ func NewNode(cfg *Config, kvStore KVStoreInterface, serviceStore ServiceStoreInt
 	logStorePath := filepath.Join(cfg.DataDir, "raft-log.db")
 	logStore, err := raftboltdb.NewBoltStore(logStorePath)
 	if err != nil {
-		transport.Close()
+		if closeErr := transport.Close(); closeErr != nil {
+			logger.Warn("failed to close transport", "error", closeErr)
+		}
 		return nil, fmt.Errorf("failed to create log store: %w", err)
 	}
 
@@ -99,26 +101,42 @@ func NewNode(cfg *Config, kvStore KVStoreInterface, serviceStore ServiceStoreInt
 	stablePath := filepath.Join(cfg.DataDir, "raft-stable.db")
 	stable, err := raftboltdb.NewBoltStore(stablePath)
 	if err != nil {
-		logStore.Close()
-		transport.Close()
+		if closeErr := logStore.Close(); closeErr != nil {
+			logger.Warn("failed to close log store", "error", closeErr)
+		}
+		if closeErr := transport.Close(); closeErr != nil {
+			logger.Warn("failed to close transport", "error", closeErr)
+		}
 		return nil, fmt.Errorf("failed to create stable store: %w", err)
 	}
 
 	// Create snapshot store
 	snapshots, err := raft.NewFileSnapshotStore(cfg.DataDir, cfg.SnapshotRetention, os.Stderr)
 	if err != nil {
-		stable.Close()
-		logStore.Close()
-		transport.Close()
+		if closeErr := stable.Close(); closeErr != nil {
+			logger.Warn("failed to close stable store", "error", closeErr)
+		}
+		if closeErr := logStore.Close(); closeErr != nil {
+			logger.Warn("failed to close log store", "error", closeErr)
+		}
+		if closeErr := transport.Close(); closeErr != nil {
+			logger.Warn("failed to close transport", "error", closeErr)
+		}
 		return nil, fmt.Errorf("failed to create snapshot store: %w", err)
 	}
 
 	// Create Raft instance
 	r, err := raft.NewRaft(raftConfig, fsm, logStore, stable, snapshots, transport)
 	if err != nil {
-		stable.Close()
-		logStore.Close()
-		transport.Close()
+		if closeErr := stable.Close(); closeErr != nil {
+			logger.Warn("failed to close stable store", "error", closeErr)
+		}
+		if closeErr := logStore.Close(); closeErr != nil {
+			logger.Warn("failed to close log store", "error", closeErr)
+		}
+		if closeErr := transport.Close(); closeErr != nil {
+			logger.Warn("failed to close transport", "error", closeErr)
+		}
 		return nil, fmt.Errorf("failed to create raft: %w", err)
 	}
 
@@ -317,17 +335,17 @@ func (n *Node) WaitForLeader(timeout time.Duration) error {
 // Apply Methods - These send commands through Raft
 // =============================================================================
 
-// ApplyEntry applies a LogEntry through Raft consensus (compatibility method).
-// This method bridges the LogEntry-based API (used by handlers) with the
-// Command-based internal API. Returns the response from FSM and any error.
-func (n *Node) ApplyEntry(entry LogEntry, timeout time.Duration) (interface{}, error) {
+// ApplyEntry applies a Command through Raft consensus.
+// This method bridges the handler calls with the Raft apply logic.
+// Returns the response from FSM and any error.
+func (n *Node) ApplyEntry(cmd *Command, timeout time.Duration) (interface{}, error) {
 	if n.raft.State() != raft.Leader {
 		return nil, ErrNotLeader
 	}
 
-	data, err := entry.Marshal()
+	data, err := cmd.Marshal()
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal log entry: %w", err)
+		return nil, fmt.Errorf("failed to marshal command: %w", err)
 	}
 
 	future := n.raft.Apply(data, timeout)
@@ -342,34 +360,9 @@ func (n *Node) ApplyEntry(entry LogEntry, timeout time.Duration) (interface{}, e
 	return future.Response(), nil
 }
 
-// applyCommand applies a command through Raft consensus.
-// Returns error if this node is not the leader or if apply fails.
 func (n *Node) applyCommand(cmd *Command, timeout time.Duration) error {
-	if n.raft.State() != raft.Leader {
-		return ErrNotLeader
-	}
-
-	data, err := cmd.Marshal()
-	if err != nil {
-		return fmt.Errorf("failed to marshal command: %w", err)
-	}
-
-	future := n.raft.Apply(data, timeout)
-	if err := future.Error(); err != nil {
-		if err == raft.ErrLeadershipLost {
-			return ErrNotLeader
-		}
-		return fmt.Errorf("raft apply failed: %w", err)
-	}
-
-	// Check the response from FSM.Apply
-	if resp := future.Response(); resp != nil {
-		if err, ok := resp.(error); ok {
-			return err
-		}
-	}
-
-	return nil
+	_, err := n.ApplyEntry(cmd, timeout)
+	return err
 }
 
 // KVSet sets a key-value pair through Raft consensus.
@@ -570,9 +563,10 @@ func (n *Node) GetClusterInfo() (*ClusterInfo, error) {
 	var peers []PeerInfo
 	for _, srv := range configFuture.Configuration().Servers {
 		state := "Voter"
-		if srv.Suffrage == raft.Nonvoter {
+		switch srv.Suffrage {
+		case raft.Nonvoter:
 			state = "Nonvoter"
-		} else if srv.Suffrage == raft.Staging {
+		case raft.Staging:
 			state = "Staging"
 		}
 		peers = append(peers, PeerInfo{
@@ -588,16 +582,16 @@ func (n *Node) GetClusterInfo() (*ClusterInfo, error) {
 		NumPeers: len(peers),
 	}
 	// Parse stats (they're all strings)
-	fmt.Sscanf(stats["term"], "%d", &raftStats.Term)
-	fmt.Sscanf(stats["last_log_index"], "%d", &raftStats.LastLogIndex)
-	fmt.Sscanf(stats["last_log_term"], "%d", &raftStats.LastLogTerm)
-	fmt.Sscanf(stats["commit_index"], "%d", &raftStats.CommitIndex)
-	fmt.Sscanf(stats["applied_index"], "%d", &raftStats.AppliedIndex)
-	fmt.Sscanf(stats["fsm_pending"], "%d", &raftStats.FSMPending)
-	fmt.Sscanf(stats["last_snapshot_index"], "%d", &raftStats.LastSnapshotIndex)
-	fmt.Sscanf(stats["last_snapshot_term"], "%d", &raftStats.LastSnapshotTerm)
-	fmt.Sscanf(stats["protocol_version"], "%d", &raftStats.ProtocolVersion)
-	fmt.Sscanf(stats["snapshot_version_max"], "%d", &raftStats.SnapshotVersionMax)
+	_, _ = fmt.Sscanf(stats["term"], "%d", &raftStats.Term)
+	_, _ = fmt.Sscanf(stats["last_log_index"], "%d", &raftStats.LastLogIndex)
+	_, _ = fmt.Sscanf(stats["last_log_term"], "%d", &raftStats.LastLogTerm)
+	_, _ = fmt.Sscanf(stats["commit_index"], "%d", &raftStats.CommitIndex)
+	_, _ = fmt.Sscanf(stats["applied_index"], "%d", &raftStats.AppliedIndex)
+	_, _ = fmt.Sscanf(stats["fsm_pending"], "%d", &raftStats.FSMPending)
+	_, _ = fmt.Sscanf(stats["last_snapshot_index"], "%d", &raftStats.LastSnapshotIndex)
+	_, _ = fmt.Sscanf(stats["last_snapshot_term"], "%d", &raftStats.LastSnapshotTerm)
+	_, _ = fmt.Sscanf(stats["protocol_version"], "%d", &raftStats.ProtocolVersion)
+	_, _ = fmt.Sscanf(stats["snapshot_version_max"], "%d", &raftStats.SnapshotVersionMax)
 
 	return &ClusterInfo{
 		NodeID:      n.config.NodeID,
@@ -672,7 +666,7 @@ func (n *Node) monitorState() {
 			// Get commit index from stats
 			stats := n.raft.Stats()
 			var commitIndex uint64
-			fmt.Sscanf(stats["commit_index"], "%d", &commitIndex)
+			_, _ = fmt.Sscanf(stats["commit_index"], "%d", &commitIndex)
 
 			n.metrics.SetIndices(lastIndex, commitIndex, appliedIndex)
 
@@ -684,7 +678,7 @@ func (n *Node) monitorState() {
 
 			// Update FSM pending
 			var fsmPending uint64
-			fmt.Sscanf(stats["fsm_pending"], "%d", &fsmPending)
+			_, _ = fmt.Sscanf(stats["fsm_pending"], "%d", &fsmPending)
 			n.metrics.SetFSMPending(fsmPending)
 
 		case <-n.shutdownCh:

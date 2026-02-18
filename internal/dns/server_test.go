@@ -29,8 +29,9 @@ func TestDNSServer_SRVQuery(t *testing.T) {
 
 	// Register test service (only one instance per name in current implementation)
 	service1 := store.Service{Name: "web", Address: "192.168.1.100", Port: 80}
-	serviceStore.Register(service1)
-
+	if err := serviceStore.Register(service1); err != nil {
+		t.Fatalf("register service: %v", err)
+	}
 	// Create DNS query
 	query := new(dns.Msg)
 	query.SetQuestion("_web._tcp.service.consul.", dns.TypeSRV)
@@ -89,8 +90,9 @@ func TestDNSServer_AQuery_NodeFormat(t *testing.T) {
 
 	// Register test service
 	service := store.Service{Name: "web", Address: "192.168.1.100", Port: 80}
-	serviceStore.Register(service)
-
+	if err := serviceStore.Register(service); err != nil {
+		t.Fatalf("register service: %v", err)
+	}
 	// Create DNS query for node format
 	query := new(dns.Msg)
 	query.SetQuestion("web.node.consul.", dns.TypeA)
@@ -123,8 +125,9 @@ func TestDNSServer_AQuery_ServiceFormat(t *testing.T) {
 
 	// Register test service
 	service := store.Service{Name: "web", Address: "192.168.1.100", Port: 80}
-	serviceStore.Register(service)
-
+	if err := serviceStore.Register(service); err != nil {
+		t.Fatalf("register service: %v", err)
+	}
 	// Create DNS query for service format
 	query := new(dns.Msg)
 	query.SetQuestion("web.service.consul.", dns.TypeA)
@@ -191,8 +194,9 @@ func TestDNSServer_ExpiredService(t *testing.T) {
 
 	// Register service
 	service := store.Service{Name: "web", Address: "192.168.1.100", Port: 80}
-	serviceStore.Register(service)
-
+	if err := serviceStore.Register(service); err != nil {
+		t.Fatalf("register service: %v", err)
+	}
 	// Wait for service to expire
 	time.Sleep(10 * time.Millisecond)
 
@@ -218,8 +222,9 @@ func TestDNSServer_UnsupportedQueryType(t *testing.T) {
 
 	// Register test service
 	service := store.Service{Name: "web", Address: "192.168.1.100", Port: 80}
-	serviceStore.Register(service)
-
+	if err := serviceStore.Register(service); err != nil {
+		t.Fatalf("register service: %v", err)
+	}
 	// Query for unsupported type (MX)
 	query := new(dns.Msg)
 	query.SetQuestion("web.service.consul.", dns.TypeMX)
@@ -242,8 +247,9 @@ func TestDNSServer_ANYQuery(t *testing.T) {
 
 	// Register test service
 	service := store.Service{Name: "web", Address: "192.168.1.100", Port: 80}
-	serviceStore.Register(service)
-
+	if err := serviceStore.Register(service); err != nil {
+		t.Fatalf("register service: %v", err)
+	}
 	// Query for ANY type
 	query := new(dns.Msg)
 	query.SetQuestion("_web._tcp.service.consul.", dns.TypeANY)
@@ -278,10 +284,17 @@ func TestDNSServer_MultipleServices(t *testing.T) {
 	service2 := store.Service{Name: "api", Address: "192.168.1.101", Port: 8080}
 	service3 := store.Service{Name: "db", Address: "192.168.1.102", Port: 5432}
 
-	serviceStore.Register(service1)
-	serviceStore.Register(service2)
-	serviceStore.Register(service3)
+	if err := serviceStore.Register(service1); err != nil {
 
+		t.Fatalf("register service: %v", err)
+
+	}
+	if err := serviceStore.Register(service2); err != nil {
+		t.Fatalf("register service: %v", err)
+	}
+	if err := serviceStore.Register(service3); err != nil {
+		t.Fatalf("register service: %v", err)
+	}
 	// Query for web service
 	query := new(dns.Msg)
 	query.SetQuestion("_web._tcp.service.consul.", dns.TypeSRV)
@@ -334,8 +347,9 @@ func TestDNSServer_InvalidDomainParsing(t *testing.T) {
 
 	// Register test service
 	service := store.Service{Name: "web", Address: "192.168.1.100", Port: 80}
-	serviceStore.Register(service)
-
+	if err := serviceStore.Register(service); err != nil {
+		t.Fatalf("register service: %v", err)
+	}
 	// Query with invalid format (too few parts)
 	query := new(dns.Msg)
 	query.SetQuestion("web.consul.", dns.TypeSRV)

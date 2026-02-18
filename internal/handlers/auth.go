@@ -140,7 +140,7 @@ func (h *AuthHandler) Verify(c *fiber.Ctx) error {
 		"username": claims.Username,
 		"roles":    claims.Roles,
 		"issuer":   claims.Issuer,
-		"expires":  claims.ExpiresAt.Time.Unix(),
+		"expires":  claims.ExpiresAt.Unix(),
 	})
 }
 
