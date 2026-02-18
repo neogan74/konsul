@@ -13,7 +13,11 @@ func TestTCPChecker_Check_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create listener: %v", err)
 	}
-	defer listener.Close()
+	defer func() {
+		if err := listener.Close(); err != nil {
+			t.Fatalf("close listener: %v", err)
+		}
+	}()
 
 	// Get the port
 	addr := listener.Addr().String()
@@ -83,14 +87,20 @@ func TestTCPChecker_Check_Timeout(t *testing.T) {
 	if err != nil {
 		t.Skip("could not create listener for timeout test")
 	}
-	defer listener.Close()
+	defer func() {
+		if err := listener.Close(); err != nil {
+			t.Fatalf("close listener: %v", err)
+		}
+	}()
 
 	// Start a goroutine to accept connection but do nothing
 	go func() {
 		conn, _ := listener.Accept()
 		if conn != nil {
 			time.Sleep(1 * time.Second) // Hold the connection
-			conn.Close()
+			if err := conn.Close(); err != nil {
+				// Best-effort close; connection already used for test.
+			}
 		}
 	}()
 
@@ -138,7 +148,11 @@ func TestTCPChecker_Check_DefaultTimeout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create listener: %v", err)
 	}
-	defer listener.Close()
+	defer func() {
+		if err := listener.Close(); err != nil {
+			t.Fatalf("close listener: %v", err)
+		}
+	}()
 
 	addr := listener.Addr().String()
 

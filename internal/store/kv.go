@@ -20,6 +20,7 @@ type KVEntry struct {
 	Flags       uint64 `json:"flags,omitempty"`
 }
 
+// KVStore represents the key-value store
 type KVStore struct {
 	Data         map[string]KVEntry
 	Mutex        sync.RWMutex
@@ -62,6 +63,7 @@ func (kv *KVStore) SetWatchManager(wm *watch.Manager) {
 	kv.watchManager = wm
 }
 
+// loadFromPersistence loads existing data from persistence if available
 func (kv *KVStore) loadFromPersistence() error {
 	if kv.engine == nil {
 		return nil
@@ -106,6 +108,7 @@ func (kv *KVStore) loadFromPersistence() error {
 	return nil
 }
 
+// Get retrieves a value by key
 func (kv *KVStore) Get(key string) (string, bool) {
 	kv.Mutex.RLock()
 	defer kv.Mutex.RUnlock()
@@ -129,6 +132,7 @@ func (kv *KVStore) nextIndex() uint64 {
 	return atomic.AddUint64(&kv.globalIndex, 1)
 }
 
+// Set sets a value with a new index
 func (kv *KVStore) Set(key, value string) {
 	kv.Mutex.Lock()
 	oldEntry, existed := kv.Data[key]
@@ -163,7 +167,7 @@ func (kv *KVStore) Set(key, value string) {
 
 	// Notify watchers
 	if kv.watchManager != nil {
-		event := watch.WatchEvent{
+		event := watch.Event{
 			Type:      watch.EventTypeSet,
 			Key:       key,
 			Value:     value,
@@ -244,7 +248,7 @@ func (kv *KVStore) SetCAS(key, value string, expectedIndex uint64) (uint64, erro
 
 	// Notify watchers
 	if kv.watchManager != nil {
-		event := watch.WatchEvent{
+		event := watch.Event{
 			Type:      watch.EventTypeSet,
 			Key:       key,
 			Value:     value,
@@ -294,7 +298,7 @@ func (kv *KVStore) SetWithFlags(key, value string, flags uint64) {
 
 	// Notify watchers
 	if kv.watchManager != nil {
-		event := watch.WatchEvent{
+		event := watch.Event{
 			Type:      watch.EventTypeSet,
 			Key:       key,
 			Value:     value,
@@ -307,6 +311,7 @@ func (kv *KVStore) SetWithFlags(key, value string, flags uint64) {
 	}
 }
 
+// Delete removes a key-value pair
 func (kv *KVStore) Delete(key string) {
 	kv.Mutex.Lock()
 	oldEntry, existed := kv.Data[key]
@@ -324,7 +329,7 @@ func (kv *KVStore) Delete(key string) {
 
 	// Notify watchers if key existed
 	if kv.watchManager != nil && existed {
-		event := watch.WatchEvent{
+		event := watch.Event{
 			Type:      watch.EventTypeDelete,
 			Key:       key,
 			OldValue:  oldEntry.Value,
@@ -369,7 +374,7 @@ func (kv *KVStore) DeleteCAS(key string, expectedIndex uint64) error {
 
 	// Notify watchers
 	if kv.watchManager != nil {
-		event := watch.WatchEvent{
+		event := watch.Event{
 			Type:      watch.EventTypeDelete,
 			Key:       key,
 			OldValue:  oldEntry.Value,
@@ -381,6 +386,7 @@ func (kv *KVStore) DeleteCAS(key string, expectedIndex uint64) error {
 	return nil
 }
 
+// List returns all keys in the store
 func (kv *KVStore) List() []string {
 	kv.Mutex.RLock()
 	defer kv.Mutex.RUnlock()
@@ -490,7 +496,7 @@ func (kv *KVStore) BatchSet(items map[string]string) error {
 	if kv.watchManager != nil {
 		timestamp := time.Now().Unix()
 		for key, value := range items {
-			event := watch.WatchEvent{
+			event := watch.Event{
 				Type:      watch.EventTypeSet,
 				Key:       key,
 				Value:     value,
@@ -588,7 +594,7 @@ func (kv *KVStore) BatchSetCAS(items map[string]string, expectedIndices map[stri
 	if kv.watchManager != nil {
 		timestamp := time.Now().Unix()
 		for key, value := range items {
-			event := watch.WatchEvent{
+			event := watch.Event{
 				Type:      watch.EventTypeSet,
 				Key:       key,
 				Value:     value,
@@ -629,7 +635,7 @@ func (kv *KVStore) BatchDelete(keys []string) error {
 	if kv.watchManager != nil {
 		timestamp := time.Now().Unix()
 		for key, oldEntry := range oldEntries {
-			event := watch.WatchEvent{
+			event := watch.Event{
 				Type:      watch.EventTypeDelete,
 				Key:       key,
 				OldValue:  oldEntry.Value,
@@ -685,7 +691,7 @@ func (kv *KVStore) BatchDeleteCAS(keys []string, expectedIndices map[string]uint
 	if kv.watchManager != nil {
 		timestamp := time.Now().Unix()
 		for key, oldEntry := range oldEntries {
-			event := watch.WatchEvent{
+			event := watch.Event{
 				Type:      watch.EventTypeDelete,
 				Key:       key,
 				OldValue:  oldEntry.Value,
@@ -734,7 +740,7 @@ func (kv *KVStore) SetLocal(key, value string) {
 
 	// Notify watchers (watchers still work in Raft mode)
 	if kv.watchManager != nil {
-		event := watch.WatchEvent{
+		event := watch.Event{
 			Type:      watch.EventTypeSet,
 			Key:       key,
 			Value:     value,
@@ -769,7 +775,7 @@ func (kv *KVStore) SetWithFlagsLocal(key, value string, flags uint64) {
 
 	// Notify watchers
 	if kv.watchManager != nil {
-		event := watch.WatchEvent{
+		event := watch.Event{
 			Type:      watch.EventTypeSet,
 			Key:       key,
 			Value:     value,
@@ -782,17 +788,91 @@ func (kv *KVStore) SetWithFlagsLocal(key, value string, flags uint64) {
 	}
 }
 
-// DeleteLocal removes a key without persisting the deletion.
-// This is used by Raft FSM when applying committed log entries.
-func (kv *KVStore) DeleteLocal(key string) {
+// SetCASLocal performs Compare-And-Swap without persistence.
+func (kv *KVStore) SetCASLocal(key, value string, expectedIndex uint64) (uint64, error) {
 	kv.Mutex.Lock()
-	oldEntry, existed := kv.Data[key]
-	delete(kv.Data, key)
-	kv.Mutex.Unlock()
+	defer kv.Mutex.Unlock()
 
-	// Notify watchers if key existed
-	if kv.watchManager != nil && existed {
-		event := watch.WatchEvent{
+	oldEntry, existed := kv.Data[key]
+
+	// Check CAS condition
+	if expectedIndex == 0 {
+		if existed {
+			return 0, &CASConflictError{
+				Key:           key,
+				ExpectedIndex: 0,
+				CurrentIndex:  oldEntry.ModifyIndex,
+				OperationType: "key",
+			}
+		}
+	} else {
+		if !existed {
+			return 0, &NotFoundError{Type: "key", Key: key}
+		}
+		if oldEntry.ModifyIndex != expectedIndex {
+			return 0, &CASConflictError{
+				Key:           key,
+				ExpectedIndex: expectedIndex,
+				CurrentIndex:  oldEntry.ModifyIndex,
+				OperationType: "key",
+			}
+		}
+	}
+
+	newIndex := kv.nextIndex()
+	entry := KVEntry{
+		Value:       value,
+		ModifyIndex: newIndex,
+	}
+	if existed {
+		entry.CreateIndex = oldEntry.CreateIndex
+		entry.Flags = oldEntry.Flags
+	} else {
+		entry.CreateIndex = newIndex
+	}
+	kv.Data[key] = entry
+
+	// Notify watchers
+	if kv.watchManager != nil {
+		event := watch.Event{
+			Type:      watch.EventTypeSet,
+			Key:       key,
+			Value:     value,
+			Timestamp: time.Now().Unix(),
+		}
+		if existed {
+			event.OldValue = oldEntry.Value
+		}
+		kv.watchManager.Notify(event)
+	}
+
+	return newIndex, nil
+}
+
+// DeleteCASLocal performs Compare-And-Swap delete without persistence.
+func (kv *KVStore) DeleteCASLocal(key string, expectedIndex uint64) error {
+	kv.Mutex.Lock()
+	defer kv.Mutex.Unlock()
+
+	oldEntry, existed := kv.Data[key]
+	if !existed {
+		return &NotFoundError{Type: "key", Key: key}
+	}
+
+	if oldEntry.ModifyIndex != expectedIndex {
+		return &CASConflictError{
+			Key:           key,
+			ExpectedIndex: expectedIndex,
+			CurrentIndex:  oldEntry.ModifyIndex,
+			OperationType: "key",
+		}
+	}
+
+	delete(kv.Data, key)
+
+	// Notify watchers
+	if kv.watchManager != nil {
+		event := watch.Event{
 			Type:      watch.EventTypeDelete,
 			Key:       key,
 			OldValue:  oldEntry.Value,
@@ -800,6 +880,147 @@ func (kv *KVStore) DeleteLocal(key string) {
 		}
 		kv.watchManager.Notify(event)
 	}
+
+	return nil
+}
+
+// BatchSetCASLocal performs atomic batch set with CAS checks without persistence.
+func (kv *KVStore) BatchSetCASLocal(items map[string]string, expectedIndices map[string]uint64) (map[string]uint64, error) {
+	kv.Mutex.Lock()
+	defer kv.Mutex.Unlock()
+
+	// First pass: validate all CAS conditions
+	for key := range items {
+		expectedIndex := expectedIndices[key]
+		oldEntry, existed := kv.Data[key]
+
+		if expectedIndex == 0 {
+			if existed {
+				return nil, &CASConflictError{
+					Key:           key,
+					ExpectedIndex: 0,
+					CurrentIndex:  oldEntry.ModifyIndex,
+					OperationType: "key",
+				}
+			}
+		} else {
+			if !existed {
+				return nil, &NotFoundError{Type: "key", Key: key}
+			}
+			if oldEntry.ModifyIndex != expectedIndex {
+				return nil, &CASConflictError{
+					Key:           key,
+					ExpectedIndex: expectedIndex,
+					CurrentIndex:  oldEntry.ModifyIndex,
+					OperationType: "key",
+				}
+			}
+		}
+	}
+
+	// Second pass: apply all updates
+	oldEntries := make(map[string]KVEntry)
+	newIndices := make(map[string]uint64)
+
+	for key, value := range items {
+		oldEntry, existed := kv.Data[key]
+		if existed {
+			oldEntries[key] = oldEntry
+		}
+
+		newIndex := kv.nextIndex()
+		entry := KVEntry{
+			Value:       value,
+			ModifyIndex: newIndex,
+		}
+		if existed {
+			entry.CreateIndex = oldEntry.CreateIndex
+			entry.Flags = oldEntry.Flags
+		} else {
+			entry.CreateIndex = newIndex
+		}
+		kv.Data[key] = entry
+		newIndices[key] = newIndex
+	}
+
+	// Notify watchers
+	if kv.watchManager != nil {
+		timestamp := time.Now().Unix()
+		for key, value := range items {
+			event := watch.Event{
+				Type:      watch.EventTypeSet,
+				Key:       key,
+				Value:     value,
+				Timestamp: timestamp,
+			}
+			if oldEntry, existed := oldEntries[key]; existed {
+				event.OldValue = oldEntry.Value
+			}
+			kv.watchManager.Notify(event)
+		}
+	}
+
+	return newIndices, nil
+}
+
+// BatchDeleteCASLocal performs atomic batch delete with CAS checks without persistence.
+func (kv *KVStore) BatchDeleteCASLocal(keys []string, expectedIndices map[string]uint64) error {
+	kv.Mutex.Lock()
+	defer kv.Mutex.Unlock()
+
+	// First pass: validate all CAS conditions
+	for _, key := range keys {
+		expectedIndex := expectedIndices[key]
+		oldEntry, existed := kv.Data[key]
+
+		if !existed {
+			return &NotFoundError{Type: "key", Key: key}
+		}
+		if oldEntry.ModifyIndex != expectedIndex {
+			return &CASConflictError{
+				Key:           key,
+				ExpectedIndex: expectedIndex,
+				CurrentIndex:  oldEntry.ModifyIndex,
+				OperationType: "key",
+			}
+		}
+	}
+
+	// Second pass: delete all keys
+	oldEntries := make(map[string]KVEntry)
+	for _, key := range keys {
+		oldEntries[key] = kv.Data[key]
+		delete(kv.Data, key)
+	}
+
+	// Notify watchers
+	if kv.watchManager != nil {
+		timestamp := time.Now().Unix()
+		for key, oldEntry := range oldEntries {
+			event := watch.Event{
+				Type:      watch.EventTypeDelete,
+				Key:       key,
+				OldValue:  oldEntry.Value,
+				Timestamp: timestamp,
+			}
+			kv.watchManager.Notify(event)
+		}
+	}
+
+	return nil
+}
+
+// GetEntrySnapshot returns a snapshot of a KV entry.
+func (kv *KVStore) GetEntrySnapshot(key string) (KVEntrySnapshot, bool) {
+	kv.Mutex.RLock()
+	defer kv.Mutex.RUnlock()
+
+	entry, ok := kv.Data[key]
+	if !ok {
+		return KVEntrySnapshot{}, false
+	}
+
+	return KVEntrySnapshot(entry), true
 }
 
 // BatchSetLocal sets multiple key-value pairs without persisting.
@@ -835,7 +1056,7 @@ func (kv *KVStore) BatchSetLocal(items map[string]string) error {
 	if kv.watchManager != nil {
 		timestamp := time.Now().Unix()
 		for key, value := range items {
-			event := watch.WatchEvent{
+			event := watch.Event{
 				Type:      watch.EventTypeSet,
 				Key:       key,
 				Value:     value,
@@ -849,6 +1070,26 @@ func (kv *KVStore) BatchSetLocal(items map[string]string) error {
 	}
 
 	return nil
+}
+
+// DeleteLocal removes a key without persisting.
+// This is used by Raft FSM when applying committed log entries.
+func (kv *KVStore) DeleteLocal(key string) {
+	kv.Mutex.Lock()
+	oldEntry, existed := kv.Data[key]
+	delete(kv.Data, key)
+	kv.Mutex.Unlock()
+
+	// Notify watchers if key existed
+	if kv.watchManager != nil && existed {
+		event := watch.Event{
+			Type:      watch.EventTypeDelete,
+			Key:       key,
+			OldValue:  oldEntry.Value,
+			Timestamp: time.Now().Unix(),
+		}
+		kv.watchManager.Notify(event)
+	}
 }
 
 // BatchDeleteLocal deletes multiple keys without persisting.
@@ -870,7 +1111,7 @@ func (kv *KVStore) BatchDeleteLocal(keys []string) error {
 	if kv.watchManager != nil {
 		timestamp := time.Now().Unix()
 		for key, oldEntry := range oldEntries {
-			event := watch.WatchEvent{
+			event := watch.Event{
 				Type:      watch.EventTypeDelete,
 				Key:       key,
 				OldValue:  oldEntry.Value,
@@ -899,12 +1140,7 @@ func (kv *KVStore) GetAllData() map[string]KVEntrySnapshot {
 
 	result := make(map[string]KVEntrySnapshot, len(kv.Data))
 	for key, entry := range kv.Data {
-		result[key] = KVEntrySnapshot{
-			Value:       entry.Value,
-			ModifyIndex: entry.ModifyIndex,
-			CreateIndex: entry.CreateIndex,
-			Flags:       entry.Flags,
-		}
+		result[key] = KVEntrySnapshot(entry)
 	}
 	return result
 }
@@ -921,12 +1157,7 @@ func (kv *KVStore) RestoreFromSnapshot(data map[string]KVEntrySnapshot) error {
 	// Restore from snapshot
 	var maxIndex uint64
 	for key, snapshot := range data {
-		kv.Data[key] = KVEntry{
-			Value:       snapshot.Value,
-			ModifyIndex: snapshot.ModifyIndex,
-			CreateIndex: snapshot.CreateIndex,
-			Flags:       snapshot.Flags,
-		}
+		kv.Data[key] = KVEntry(snapshot)
 		if snapshot.ModifyIndex > maxIndex {
 			maxIndex = snapshot.ModifyIndex
 		}

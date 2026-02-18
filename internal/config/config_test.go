@@ -1,14 +1,13 @@
 package config
 
 import (
-	"os"
 	"testing"
 	"time"
 )
 
 func TestLoad_DefaultValues(t *testing.T) {
 	// Clear environment variables
-	clearEnvVars()
+	clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -56,23 +55,23 @@ func TestLoad_DefaultValues(t *testing.T) {
 
 func TestLoad_EnvironmentVariables(t *testing.T) {
 	// Clear environment variables first
-	clearEnvVars()
+	clearEnvVars(t)
 
 	// Set environment variables
-	os.Setenv("KONSUL_HOST", "localhost")
-	os.Setenv("KONSUL_PORT", "9999")
-	os.Setenv("KONSUL_SERVICE_TTL", "45s")
-	os.Setenv("KONSUL_CLEANUP_INTERVAL", "2m")
-	os.Setenv("KONSUL_LOG_LEVEL", "debug")
-	os.Setenv("KONSUL_LOG_FORMAT", "json")
-	os.Setenv("KONSUL_AUDIT_ENABLED", "true")
-	os.Setenv("KONSUL_AUDIT_SINK", "stdout")
-	os.Setenv("KONSUL_AUDIT_BUFFER_SIZE", "2048")
-	os.Setenv("KONSUL_AUDIT_FILE_PATH", "/var/log/konsul/audit.log")
-	os.Setenv("KONSUL_AUDIT_FLUSH_INTERVAL", "2s")
-	os.Setenv("KONSUL_AUDIT_DROP_POLICY", "block")
+	t.Setenv("KONSUL_HOST", "localhost")
+	t.Setenv("KONSUL_PORT", "9999")
+	t.Setenv("KONSUL_SERVICE_TTL", "45s")
+	t.Setenv("KONSUL_CLEANUP_INTERVAL", "2m")
+	t.Setenv("KONSUL_LOG_LEVEL", "debug")
+	t.Setenv("KONSUL_LOG_FORMAT", "json")
+	t.Setenv("KONSUL_AUDIT_ENABLED", "true")
+	t.Setenv("KONSUL_AUDIT_SINK", "stdout")
+	t.Setenv("KONSUL_AUDIT_BUFFER_SIZE", "2048")
+	t.Setenv("KONSUL_AUDIT_FILE_PATH", "/var/log/konsul/audit.log")
+	t.Setenv("KONSUL_AUDIT_FLUSH_INTERVAL", "2s")
+	t.Setenv("KONSUL_AUDIT_DROP_POLICY", "block")
 
-	defer clearEnvVars()
+	defer clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -292,10 +291,10 @@ func TestAddress(t *testing.T) {
 }
 
 func TestLoad_InvalidEnvironmentValues(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
 	// Test invalid port
-	os.Setenv("KONSUL_PORT", "invalid")
+	t.Setenv("KONSUL_PORT", "invalid")
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load() failed: %v", err)
@@ -306,7 +305,7 @@ func TestLoad_InvalidEnvironmentValues(t *testing.T) {
 	}
 
 	// Test invalid duration
-	os.Setenv("KONSUL_SERVICE_TTL", "invalid")
+	t.Setenv("KONSUL_SERVICE_TTL", "invalid")
 	cfg, err = Load()
 	if err != nil {
 		t.Fatalf("Load() failed: %v", err)
@@ -316,15 +315,15 @@ func TestLoad_InvalidEnvironmentValues(t *testing.T) {
 		t.Errorf("expected default TTL 30s for invalid env value, got %v", cfg.Service.TTL)
 	}
 
-	clearEnvVars()
+	clearEnvVars(t)
 }
 
 func TestLoad_InvalidConfigValidation(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
 	// Set invalid port that will fail validation
-	os.Setenv("KONSUL_PORT", "0")
-	defer clearEnvVars()
+	t.Setenv("KONSUL_PORT", "0")
+	defer clearEnvVars(t)
 
 	_, err := Load()
 	if err == nil {
@@ -333,7 +332,7 @@ func TestLoad_InvalidConfigValidation(t *testing.T) {
 }
 
 func TestDNS_DefaultValues(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -356,15 +355,15 @@ func TestDNS_DefaultValues(t *testing.T) {
 }
 
 func TestDNS_EnvironmentVariables(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
 	// Set DNS environment variables
-	os.Setenv("KONSUL_DNS_ENABLED", "false")
-	os.Setenv("KONSUL_DNS_HOST", "127.0.0.1")
-	os.Setenv("KONSUL_DNS_PORT", "5353")
-	os.Setenv("KONSUL_DNS_DOMAIN", "local")
+	t.Setenv("KONSUL_DNS_ENABLED", "false")
+	t.Setenv("KONSUL_DNS_HOST", "127.0.0.1")
+	t.Setenv("KONSUL_DNS_PORT", "5353")
+	t.Setenv("KONSUL_DNS_DOMAIN", "local")
 
-	defer clearEnvVars()
+	defer clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -387,11 +386,11 @@ func TestDNS_EnvironmentVariables(t *testing.T) {
 }
 
 func TestValidate_DNSInvalidPort(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
 	// Set invalid DNS port
-	os.Setenv("KONSUL_DNS_PORT", "0")
-	defer clearEnvVars()
+	t.Setenv("KONSUL_DNS_PORT", "0")
+	defer clearEnvVars(t)
 
 	_, err := Load()
 	if err == nil {
@@ -400,12 +399,12 @@ func TestValidate_DNSInvalidPort(t *testing.T) {
 }
 
 func TestValidate_DNSInvalidDomain(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
 	// Test that empty domain env var falls back to default and passes validation
-	os.Setenv("KONSUL_DNS_ENABLED", "true")
-	os.Setenv("KONSUL_DNS_DOMAIN", "")
-	defer clearEnvVars()
+	t.Setenv("KONSUL_DNS_ENABLED", "true")
+	t.Setenv("KONSUL_DNS_DOMAIN", "")
+	defer clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -419,15 +418,15 @@ func TestValidate_DNSInvalidDomain(t *testing.T) {
 }
 
 func TestValidate_DNSValidConfig(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
 	// Set valid DNS configuration
-	os.Setenv("KONSUL_DNS_ENABLED", "true")
-	os.Setenv("KONSUL_DNS_HOST", "localhost")
-	os.Setenv("KONSUL_DNS_PORT", "53")
-	os.Setenv("KONSUL_DNS_DOMAIN", "internal")
+	t.Setenv("KONSUL_DNS_ENABLED", "true")
+	t.Setenv("KONSUL_DNS_HOST", "localhost")
+	t.Setenv("KONSUL_DNS_PORT", "53")
+	t.Setenv("KONSUL_DNS_DOMAIN", "internal")
 
-	defer clearEnvVars()
+	defer clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -451,7 +450,7 @@ func TestValidate_DNSValidConfig(t *testing.T) {
 
 // TLS Configuration Tests
 func TestTLS_DefaultValues(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -473,14 +472,14 @@ func TestTLS_DefaultValues(t *testing.T) {
 }
 
 func TestTLS_EnvironmentVariables(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
-	os.Setenv("KONSUL_TLS_ENABLED", "true")
-	os.Setenv("KONSUL_TLS_CERT_FILE", "/path/to/cert.pem")
-	os.Setenv("KONSUL_TLS_KEY_FILE", "/path/to/key.pem")
-	os.Setenv("KONSUL_TLS_AUTO_CERT", "false")
+	t.Setenv("KONSUL_TLS_ENABLED", "true")
+	t.Setenv("KONSUL_TLS_CERT_FILE", "/path/to/cert.pem")
+	t.Setenv("KONSUL_TLS_KEY_FILE", "/path/to/key.pem")
+	t.Setenv("KONSUL_TLS_AUTO_CERT", "false")
 
-	defer clearEnvVars()
+	defer clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -570,7 +569,7 @@ func TestValidate_TLSAutoCert(t *testing.T) {
 
 // Persistence Configuration Tests
 func TestPersistence_DefaultValues(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -598,16 +597,16 @@ func TestPersistence_DefaultValues(t *testing.T) {
 }
 
 func TestPersistence_EnvironmentVariables(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
-	os.Setenv("KONSUL_PERSISTENCE_ENABLED", "true")
-	os.Setenv("KONSUL_PERSISTENCE_TYPE", "memory")
-	os.Setenv("KONSUL_DATA_DIR", "/var/lib/konsul")
-	os.Setenv("KONSUL_BACKUP_DIR", "/var/backups/konsul")
-	os.Setenv("KONSUL_SYNC_WRITES", "false")
-	os.Setenv("KONSUL_WAL_ENABLED", "false")
+	t.Setenv("KONSUL_PERSISTENCE_ENABLED", "true")
+	t.Setenv("KONSUL_PERSISTENCE_TYPE", "memory")
+	t.Setenv("KONSUL_DATA_DIR", "/var/lib/konsul")
+	t.Setenv("KONSUL_BACKUP_DIR", "/var/backups/konsul")
+	t.Setenv("KONSUL_SYNC_WRITES", "false")
+	t.Setenv("KONSUL_WAL_ENABLED", "false")
 
-	defer clearEnvVars()
+	defer clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -676,7 +675,7 @@ func TestValidate_PersistenceMissingDataDir(t *testing.T) {
 
 // RateLimit Configuration Tests
 func TestRateLimit_DefaultValues(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -704,16 +703,16 @@ func TestRateLimit_DefaultValues(t *testing.T) {
 }
 
 func TestRateLimit_EnvironmentVariables(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
-	os.Setenv("KONSUL_RATE_LIMIT_ENABLED", "true")
-	os.Setenv("KONSUL_RATE_LIMIT_REQUESTS_PER_SEC", "50.5")
-	os.Setenv("KONSUL_RATE_LIMIT_BURST", "10")
-	os.Setenv("KONSUL_RATE_LIMIT_BY_IP", "false")
-	os.Setenv("KONSUL_RATE_LIMIT_BY_APIKEY", "true")
-	os.Setenv("KONSUL_RATE_LIMIT_CLEANUP", "10m")
+	t.Setenv("KONSUL_RATE_LIMIT_ENABLED", "true")
+	t.Setenv("KONSUL_RATE_LIMIT_REQUESTS_PER_SEC", "50.5")
+	t.Setenv("KONSUL_RATE_LIMIT_BURST", "10")
+	t.Setenv("KONSUL_RATE_LIMIT_BY_IP", "false")
+	t.Setenv("KONSUL_RATE_LIMIT_BY_APIKEY", "true")
+	t.Setenv("KONSUL_RATE_LIMIT_CLEANUP", "10m")
 
-	defer clearEnvVars()
+	defer clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -806,7 +805,7 @@ func TestValidate_RateLimitNoStrategyEnabled(t *testing.T) {
 
 // Auth Configuration Tests
 func TestAuth_DefaultValues(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -837,18 +836,18 @@ func TestAuth_DefaultValues(t *testing.T) {
 }
 
 func TestAuth_EnvironmentVariables(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
-	os.Setenv("KONSUL_AUTH_ENABLED", "true")
-	os.Setenv("KONSUL_JWT_SECRET", "my-secret")
-	os.Setenv("KONSUL_JWT_EXPIRY", "30m")
-	os.Setenv("KONSUL_REFRESH_EXPIRY", "24h")
-	os.Setenv("KONSUL_JWT_ISSUER", "custom-issuer")
-	os.Setenv("KONSUL_APIKEY_PREFIX", "custom")
-	os.Setenv("KONSUL_REQUIRE_AUTH", "true")
-	os.Setenv("KONSUL_PUBLIC_PATHS", "/public,/api/v1/health")
+	t.Setenv("KONSUL_AUTH_ENABLED", "true")
+	t.Setenv("KONSUL_JWT_SECRET", "my-secret")
+	t.Setenv("KONSUL_JWT_EXPIRY", "30m")
+	t.Setenv("KONSUL_REFRESH_EXPIRY", "24h")
+	t.Setenv("KONSUL_JWT_ISSUER", "custom-issuer")
+	t.Setenv("KONSUL_APIKEY_PREFIX", "custom")
+	t.Setenv("KONSUL_REQUIRE_AUTH", "true")
+	t.Setenv("KONSUL_PUBLIC_PATHS", "/public,/api/v1/health")
 
-	defer clearEnvVars()
+	defer clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -971,7 +970,7 @@ func TestValidate_AuthMissingIssuer(t *testing.T) {
 
 // ACL Configuration Tests
 func TestACL_DefaultValues(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -990,15 +989,15 @@ func TestACL_DefaultValues(t *testing.T) {
 }
 
 func TestACL_EnvironmentVariables(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
-	os.Setenv("KONSUL_ACL_ENABLED", "true")
-	os.Setenv("KONSUL_ACL_DEFAULT_POLICY", "allow")
-	os.Setenv("KONSUL_ACL_POLICY_DIR", "/etc/konsul/policies")
-	os.Setenv("KONSUL_AUTH_ENABLED", "true")
-	os.Setenv("KONSUL_JWT_SECRET", "secret")
+	t.Setenv("KONSUL_ACL_ENABLED", "true")
+	t.Setenv("KONSUL_ACL_DEFAULT_POLICY", "allow")
+	t.Setenv("KONSUL_ACL_POLICY_DIR", "/etc/konsul/policies")
+	t.Setenv("KONSUL_AUTH_ENABLED", "true")
+	t.Setenv("KONSUL_JWT_SECRET", "secret")
 
-	defer clearEnvVars()
+	defer clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1065,7 +1064,7 @@ func TestValidate_ACLRequiresAuth(t *testing.T) {
 
 // GraphQL Configuration Tests
 func TestGraphQL_DefaultValues(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1081,12 +1080,12 @@ func TestGraphQL_DefaultValues(t *testing.T) {
 }
 
 func TestGraphQL_EnvironmentVariables(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
-	os.Setenv("KONSUL_GRAPHQL_ENABLED", "true")
-	os.Setenv("KONSUL_GRAPHQL_PLAYGROUND_ENABLED", "false")
+	t.Setenv("KONSUL_GRAPHQL_ENABLED", "true")
+	t.Setenv("KONSUL_GRAPHQL_PLAYGROUND_ENABLED", "false")
 
-	defer clearEnvVars()
+	defer clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1103,7 +1102,7 @@ func TestGraphQL_EnvironmentVariables(t *testing.T) {
 
 // Tracing Configuration Tests
 func TestTracing_DefaultValues(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1134,17 +1133,17 @@ func TestTracing_DefaultValues(t *testing.T) {
 }
 
 func TestTracing_EnvironmentVariables(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
-	os.Setenv("KONSUL_TRACING_ENABLED", "true")
-	os.Setenv("KONSUL_TRACING_ENDPOINT", "localhost:4317")
-	os.Setenv("KONSUL_TRACING_SERVICE_NAME", "my-service")
-	os.Setenv("KONSUL_TRACING_SERVICE_VERSION", "2.0.0")
-	os.Setenv("KONSUL_TRACING_ENVIRONMENT", "production")
-	os.Setenv("KONSUL_TRACING_SAMPLING_RATIO", "0.5")
-	os.Setenv("KONSUL_TRACING_INSECURE", "false")
+	t.Setenv("KONSUL_TRACING_ENABLED", "true")
+	t.Setenv("KONSUL_TRACING_ENDPOINT", "localhost:4317")
+	t.Setenv("KONSUL_TRACING_SERVICE_NAME", "my-service")
+	t.Setenv("KONSUL_TRACING_SERVICE_VERSION", "2.0.0")
+	t.Setenv("KONSUL_TRACING_ENVIRONMENT", "production")
+	t.Setenv("KONSUL_TRACING_SAMPLING_RATIO", "0.5")
+	t.Setenv("KONSUL_TRACING_INSECURE", "false")
 
-	defer clearEnvVars()
+	defer clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1176,11 +1175,11 @@ func TestTracing_EnvironmentVariables(t *testing.T) {
 
 // Helper Function Tests
 func TestGetEnvStringSlice(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
 	// Test with valid comma-separated values
-	os.Setenv("KONSUL_PUBLIC_PATHS", "/health,/metrics,/api/v1/public")
-	defer clearEnvVars()
+	t.Setenv("KONSUL_PUBLIC_PATHS", "/health,/metrics,/api/v1/public")
+	defer clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1199,11 +1198,11 @@ func TestGetEnvStringSlice(t *testing.T) {
 }
 
 func TestGetEnvStringSlice_WithSpaces(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
 	// Test with spaces around values
-	os.Setenv("KONSUL_PUBLIC_PATHS", " /health , /metrics , /api/v1/public ")
-	defer clearEnvVars()
+	t.Setenv("KONSUL_PUBLIC_PATHS", " /health , /metrics , /api/v1/public ")
+	defer clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1222,11 +1221,11 @@ func TestGetEnvStringSlice_WithSpaces(t *testing.T) {
 }
 
 func TestGetEnvStringSlice_Empty(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
 	// Test with empty string
-	os.Setenv("KONSUL_PUBLIC_PATHS", "")
-	defer clearEnvVars()
+	t.Setenv("KONSUL_PUBLIC_PATHS", "")
+	defer clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1293,11 +1292,11 @@ func TestTrimSpace(t *testing.T) {
 }
 
 func TestGetEnvBool_InvalidValue(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
 	// Test invalid boolean value
-	os.Setenv("KONSUL_DNS_ENABLED", "invalid")
-	defer clearEnvVars()
+	t.Setenv("KONSUL_DNS_ENABLED", "invalid")
+	defer clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1311,11 +1310,11 @@ func TestGetEnvBool_InvalidValue(t *testing.T) {
 }
 
 func TestGetEnvFloat_InvalidValue(t *testing.T) {
-	clearEnvVars()
+	clearEnvVars(t)
 
 	// Test invalid float value
-	os.Setenv("KONSUL_RATE_LIMIT_REQUESTS_PER_SEC", "invalid")
-	defer clearEnvVars()
+	t.Setenv("KONSUL_RATE_LIMIT_REQUESTS_PER_SEC", "invalid")
+	defer clearEnvVars(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1329,62 +1328,63 @@ func TestGetEnvFloat_InvalidValue(t *testing.T) {
 }
 
 // clearEnvVars clears all KONSUL environment variables
-func clearEnvVars() {
-	os.Unsetenv("KONSUL_HOST")
-	os.Unsetenv("KONSUL_PORT")
-	os.Unsetenv("KONSUL_SERVICE_TTL")
-	os.Unsetenv("KONSUL_CLEANUP_INTERVAL")
-	os.Unsetenv("KONSUL_LOG_LEVEL")
-	os.Unsetenv("KONSUL_LOG_FORMAT")
-	os.Unsetenv("KONSUL_PERSISTENCE_ENABLED")
-	os.Unsetenv("KONSUL_PERSISTENCE_TYPE")
-	os.Unsetenv("KONSUL_DATA_DIR")
-	os.Unsetenv("KONSUL_BACKUP_DIR")
-	os.Unsetenv("KONSUL_SYNC_WRITES")
-	os.Unsetenv("KONSUL_WAL_ENABLED")
-	os.Unsetenv("KONSUL_DNS_ENABLED")
-	os.Unsetenv("KONSUL_DNS_HOST")
-	os.Unsetenv("KONSUL_DNS_PORT")
-	os.Unsetenv("KONSUL_DNS_DOMAIN")
-	os.Unsetenv("KONSUL_TLS_ENABLED")
-	os.Unsetenv("KONSUL_TLS_CERT_FILE")
-	os.Unsetenv("KONSUL_TLS_KEY_FILE")
-	os.Unsetenv("KONSUL_TLS_AUTO_CERT")
-	os.Unsetenv("KONSUL_RATE_LIMIT_ENABLED")
-	os.Unsetenv("KONSUL_RATE_LIMIT_REQUESTS_PER_SEC")
-	os.Unsetenv("KONSUL_RATE_LIMIT_BURST")
-	os.Unsetenv("KONSUL_RATE_LIMIT_BY_IP")
-	os.Unsetenv("KONSUL_RATE_LIMIT_BY_APIKEY")
-	os.Unsetenv("KONSUL_RATE_LIMIT_CLEANUP")
-	os.Unsetenv("KONSUL_AUTH_ENABLED")
-	os.Unsetenv("KONSUL_JWT_SECRET")
-	os.Unsetenv("KONSUL_JWT_EXPIRY")
-	os.Unsetenv("KONSUL_REFRESH_EXPIRY")
-	os.Unsetenv("KONSUL_JWT_ISSUER")
-	os.Unsetenv("KONSUL_APIKEY_PREFIX")
-	os.Unsetenv("KONSUL_REQUIRE_AUTH")
-	os.Unsetenv("KONSUL_PUBLIC_PATHS")
-	os.Unsetenv("KONSUL_ACL_ENABLED")
-	os.Unsetenv("KONSUL_ACL_DEFAULT_POLICY")
-	os.Unsetenv("KONSUL_ACL_POLICY_DIR")
-	os.Unsetenv("KONSUL_GRAPHQL_ENABLED")
-	os.Unsetenv("KONSUL_GRAPHQL_PLAYGROUND_ENABLED")
-	os.Unsetenv("KONSUL_TRACING_ENABLED")
-	os.Unsetenv("KONSUL_TRACING_ENDPOINT")
-	os.Unsetenv("KONSUL_TRACING_SERVICE_NAME")
-	os.Unsetenv("KONSUL_TRACING_SERVICE_VERSION")
-	os.Unsetenv("KONSUL_TRACING_ENVIRONMENT")
-	os.Unsetenv("KONSUL_TRACING_SAMPLING_RATIO")
-	os.Unsetenv("KONSUL_TRACING_INSECURE")
-	os.Unsetenv("KONSUL_ADMIN_UI_ENABLED")
-	os.Unsetenv("KONSUL_ADMIN_UI_PATH")
-	os.Unsetenv("KONSUL_WATCH_ENABLED")
-	os.Unsetenv("KONSUL_WATCH_BUFFER_SIZE")
-	os.Unsetenv("KONSUL_WATCH_MAX_PER_CLIENT")
-	os.Unsetenv("KONSUL_AUDIT_ENABLED")
-	os.Unsetenv("KONSUL_AUDIT_SINK")
-	os.Unsetenv("KONSUL_AUDIT_FILE_PATH")
-	os.Unsetenv("KONSUL_AUDIT_BUFFER_SIZE")
-	os.Unsetenv("KONSUL_AUDIT_FLUSH_INTERVAL")
-	os.Unsetenv("KONSUL_AUDIT_DROP_POLICY")
+func clearEnvVars(t *testing.T) {
+	t.Helper()
+	t.Setenv("KONSUL_HOST", "")
+	t.Setenv("KONSUL_PORT", "")
+	t.Setenv("KONSUL_SERVICE_TTL", "")
+	t.Setenv("KONSUL_CLEANUP_INTERVAL", "")
+	t.Setenv("KONSUL_LOG_LEVEL", "")
+	t.Setenv("KONSUL_LOG_FORMAT", "")
+	t.Setenv("KONSUL_PERSISTENCE_ENABLED", "")
+	t.Setenv("KONSUL_PERSISTENCE_TYPE", "")
+	t.Setenv("KONSUL_DATA_DIR", "")
+	t.Setenv("KONSUL_BACKUP_DIR", "")
+	t.Setenv("KONSUL_SYNC_WRITES", "")
+	t.Setenv("KONSUL_WAL_ENABLED", "")
+	t.Setenv("KONSUL_DNS_ENABLED", "")
+	t.Setenv("KONSUL_DNS_HOST", "")
+	t.Setenv("KONSUL_DNS_PORT", "")
+	t.Setenv("KONSUL_DNS_DOMAIN", "")
+	t.Setenv("KONSUL_TLS_ENABLED", "")
+	t.Setenv("KONSUL_TLS_CERT_FILE", "")
+	t.Setenv("KONSUL_TLS_KEY_FILE", "")
+	t.Setenv("KONSUL_TLS_AUTO_CERT", "")
+	t.Setenv("KONSUL_RATE_LIMIT_ENABLED", "")
+	t.Setenv("KONSUL_RATE_LIMIT_REQUESTS_PER_SEC", "")
+	t.Setenv("KONSUL_RATE_LIMIT_BURST", "")
+	t.Setenv("KONSUL_RATE_LIMIT_BY_IP", "")
+	t.Setenv("KONSUL_RATE_LIMIT_BY_APIKEY", "")
+	t.Setenv("KONSUL_RATE_LIMIT_CLEANUP", "")
+	t.Setenv("KONSUL_AUTH_ENABLED", "")
+	t.Setenv("KONSUL_JWT_SECRET", "")
+	t.Setenv("KONSUL_JWT_EXPIRY", "")
+	t.Setenv("KONSUL_REFRESH_EXPIRY", "")
+	t.Setenv("KONSUL_JWT_ISSUER", "")
+	t.Setenv("KONSUL_APIKEY_PREFIX", "")
+	t.Setenv("KONSUL_REQUIRE_AUTH", "")
+	t.Setenv("KONSUL_PUBLIC_PATHS", "")
+	t.Setenv("KONSUL_ACL_ENABLED", "")
+	t.Setenv("KONSUL_ACL_DEFAULT_POLICY", "")
+	t.Setenv("KONSUL_ACL_POLICY_DIR", "")
+	t.Setenv("KONSUL_GRAPHQL_ENABLED", "")
+	t.Setenv("KONSUL_GRAPHQL_PLAYGROUND_ENABLED", "")
+	t.Setenv("KONSUL_TRACING_ENABLED", "")
+	t.Setenv("KONSUL_TRACING_ENDPOINT", "")
+	t.Setenv("KONSUL_TRACING_SERVICE_NAME", "")
+	t.Setenv("KONSUL_TRACING_SERVICE_VERSION", "")
+	t.Setenv("KONSUL_TRACING_ENVIRONMENT", "")
+	t.Setenv("KONSUL_TRACING_SAMPLING_RATIO", "")
+	t.Setenv("KONSUL_TRACING_INSECURE", "")
+	t.Setenv("KONSUL_ADMIN_UI_ENABLED", "")
+	t.Setenv("KONSUL_ADMIN_UI_PATH", "")
+	t.Setenv("KONSUL_WATCH_ENABLED", "")
+	t.Setenv("KONSUL_WATCH_BUFFER_SIZE", "")
+	t.Setenv("KONSUL_WATCH_MAX_PER_CLIENT", "")
+	t.Setenv("KONSUL_AUDIT_ENABLED", "")
+	t.Setenv("KONSUL_AUDIT_SINK", "")
+	t.Setenv("KONSUL_AUDIT_FILE_PATH", "")
+	t.Setenv("KONSUL_AUDIT_BUFFER_SIZE", "")
+	t.Setenv("KONSUL_AUDIT_FLUSH_INTERVAL", "")
+	t.Setenv("KONSUL_AUDIT_DROP_POLICY", "")
 }

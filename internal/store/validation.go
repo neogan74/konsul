@@ -19,7 +19,7 @@ const (
 	MaxMetadataValueLength = 512
 )
 
-// Reserved metadata key prefixes (for internal use)
+// ReservedMetadataKeyPrefixes metadata key prefixes (for internal use)
 var ReservedMetadataKeyPrefixes = []string{
 	"konsul_",
 	"_",

@@ -12,33 +12,39 @@ import (
 	"github.com/neogan74/konsul/internal/store"
 )
 
-func setupLoadBalancerHandler() (*LoadBalancerHandler, *fiber.App) {
+func setupLoadBalancerHandler(t *testing.T) (*LoadBalancerHandler, *fiber.App) {
+	t.Helper()
 	// Create a service store
 	serviceStore := store.NewServiceStore()
 
 	// Register some test services
-	serviceStore.Register(store.Service{
+	if err := serviceStore.Register(store.Service{
 		Name:    "test-service",
 		Address: "10.0.1.1",
 		Port:    8080,
-		Tags:    []string{"web", "api"},
+		Tags:    []string{"test-service", "web", "api"},
 		Meta:    map[string]string{"env": "test", "version": "1.0"},
-	})
-	serviceStore.Register(store.Service{
+	}); err != nil {
+		t.Fatalf("register service: %v", err)
+	}
+	if err := serviceStore.Register(store.Service{
 		Name:    "test-service",
 		Address: "10.0.1.2",
 		Port:    8080,
-		Tags:    []string{"web", "api"},
+		Tags:    []string{"test-service", "web", "api"},
 		Meta:    map[string]string{"env": "test", "version": "1.0"},
-	})
-	serviceStore.Register(store.Service{
+	}); err != nil {
+		t.Fatalf("register service: %v", err)
+	}
+	if err := serviceStore.Register(store.Service{
 		Name:    "db-service",
 		Address: "10.0.2.1",
 		Port:    5432,
-		Tags:    []string{"database", "postgres"},
+		Tags:    []string{"db-service", "database", "postgres"},
 		Meta:    map[string]string{"env": "prod", "version": "14"},
-	})
-
+	}); err != nil {
+		t.Fatalf("register service: %v", err)
+	}
 	balancer := loadbalancer.New(serviceStore, loadbalancer.StrategyRoundRobin)
 	handler := NewLoadBalancerHandler(balancer)
 
@@ -55,7 +61,7 @@ func setupLoadBalancerHandler() (*LoadBalancerHandler, *fiber.App) {
 }
 
 func TestLoadBalancerHandler_SelectService_Success(t *testing.T) {
-	_, app := setupLoadBalancerHandler()
+	_, app := setupLoadBalancerHandler(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/lb/service/test-service", nil)
 	resp, err := app.Test(req)
@@ -81,7 +87,7 @@ func TestLoadBalancerHandler_SelectService_Success(t *testing.T) {
 }
 
 func TestLoadBalancerHandler_SelectService_NotFound(t *testing.T) {
-	_, app := setupLoadBalancerHandler()
+	_, app := setupLoadBalancerHandler(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/lb/service/nonexistent-service", nil)
 	resp, err := app.Test(req)
@@ -95,7 +101,7 @@ func TestLoadBalancerHandler_SelectService_NotFound(t *testing.T) {
 }
 
 func TestLoadBalancerHandler_SelectServiceByTags_Success(t *testing.T) {
-	_, app := setupLoadBalancerHandler()
+	_, app := setupLoadBalancerHandler(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/lb/tags?tags=web&tags=api", nil)
 	resp, err := app.Test(req)
@@ -124,7 +130,7 @@ func TestLoadBalancerHandler_SelectServiceByTags_Success(t *testing.T) {
 }
 
 func TestLoadBalancerHandler_SelectServiceByTags_NoTags(t *testing.T) {
-	_, app := setupLoadBalancerHandler()
+	_, app := setupLoadBalancerHandler(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/lb/tags", nil)
 	resp, err := app.Test(req)
@@ -138,7 +144,7 @@ func TestLoadBalancerHandler_SelectServiceByTags_NoTags(t *testing.T) {
 }
 
 func TestLoadBalancerHandler_SelectServiceByTags_NotFound(t *testing.T) {
-	_, app := setupLoadBalancerHandler()
+	_, app := setupLoadBalancerHandler(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/lb/tags?tags=nonexistent-tag", nil)
 	resp, err := app.Test(req)
@@ -152,7 +158,7 @@ func TestLoadBalancerHandler_SelectServiceByTags_NotFound(t *testing.T) {
 }
 
 func TestLoadBalancerHandler_SelectServiceByMetadata_Success(t *testing.T) {
-	_, app := setupLoadBalancerHandler()
+	_, app := setupLoadBalancerHandler(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/lb/metadata?env=test&version=1.0", nil)
 	resp, err := app.Test(req)
@@ -178,7 +184,7 @@ func TestLoadBalancerHandler_SelectServiceByMetadata_Success(t *testing.T) {
 }
 
 func TestLoadBalancerHandler_SelectServiceByMetadata_NoFilters(t *testing.T) {
-	_, app := setupLoadBalancerHandler()
+	_, app := setupLoadBalancerHandler(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/lb/metadata", nil)
 	resp, err := app.Test(req)
@@ -192,7 +198,7 @@ func TestLoadBalancerHandler_SelectServiceByMetadata_NoFilters(t *testing.T) {
 }
 
 func TestLoadBalancerHandler_SelectServiceByMetadata_NotFound(t *testing.T) {
-	_, app := setupLoadBalancerHandler()
+	_, app := setupLoadBalancerHandler(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/lb/metadata?env=nonexistent", nil)
 	resp, err := app.Test(req)
@@ -206,7 +212,7 @@ func TestLoadBalancerHandler_SelectServiceByMetadata_NotFound(t *testing.T) {
 }
 
 func TestLoadBalancerHandler_SelectServiceByQuery_Success(t *testing.T) {
-	_, app := setupLoadBalancerHandler()
+	_, app := setupLoadBalancerHandler(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/lb/query?tags=web&meta.env=test", nil)
 	resp, err := app.Test(req)
@@ -244,7 +250,7 @@ func TestLoadBalancerHandler_SelectServiceByQuery_Success(t *testing.T) {
 }
 
 func TestLoadBalancerHandler_SelectServiceByQuery_TagsOnly(t *testing.T) {
-	_, app := setupLoadBalancerHandler()
+	_, app := setupLoadBalancerHandler(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/lb/query?tags=web", nil)
 	resp, err := app.Test(req)
@@ -258,7 +264,7 @@ func TestLoadBalancerHandler_SelectServiceByQuery_TagsOnly(t *testing.T) {
 }
 
 func TestLoadBalancerHandler_SelectServiceByQuery_MetadataOnly(t *testing.T) {
-	_, app := setupLoadBalancerHandler()
+	_, app := setupLoadBalancerHandler(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/lb/query?meta.env=test", nil)
 	resp, err := app.Test(req)
@@ -272,7 +278,7 @@ func TestLoadBalancerHandler_SelectServiceByQuery_MetadataOnly(t *testing.T) {
 }
 
 func TestLoadBalancerHandler_SelectServiceByQuery_NoFilters(t *testing.T) {
-	_, app := setupLoadBalancerHandler()
+	_, app := setupLoadBalancerHandler(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/lb/query", nil)
 	resp, err := app.Test(req)
@@ -286,7 +292,7 @@ func TestLoadBalancerHandler_SelectServiceByQuery_NoFilters(t *testing.T) {
 }
 
 func TestLoadBalancerHandler_SelectServiceByQuery_NotFound(t *testing.T) {
-	_, app := setupLoadBalancerHandler()
+	_, app := setupLoadBalancerHandler(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/lb/query?tags=nonexistent&meta.env=invalid", nil)
 	resp, err := app.Test(req)
@@ -300,7 +306,7 @@ func TestLoadBalancerHandler_SelectServiceByQuery_NotFound(t *testing.T) {
 }
 
 func TestLoadBalancerHandler_GetStrategy(t *testing.T) {
-	_, app := setupLoadBalancerHandler()
+	_, app := setupLoadBalancerHandler(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/lb/strategy", nil)
 	resp, err := app.Test(req)
@@ -323,7 +329,7 @@ func TestLoadBalancerHandler_GetStrategy(t *testing.T) {
 }
 
 func TestLoadBalancerHandler_UpdateStrategy_Success(t *testing.T) {
-	_, app := setupLoadBalancerHandler()
+	_, app := setupLoadBalancerHandler(t)
 
 	strategies := []string{"round-robin", "random", "least-connections"}
 
@@ -355,7 +361,7 @@ func TestLoadBalancerHandler_UpdateStrategy_Success(t *testing.T) {
 }
 
 func TestLoadBalancerHandler_UpdateStrategy_InvalidStrategy(t *testing.T) {
-	_, app := setupLoadBalancerHandler()
+	_, app := setupLoadBalancerHandler(t)
 
 	body := bytes.NewReader([]byte(`{"strategy": "invalid-strategy"}`))
 	req := httptest.NewRequest(http.MethodPut, "/lb/strategy", body)
@@ -372,7 +378,7 @@ func TestLoadBalancerHandler_UpdateStrategy_InvalidStrategy(t *testing.T) {
 }
 
 func TestLoadBalancerHandler_UpdateStrategy_InvalidJSON(t *testing.T) {
-	_, app := setupLoadBalancerHandler()
+	_, app := setupLoadBalancerHandler(t)
 
 	body := bytes.NewReader([]byte(`invalid json`))
 	req := httptest.NewRequest(http.MethodPut, "/lb/strategy", body)
@@ -389,7 +395,7 @@ func TestLoadBalancerHandler_UpdateStrategy_InvalidJSON(t *testing.T) {
 }
 
 func TestLoadBalancerHandler_StrategyPersistence(t *testing.T) {
-	_, app := setupLoadBalancerHandler()
+	_, app := setupLoadBalancerHandler(t)
 
 	// Update strategy
 	updateBody := bytes.NewReader([]byte(`{"strategy": "random"}`))

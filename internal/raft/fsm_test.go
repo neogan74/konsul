@@ -3,6 +3,7 @@ package raft
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -58,6 +59,51 @@ func (m *mockKVStore) BatchDeleteLocal(keys []string) error {
 	return nil
 }
 
+func (m *mockKVStore) SetCASLocal(key, value string, expectedIndex uint64) (uint64, error) {
+	entry, ok := m.data[key]
+	if expectedIndex == 0 {
+		if ok {
+			return 0, fmt.Errorf("key already exists")
+		}
+	} else {
+		if !ok || entry.ModifyIndex != expectedIndex {
+			return 0, fmt.Errorf("index mismatch")
+		}
+	}
+	m.SetLocal(key, value)
+	return m.data[key].ModifyIndex, nil
+}
+
+func (m *mockKVStore) DeleteCASLocal(key string, expectedIndex uint64) error {
+	entry, ok := m.data[key]
+	if !ok || entry.ModifyIndex != expectedIndex {
+		return fmt.Errorf("index mismatch")
+	}
+	delete(m.data, key)
+	return nil
+}
+
+func (m *mockKVStore) BatchSetCASLocal(items map[string]string, expectedIndices map[string]uint64) (map[string]uint64, error) {
+	results := make(map[string]uint64)
+	for k, v := range items {
+		idx, err := m.SetCASLocal(k, v, expectedIndices[k])
+		if err != nil {
+			return nil, err
+		}
+		results[k] = idx
+	}
+	return results, nil
+}
+
+func (m *mockKVStore) BatchDeleteCASLocal(keys []string, expectedIndices map[string]uint64) error {
+	for _, k := range keys {
+		if err := m.DeleteCASLocal(k, expectedIndices[k]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (m *mockKVStore) GetAllData() map[string]store.KVEntrySnapshot {
 	result := make(map[string]store.KVEntrySnapshot, len(m.data))
 	for k, v := range m.data {
@@ -72,6 +118,11 @@ func (m *mockKVStore) RestoreFromSnapshot(data map[string]store.KVEntrySnapshot)
 		m.data[k] = v
 	}
 	return nil
+}
+
+func (m *mockKVStore) GetEntrySnapshot(key string) (store.KVEntrySnapshot, bool) {
+	entry, ok := m.data[key]
+	return entry, ok
 }
 
 // mockServiceStore implements ServiceStoreInterface for testing.
@@ -122,6 +173,39 @@ func (m *mockServiceStore) RestoreFromSnapshot(data map[string]store.ServiceEntr
 		m.data[k] = v
 	}
 	return nil
+}
+
+func (m *mockServiceStore) RegisterCASLocal(service store.ServiceDataSnapshot, expectedIndex uint64) (uint64, error) {
+	entry, ok := m.data[service.Name]
+	if expectedIndex == 0 {
+		if ok {
+			return 0, fmt.Errorf("service already exists")
+		}
+	} else {
+		if !ok || entry.ModifyIndex != expectedIndex {
+			return 0, fmt.Errorf("index mismatch")
+		}
+	}
+	_ = m.RegisterLocal(service)
+	return m.data[service.Name].ModifyIndex, nil
+}
+
+func (m *mockServiceStore) DeregisterCASLocal(name string, expectedIndex uint64) error {
+	entry, ok := m.data[name]
+	if !ok || entry.ModifyIndex != expectedIndex {
+		return fmt.Errorf("index mismatch")
+	}
+	delete(m.data, name)
+	return nil
+}
+
+func (m *mockServiceStore) UpdateTTLCheck(checkID string) error {
+	return nil
+}
+
+func (m *mockServiceStore) GetEntrySnapshot(name string) (store.ServiceEntrySnapshot, bool) {
+	entry, ok := m.data[name]
+	return entry, ok
 }
 
 // Helper to create a raft.Log from a command.
@@ -283,11 +367,13 @@ func TestFSM_Apply_ServiceRegister(t *testing.T) {
 
 	// Create service register command
 	cmd, err := NewCommand(CmdServiceRegister, ServiceRegisterPayload{
-		Name:    "web",
-		Address: "10.0.0.1",
-		Port:    8080,
-		Tags:    []string{"primary", "v2"},
-		Meta:    map[string]string{"version": "2.0"},
+		Service: store.Service{
+			Name:    "web",
+			Address: "10.0.0.1",
+			Port:    8080,
+			Tags:    []string{"primary", "v2"},
+			Meta:    map[string]string{"version": "2.0"},
+		},
 	})
 	require.NoError(t, err)
 
@@ -499,4 +585,105 @@ func (m *mockReadCloser) Read(p []byte) (n int, err error) {
 
 func (m *mockReadCloser) Close() error {
 	return nil
+}
+
+func TestFSM_Apply_KVSetCAS(t *testing.T) {
+	kvStore := newMockKVStore()
+	fsm := NewFSM(FSMConfig{KVStore: kvStore})
+
+	// Initial set
+	kvStore.SetLocal("key1", "val1")
+	entry, ok := kvStore.GetEntrySnapshot("key1")
+	require.True(t, ok)
+	initialIndex := entry.ModifyIndex
+
+	// Successful CAS
+	cmd, _ := NewCommand(CmdKVSetCAS, KVSetCASPayload{
+		Key:           "key1",
+		Value:         "val2",
+		ExpectedIndex: initialIndex,
+	})
+	resp := fsm.Apply(makeLog(t, cmd))
+	assert.Nil(t, resp)
+
+	entry, _ = kvStore.GetEntrySnapshot("key1")
+	assert.Equal(t, "val2", entry.Value)
+	assert.NotEqual(t, initialIndex, entry.ModifyIndex)
+
+	// Failed CAS (wrong index)
+	cmdFail, _ := NewCommand(CmdKVSetCAS, KVSetCASPayload{
+		Key:           "key1",
+		Value:         "val3",
+		ExpectedIndex: initialIndex,
+	})
+	respFail := fsm.Apply(makeLog(t, cmdFail))
+	assert.NotNil(t, respFail)
+	assert.Error(t, respFail.(error))
+
+	entry, _ = kvStore.GetEntrySnapshot("key1")
+	assert.Equal(t, "val2", entry.Value)
+}
+
+func TestFSM_Apply_KVDeleteCAS(t *testing.T) {
+	kvStore := newMockKVStore()
+	fsm := NewFSM(FSMConfig{KVStore: kvStore})
+
+	// Initial set
+	kvStore.SetLocal("key1", "val1")
+	entry, ok := kvStore.GetEntrySnapshot("key1")
+	require.True(t, ok)
+	initialIndex := entry.ModifyIndex
+
+	// Failed CAS (wrong index)
+	cmdFail, _ := NewCommand(CmdKVDeleteCAS, KVDeleteCASPayload{
+		Key:           "key1",
+		ExpectedIndex: initialIndex + 1,
+	})
+	respFail := fsm.Apply(makeLog(t, cmdFail))
+	assert.NotNil(t, respFail)
+	assert.Error(t, respFail.(error))
+	assert.Contains(t, kvStore.data, "key1")
+
+	// Successful CAS
+	cmd, _ := NewCommand(CmdKVDeleteCAS, KVDeleteCASPayload{
+		Key:           "key1",
+		ExpectedIndex: initialIndex,
+	})
+	resp := fsm.Apply(makeLog(t, cmd))
+	assert.Nil(t, resp)
+	assert.NotContains(t, kvStore.data, "key1")
+}
+
+func TestFSM_Apply_ServiceRegisterCAS(t *testing.T) {
+	serviceStore := newMockServiceStore()
+	fsm := NewFSM(FSMConfig{ServiceStore: serviceStore})
+
+	svc := store.Service{Name: "web", Address: "1.2.3.4", Port: 80}
+
+	// Create (expectedIndex = 0)
+	cmd, _ := NewCommand(CmdServiceRegisterCAS, ServiceRegisterCASPayload{
+		Service:       svc,
+		ExpectedIndex: 0,
+	})
+	resp := fsm.Apply(makeLog(t, cmd))
+	assert.Nil(t, resp)
+
+	entry, ok := serviceStore.data["web"]
+	assert.True(t, ok)
+	initialIndex := entry.ModifyIndex
+
+	// Conflict (expectedIndex = 0 but exists)
+	respFail := fsm.Apply(makeLog(t, cmd))
+	assert.NotNil(t, respFail)
+	assert.Error(t, respFail.(error))
+
+	// Successful Update
+	svc.Address = "4.3.2.1"
+	cmdUpdate, _ := NewCommand(CmdServiceRegisterCAS, ServiceRegisterCASPayload{
+		Service:       svc,
+		ExpectedIndex: initialIndex,
+	})
+	respUpdate := fsm.Apply(makeLog(t, cmdUpdate))
+	assert.Nil(t, respUpdate)
+	assert.Equal(t, "4.3.2.1", serviceStore.data["web"].Service.Address)
 }

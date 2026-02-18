@@ -17,63 +17,63 @@ const (
 type Status string
 
 const (
-	StatusPassing Status = "passing"
-	StatusWarning Status = "warning"
+	StatusPassing  Status = "passing"
+	StatusWarning  Status = "warning"
 	StatusCritical Status = "critical"
 )
 
 type Check struct {
-	ID           string            `json:"id"`
-	Name         string            `json:"name"`
-	ServiceID    string            `json:"service_id"`
-	Type         CheckType         `json:"type"`
-	Status       Status            `json:"status"`
-	Output       string            `json:"output"`
-	LastCheck    time.Time         `json:"last_check"`
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	ServiceID string    `json:"service_id"`
+	Type      CheckType `json:"type"`
+	Status    Status    `json:"status"`
+	Output    string    `json:"output"`
+	LastCheck time.Time `json:"last_check"`
 
 	// Common fields
-	Interval     time.Duration     `json:"interval"`
-	Timeout      time.Duration     `json:"timeout"`
+	Interval time.Duration `json:"interval"`
+	Timeout  time.Duration `json:"timeout"`
 
 	// HTTP specific
-	HTTP         string            `json:"http,omitempty"`
-	Method       string            `json:"method,omitempty"`
-	Headers      map[string]string `json:"headers,omitempty"`
-	TLSSkipVerify bool             `json:"tls_skip_verify,omitempty"`
+	HTTP          string            `json:"http,omitempty"`
+	Method        string            `json:"method,omitempty"`
+	Headers       map[string]string `json:"headers,omitempty"`
+	TLSSkipVerify bool              `json:"tls_skip_verify,omitempty"`
 
 	// TCP specific
-	TCP          string            `json:"tcp,omitempty"`
+	TCP string `json:"tcp,omitempty"`
 
 	// gRPC specific
-	GRPC         string            `json:"grpc,omitempty"`
-	GRPCUseTLS   bool              `json:"grpc_use_tls,omitempty"`
+	GRPC       string `json:"grpc,omitempty"`
+	GRPCUseTLS bool   `json:"grpc_use_tls,omitempty"`
 
 	// TTL specific
-	TTL          time.Duration     `json:"ttl,omitempty"`
-	ExpiresAt    time.Time         `json:"expires_at,omitempty"`
+	TTL       time.Duration `json:"ttl,omitempty"`
+	ExpiresAt time.Time     `json:"expires_at,omitempty"`
 }
 
 type CheckDefinition struct {
-	ID           string            `json:"id,omitempty"`
-	Name         string            `json:"name"`
-	ServiceID    string            `json:"service_id,omitempty"`
+	ID        string `json:"id,omitempty"`
+	Name      string `json:"name"`
+	ServiceID string `json:"service_id,omitempty"`
 
 	// Check type and common settings
-	HTTP         string            `json:"http,omitempty"`
-	TCP          string            `json:"tcp,omitempty"`
-	GRPC         string            `json:"grpc,omitempty"`
-	TTL          string            `json:"ttl,omitempty"`
+	HTTP string `json:"http,omitempty"`
+	TCP  string `json:"tcp,omitempty"`
+	GRPC string `json:"grpc,omitempty"`
+	TTL  string `json:"ttl,omitempty"`
 
-	Interval     string            `json:"interval,omitempty"`
-	Timeout      string            `json:"timeout,omitempty"`
+	Interval string `json:"interval,omitempty"`
+	Timeout  string `json:"timeout,omitempty"`
 
 	// HTTP specific
-	Method       string            `json:"method,omitempty"`
-	Headers      map[string]string `json:"headers,omitempty"`
-	TLSSkipVerify bool             `json:"tls_skip_verify,omitempty"`
+	Method        string            `json:"method,omitempty"`
+	Headers       map[string]string `json:"headers,omitempty"`
+	TLSSkipVerify bool              `json:"tls_skip_verify,omitempty"`
 
 	// gRPC specific
-	GRPCUseTLS   bool              `json:"grpc_use_tls,omitempty"`
+	GRPCUseTLS bool `json:"grpc_use_tls,omitempty"`
 }
 
 type Checker interface {

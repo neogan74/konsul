@@ -32,14 +32,14 @@ func (r *mutationResolver) KvSet(ctx context.Context, key string, value string) 
 
 	// Set the key-value pair
 	if r.raftNode != nil {
-		entry, err := konsulraft.NewLogEntry(konsulraft.EntryKVSet, konsulraft.KVSetPayload{
+		cmd, err := konsulraft.NewCommand(konsulraft.CmdKVSet, konsulraft.KVSetPayload{
 			Key:   key,
 			Value: value,
 		})
 		if err != nil {
 			return nil, err
 		}
-		if _, err := r.raftNode.ApplyEntry(entry, 5*time.Second); err != nil {
+		if _, err := r.raftNode.ApplyEntry(cmd, 5*time.Second); err != nil {
 			if errors.Is(err, hashiraft.ErrNotLeader) {
 				return nil, fmt.Errorf("not leader: %w", err)
 			}
@@ -73,13 +73,13 @@ func (r *mutationResolver) KvDelete(ctx context.Context, key string) (bool, erro
 
 	// Delete the key
 	if r.raftNode != nil {
-		entry, err := konsulraft.NewLogEntry(konsulraft.EntryKVDelete, konsulraft.KVDeletePayload{
+		cmd, err := konsulraft.NewCommand(konsulraft.CmdKVDelete, konsulraft.KVDeletePayload{
 			Key: key,
 		})
 		if err != nil {
 			return false, err
 		}
-		if _, err := r.raftNode.ApplyEntry(entry, 5*time.Second); err != nil {
+		if _, err := r.raftNode.ApplyEntry(cmd, 5*time.Second); err != nil {
 			if errors.Is(err, hashiraft.ErrNotLeader) {
 				return false, fmt.Errorf("not leader: %w", err)
 			}
@@ -107,7 +107,7 @@ func (r *mutationResolver) KvCas(ctx context.Context, key string, value string, 
 	var newIndex uint64
 	var err error
 	if r.raftNode != nil {
-		entry, marshalErr := konsulraft.NewLogEntry(konsulraft.EntryKVSetCAS, konsulraft.KVSetCASPayload{
+		cmd, marshalErr := konsulraft.NewCommand(konsulraft.CmdKVSetCAS, konsulraft.KVSetCASPayload{
 			Key:           key,
 			Value:         value,
 			ExpectedIndex: uint64(index),
@@ -115,7 +115,7 @@ func (r *mutationResolver) KvCas(ctx context.Context, key string, value string, 
 		if marshalErr != nil {
 			return nil, marshalErr
 		}
-		resp, applyErr := r.raftNode.ApplyEntry(entry, 5*time.Second)
+		resp, applyErr := r.raftNode.ApplyEntry(cmd, 5*time.Second)
 		if applyErr != nil {
 			err = applyErr
 		} else if cast, ok := resp.(uint64); ok {
@@ -174,13 +174,13 @@ func (r *mutationResolver) RegisterService(ctx context.Context, input model.Regi
 
 	// Register the service
 	if r.raftNode != nil {
-		entry, err := konsulraft.NewLogEntry(konsulraft.EntryServiceRegister, konsulraft.ServiceRegisterPayload{
+		cmd, err := konsulraft.NewCommand(konsulraft.CmdServiceRegister, konsulraft.ServiceRegisterPayload{
 			Service: service,
 		})
 		if err != nil {
 			return nil, err
 		}
-		if _, err := r.raftNode.ApplyEntry(entry, 5*time.Second); err != nil {
+		if _, err := r.raftNode.ApplyEntry(cmd, 5*time.Second); err != nil {
 			if errors.Is(err, hashiraft.ErrNotLeader) {
 				return nil, fmt.Errorf("not leader: %w", err)
 			}
@@ -231,13 +231,13 @@ func (r *mutationResolver) DeregisterService(ctx context.Context, name string) (
 
 	// Deregister the service
 	if r.raftNode != nil {
-		entry, err := konsulraft.NewLogEntry(konsulraft.EntryServiceDeregister, konsulraft.ServiceDeregisterPayload{
+		cmd, err := konsulraft.NewCommand(konsulraft.CmdServiceDeregister, konsulraft.ServiceDeregisterPayload{
 			Name: name,
 		})
 		if err != nil {
 			return false, err
 		}
-		if _, err := r.raftNode.ApplyEntry(entry, 5*time.Second); err != nil {
+		if _, err := r.raftNode.ApplyEntry(cmd, 5*time.Second); err != nil {
 			if errors.Is(err, hashiraft.ErrNotLeader) {
 				return false, fmt.Errorf("not leader: %w", err)
 			}
@@ -264,13 +264,13 @@ func (r *mutationResolver) UpdateHeartbeat(ctx context.Context, name string) (*m
 	// Update heartbeat
 	success := false
 	if r.raftNode != nil {
-		entry, err := konsulraft.NewLogEntry(konsulraft.EntryServiceHeartbeat, konsulraft.ServiceHeartbeatPayload{
+		cmd, err := konsulraft.NewCommand(konsulraft.CmdServiceHeartbeat, konsulraft.ServiceHeartbeatPayload{
 			Name: name,
 		})
 		if err != nil {
 			return nil, err
 		}
-		resp, err := r.raftNode.ApplyEntry(entry, 5*time.Second)
+		resp, err := r.raftNode.ApplyEntry(cmd, 5*time.Second)
 		if err != nil {
 			if errors.Is(err, hashiraft.ErrNotLeader) {
 				return nil, fmt.Errorf("not leader: %w", err)
@@ -617,10 +617,8 @@ func (r *queryResolver) ServicesByQuery(ctx context.Context, tags []string, meta
 
 	// Convert GraphQL filters to map
 	metaMap := make(map[string]string)
-	if metadata != nil {
-		for _, filter := range metadata {
-			metaMap[filter.Key] = filter.Value
-		}
+	for _, filter := range metadata {
+		metaMap[filter.Key] = filter.Value
 	}
 
 	r.logger.Info("GraphQL: querying services by tags and metadata",

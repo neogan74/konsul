@@ -42,7 +42,9 @@ func TestServiceHandler_Register(t *testing.T) {
 	}
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if result["message"] != "service registered" {
 		t.Errorf("unexpected response: %+v", result)
 	}
@@ -78,8 +80,8 @@ func TestServiceHandler_List(t *testing.T) {
 	// Register some services
 	service1 := store.Service{Name: "service1", Address: "127.0.0.1", Port: 8080}
 	service2 := store.Service{Name: "service2", Address: "127.0.0.2", Port: 8081}
-	handler.store.Register(service1)
-	handler.store.Register(service2)
+	_ = handler.store.Register(service1)
+	_ = handler.store.Register(service2)
 
 	// Test list
 	req := httptest.NewRequest(http.MethodGet, "/services/", nil)
@@ -92,7 +94,9 @@ func TestServiceHandler_List(t *testing.T) {
 	}
 
 	var services []store.Service
-	json.NewDecoder(resp.Body).Decode(&services)
+	if err := json.NewDecoder(resp.Body).Decode(&services); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if len(services) != 2 {
 		t.Errorf("expected 2 services, got %d", len(services))
 	}
@@ -113,7 +117,7 @@ func TestServiceHandler_Get(t *testing.T) {
 
 	// Register a service
 	service := store.Service{Name: "test-service", Address: "127.0.0.1", Port: 8080}
-	handler.store.Register(service)
+	_ = handler.store.Register(service)
 
 	// Test existing service
 	req = httptest.NewRequest(http.MethodGet, "/services/test-service", nil)
@@ -126,7 +130,9 @@ func TestServiceHandler_Get(t *testing.T) {
 	}
 
 	var result store.Service
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if result.Name != service.Name || result.Address != service.Address || result.Port != service.Port {
 		t.Errorf("expected %+v, got %+v", service, result)
 	}
@@ -137,7 +143,7 @@ func TestServiceHandler_Deregister(t *testing.T) {
 
 	// Register a service
 	service := store.Service{Name: "test-service", Address: "127.0.0.1", Port: 8080}
-	handler.store.Register(service)
+	_ = handler.store.Register(service)
 
 	// Test deregister
 	req := httptest.NewRequest(http.MethodDelete, "/deregister/test-service", nil)
@@ -150,7 +156,9 @@ func TestServiceHandler_Deregister(t *testing.T) {
 	}
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if result["message"] != "service deregistered" || result["name"] != "test-service" {
 		t.Errorf("unexpected response: %+v", result)
 	}
@@ -177,7 +185,7 @@ func TestServiceHandler_Heartbeat(t *testing.T) {
 
 	// Register a service
 	service := store.Service{Name: "test-service", Address: "127.0.0.1", Port: 8080}
-	handler.store.Register(service)
+	_ = handler.store.Register(service)
 
 	// Test successful heartbeat
 	req = httptest.NewRequest(http.MethodPut, "/heartbeat/test-service", nil)
@@ -190,7 +198,9 @@ func TestServiceHandler_Heartbeat(t *testing.T) {
 	}
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if result["message"] != "heartbeat updated" || result["service"] != "test-service" {
 		t.Errorf("unexpected response: %+v", result)
 	}

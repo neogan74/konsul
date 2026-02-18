@@ -89,7 +89,7 @@ func TestManager_Notify_ExactMatch(t *testing.T) {
 	watcher, _ := manager.AddWatcher("app/config", []string{}, TransportWebSocket, "user1")
 
 	// Send matching event
-	event := WatchEvent{
+	event := Event{
 		Type:      EventTypeSet,
 		Key:       "app/config",
 		Value:     "test-value",
@@ -122,7 +122,7 @@ func TestManager_Notify_NoMatch(t *testing.T) {
 	watcher, _ := manager.AddWatcher("app/config", []string{}, TransportWebSocket, "user1")
 
 	// Send non-matching event
-	event := WatchEvent{
+	event := Event{
 		Type:      EventTypeSet,
 		Key:       "other/key",
 		Value:     "test-value",
@@ -159,7 +159,7 @@ func TestManager_Notify_SingleLevelWildcard(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			event := WatchEvent{
+			event := Event{
 				Type:      EventTypeSet,
 				Key:       tt.key,
 				Value:     "test",
@@ -208,7 +208,7 @@ func TestManager_Notify_MultiLevelWildcard(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			event := WatchEvent{
+			event := Event{
 				Type:      EventTypeSet,
 				Key:       tt.key,
 				Value:     "test",
@@ -256,7 +256,9 @@ func TestManager_Notify_ACLFiltering(t *testing.T) {
 			},
 		},
 	}
-	evaluator.AddPolicy(policy)
+	if err := evaluator.AddPolicy(policy); err != nil {
+		t.Fatalf("Failed to add policy: %v", err)
+	}
 
 	manager := NewManager(evaluator, log, 10, 0)
 
@@ -275,7 +277,7 @@ func TestManager_Notify_ACLFiltering(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			event := WatchEvent{
+			event := Event{
 				Type:      EventTypeSet,
 				Key:       tt.key,
 				Value:     "test",
@@ -313,7 +315,7 @@ func TestManager_Notify_MultipleWatchers(t *testing.T) {
 	watcher2, _ := manager.AddWatcher("app/*", []string{}, TransportWebSocket, "user2")
 	watcher3, _ := manager.AddWatcher("other/key", []string{}, TransportWebSocket, "user3")
 
-	event := WatchEvent{
+	event := Event{
 		Type:      EventTypeSet,
 		Key:       "app/config",
 		Value:     "test",
@@ -355,7 +357,7 @@ func TestManager_Notify_BufferFull(t *testing.T) {
 
 	// Fill buffer
 	for i := 0; i < 2; i++ {
-		event := WatchEvent{
+		event := Event{
 			Type:      EventTypeSet,
 			Key:       "app/config",
 			Value:     "test",
@@ -365,7 +367,7 @@ func TestManager_Notify_BufferFull(t *testing.T) {
 	}
 
 	// Send one more (should be dropped)
-	event := WatchEvent{
+	event := Event{
 		Type:      EventTypeSet,
 		Key:       "app/config",
 		Value:     "dropped",
@@ -390,9 +392,15 @@ func TestManager_GetWatcherCountByTransport(t *testing.T) {
 	log := logger.GetDefault()
 	manager := NewManager(nil, log, 10, 0)
 
-	manager.AddWatcher("app/config", []string{}, TransportWebSocket, "user1")
-	manager.AddWatcher("app/data", []string{}, TransportWebSocket, "user2")
-	manager.AddWatcher("app/cache", []string{}, TransportSSE, "user3")
+	if _, err := manager.AddWatcher("app/config", []string{}, TransportWebSocket, "user1"); err != nil {
+		t.Fatalf("Failed to add watcher 1: %v", err)
+	}
+	if _, err := manager.AddWatcher("app/data", []string{}, TransportWebSocket, "user2"); err != nil {
+		t.Fatalf("Failed to add watcher 2: %v", err)
+	}
+	if _, err := manager.AddWatcher("app/cache", []string{}, TransportSSE, "user3"); err != nil {
+		t.Fatalf("Failed to add watcher 3: %v", err)
+	}
 
 	wsCount := manager.GetWatcherCountByTransport(TransportWebSocket)
 	if wsCount != 2 {
@@ -409,9 +417,15 @@ func TestManager_GetWatchersByUser(t *testing.T) {
 	log := logger.GetDefault()
 	manager := NewManager(nil, log, 10, 0)
 
-	manager.AddWatcher("app/config", []string{}, TransportWebSocket, "user1")
-	manager.AddWatcher("app/data", []string{}, TransportWebSocket, "user1")
-	manager.AddWatcher("app/cache", []string{}, TransportSSE, "user2")
+	if _, err := manager.AddWatcher("app/config", []string{}, TransportWebSocket, "user1"); err != nil {
+		t.Fatalf("Failed to add watcher 1: %v", err)
+	}
+	if _, err := manager.AddWatcher("app/data", []string{}, TransportWebSocket, "user1"); err != nil {
+		t.Fatalf("Failed to add watcher 2: %v", err)
+	}
+	if _, err := manager.AddWatcher("app/cache", []string{}, TransportSSE, "user2"); err != nil {
+		t.Fatalf("Failed to add watcher 3: %v", err)
+	}
 
 	user1Count := manager.GetWatchersByUser("user1")
 	if user1Count != 2 {

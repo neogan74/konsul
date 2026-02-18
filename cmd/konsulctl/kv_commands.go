@@ -218,11 +218,12 @@ func (k *KVCommands) Watch(args []string) {
 		config.Token = strings.TrimSpace(os.Getenv("KONSUL_TOKEN"))
 	}
 
-	if *transport == "websocket" {
+	switch *transport {
+	case "websocket":
 		k.watchWebSocket(config, pattern)
-	} else if *transport == "sse" {
+	case "sse":
 		k.watchSSE(config, pattern)
-	} else {
+	default:
 		k.cli.Errorf("Unknown transport: %s (must be websocket or sse)\n", *transport)
 		k.cli.Exit(1)
 	}
@@ -279,7 +280,11 @@ func (k *KVCommands) watchWebSocket(config *ClientConfig, pattern string) {
 
 	conn, _, err := dialer.Dial(wsURL, headers)
 	k.cli.HandleError(err, "connecting to WebSocket")
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			k.cli.Errorf("Error closing WebSocket: %v\n", err)
+		}
+	}()
 
 	// Read events
 	for {
@@ -333,7 +338,11 @@ func (k *KVCommands) watchSSE(config *ClientConfig, pattern string) {
 	client := k.newWatchHTTPClient(config)
 	resp, err := client.Do(req)
 	k.cli.HandleError(err, "connecting to SSE endpoint")
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			k.cli.Errorf("Error closing SSE response body: %v\n", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))

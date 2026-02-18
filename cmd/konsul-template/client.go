@@ -37,14 +37,14 @@ func NewKonsulClient(addr string, log logger.Logger) *KonsulClient {
 // KVStore returns the KV store interface
 func (c *KonsulClient) KVStore() template.KVStoreReader {
 	// Fetch initial data
-	c.refreshKV()
+	_ = c.refreshKV()
 	return c.kvCache
 }
 
 // ServiceStore returns the service store interface
 func (c *KonsulClient) ServiceStore() template.ServiceStoreReader {
 	// Fetch initial data
-	c.refreshServices()
+	_ = c.refreshServices()
 	return c.svcCache
 }
 
@@ -56,7 +56,11 @@ func (c *KonsulClient) refreshKV() error {
 		c.log.Warn("Failed to fetch KV data", logger.Error(err))
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.log.Warn("Failed to close KV response body", logger.Error(err))
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		c.log.Warn("KV endpoint returned non-200 status",
@@ -86,7 +90,11 @@ func (c *KonsulClient) refreshServices() error {
 		c.log.Warn("Failed to fetch service data", logger.Error(err))
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.log.Warn("Failed to close service response body", logger.Error(err))
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		c.log.Warn("Services endpoint returned non-200 status",

@@ -140,7 +140,7 @@ func BenchmarkAgentRegisterService(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		agent.RegisterService(svc)
+		_ = agent.RegisterService(svc)
 	}
 }
 
@@ -166,10 +166,10 @@ func BenchmarkAgentDeregisterService(b *testing.B) {
 			Address: "10.0.0.1",
 			Port:    8080,
 		}
-		agent.RegisterService(svc)
+		_ = agent.RegisterService(svc)
 		b.StartTimer()
 
-		agent.DeregisterService("bench-service")
+		_ = agent.DeregisterService("bench-service")
 	}
 }
 

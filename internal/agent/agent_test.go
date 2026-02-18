@@ -161,7 +161,7 @@ func TestAgent_DeregisterService(t *testing.T) {
 		Port:    8080,
 	}
 
-	agent.RegisterService(svc)
+	_ = agent.RegisterService(svc)
 
 	// Deregister it
 	err = agent.DeregisterService("web-service")
@@ -210,7 +210,7 @@ func TestAgent_Stats(t *testing.T) {
 		Address: "10.0.0.1",
 		Port:    8080,
 	}
-	agent.RegisterService(svc)
+	_ = agent.RegisterService(svc)
 
 	stats := agent.Stats()
 
@@ -318,7 +318,7 @@ func TestAgent_LocalServices(t *testing.T) {
 	}
 
 	for _, svc := range services {
-		agent.RegisterService(svc)
+		_ = agent.RegisterService(svc)
 	}
 
 	local := agent.ListLocalServices()

@@ -32,7 +32,6 @@ func TestParseLevel(t *testing.T) {
 	}
 }
 
-
 func TestZapJSONLogging(t *testing.T) {
 	// Test that we can create loggers and they don't panic
 	jsonLogger := NewFromConfig("info", "json")
@@ -53,7 +52,6 @@ func TestZapLogLevels(t *testing.T) {
 	logger.Warn("warn message")   // Should be logged
 	logger.Error("error message") // Should be logged
 }
-
 
 func TestWithRequest(t *testing.T) {
 	logger := NewFromConfig("info", "json")

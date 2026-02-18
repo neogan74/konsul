@@ -130,7 +130,7 @@ func (wm *Manager) RemoveWatcher(id string) {
 }
 
 // Notify sends an event to all matching watchers
-func (wm *Manager) Notify(event WatchEvent) {
+func (wm *Manager) Notify(event Event) {
 	wm.mu.RLock()
 	defer wm.mu.RUnlock()
 

@@ -54,7 +54,7 @@ func setupApp() *fiber.App {
 		if svc.Name == "" || svc.Address == "" || svc.Port == 0 {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "missing fields"})
 		}
-		svcStore.Register(svc)
+		_ = svcStore.Register(svc)
 		return c.JSON(fiber.Map{"message": "service registered", "service": svc})
 	})
 	app.Get("/services/", func(c *fiber.Ctx) error {
@@ -298,7 +298,9 @@ func TestKVStoreEdgeCases(t *testing.T) {
 		t.Fatalf("GET empty value failed: %v, status: %d", err, resp.StatusCode)
 	}
 	var getResp map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&getResp)
+	if err := json.NewDecoder(resp.Body).Decode(&getResp); err != nil {
+		t.Fatalf("decode GET empty response: %v", err)
+	}
 	if getResp["value"] != "" {
 		t.Errorf("expected empty value, got %q", getResp["value"])
 	}

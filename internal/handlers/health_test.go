@@ -19,12 +19,13 @@ func TestHealthHandler_Check(t *testing.T) {
 
 	// Add some test data
 	kvStore.Set("test-key", "test-value")
-	serviceStore.Register(store.Service{
+	if err := serviceStore.Register(store.Service{
 		Name:    "test-service",
 		Address: "127.0.0.1",
 		Port:    8080,
-	})
-
+	}); err != nil {
+		t.Fatalf("register service: %v", err)
+	}
 	healthHandler := NewHealthHandler(kvStore, serviceStore, "1.0.0-test")
 	app.Get("/health", healthHandler.Check)
 

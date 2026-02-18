@@ -43,7 +43,7 @@ Services:
 	}
 
 	// Render the template
-	config := TemplateConfig{
+	config := Config{
 		Source:      templatePath,
 		Destination: filepath.Join(tmpDir, "output.txt"),
 	}
@@ -85,7 +85,7 @@ func TestRendererFileWrite(t *testing.T) {
 		t.Fatalf("Failed to write template file: %v", err)
 	}
 
-	config := TemplateConfig{
+	config := Config{
 		Source:      templatePath,
 		Destination: outputPath,
 		Perms:       0644,
@@ -140,7 +140,7 @@ func TestRendererBackup(t *testing.T) {
 		t.Fatalf("Failed to write template file: %v", err)
 	}
 
-	config := TemplateConfig{
+	config := Config{
 		Source:      templatePath,
 		Destination: outputPath,
 		Backup:      true,
@@ -193,7 +193,7 @@ func TestRendererDryRun(t *testing.T) {
 		t.Fatalf("Failed to write template file: %v", err)
 	}
 
-	config := TemplateConfig{
+	config := Config{
 		Source:      templatePath,
 		Destination: outputPath,
 	}

@@ -33,7 +33,7 @@ func (h *ClusterHandler) RegisterRoutes(app *fiber.App) {
 // checkRaftEnabled returns error response if Raft is not enabled.
 func (h *ClusterHandler) checkRaftEnabled(c *fiber.Ctx) bool {
 	if h.raftNode == nil {
-		c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+		_ = c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
 			"error":   "clustering not enabled",
 			"message": "This node is running in standalone mode. Start with --raft-enabled to enable clustering.",
 		})

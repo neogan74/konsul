@@ -263,7 +263,7 @@ func TestServiceStore_CAS_IndexMonotonicity(t *testing.T) {
 		{Name: "svc5", Address: "localhost", Port: 8085},
 	}
 
-	var lastIndex uint64 = 0
+	var lastIndex uint64
 
 	for _, svc := range services {
 		err := store.Register(svc)

@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/vektah/gqlparser/v2/ast"
@@ -19,8 +18,7 @@ func DepthLimit(maxDepth int) graphql.OperationMiddleware {
 
 		if depth > maxDepth {
 			return func(ctx context.Context) *graphql.Response {
-				return graphql.ErrorResponse(ctx,
-					fmt.Sprintf("query depth %d exceeds maximum allowed depth of %d", depth, maxDepth))
+				return graphql.ErrorResponse(ctx, "query depth %d exceeds maximum allowed depth of %d", depth, maxDepth)
 			}
 		}
 

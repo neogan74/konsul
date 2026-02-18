@@ -11,9 +11,9 @@ import (
 
 // MemoryEngine is an in-memory implementation of Engine
 type MemoryEngine struct {
-	mu       sync.RWMutex
-	kvData   map[string][]byte
-	svcData  map[string]serviceEntry
+	mu      sync.RWMutex
+	kvData  map[string][]byte
+	svcData map[string]serviceEntry
 }
 
 type serviceEntry struct {

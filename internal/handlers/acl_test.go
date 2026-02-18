@@ -65,7 +65,9 @@ func TestACLHandler_CreatePolicy(t *testing.T) {
 	}
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if result["message"] != "policy created" {
 		t.Errorf("unexpected response: %+v", result)
 	}
@@ -152,8 +154,9 @@ func TestACLHandler_GetPolicy(t *testing.T) {
 		Name:        "test-policy",
 		Description: "Test policy",
 	}
-	handler.evaluator.AddPolicy(policy)
-
+	if err := handler.evaluator.AddPolicy(policy); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
 	// Get the policy
 	req := httptest.NewRequest(http.MethodGet, "/acl/policies/test-policy", nil)
 	resp, err := app.Test(req)
@@ -166,7 +169,9 @@ func TestACLHandler_GetPolicy(t *testing.T) {
 	}
 
 	var result acl.Policy
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if result.Name != "test-policy" {
 		t.Errorf("expected policy name 'test-policy', got '%s'", result.Name)
 	}
@@ -192,9 +197,12 @@ func TestACLHandler_ListPolicies(t *testing.T) {
 	// Create some policies
 	policy1 := &acl.Policy{Name: "policy1", Description: "Test 1"}
 	policy2 := &acl.Policy{Name: "policy2", Description: "Test 2"}
-	handler.evaluator.AddPolicy(policy1)
-	handler.evaluator.AddPolicy(policy2)
-
+	if err := handler.evaluator.AddPolicy(policy1); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
+	if err := handler.evaluator.AddPolicy(policy2); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
 	req := httptest.NewRequest(http.MethodGet, "/acl/policies", nil)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -206,7 +214,9 @@ func TestACLHandler_ListPolicies(t *testing.T) {
 	}
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 
 	count := int(result["count"].(float64))
 	if count != 2 {
@@ -233,7 +243,9 @@ func TestACLHandler_ListPolicies_Empty(t *testing.T) {
 	}
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 
 	count := int(result["count"].(float64))
 	if count != 0 {
@@ -250,8 +262,9 @@ func TestACLHandler_UpdatePolicy(t *testing.T) {
 		Name:        "test-policy",
 		Description: "Original description",
 	}
-	handler.evaluator.AddPolicy(policy)
-
+	if err := handler.evaluator.AddPolicy(policy); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
 	// Update the policy
 	updatedPolicy := acl.Policy{
 		Name:        "test-policy",
@@ -271,7 +284,9 @@ func TestACLHandler_UpdatePolicy(t *testing.T) {
 	}
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if result["message"] != "policy updated" {
 		t.Errorf("unexpected response: %+v", result)
 	}
@@ -309,8 +324,9 @@ func TestACLHandler_UpdatePolicy_NameMismatch(t *testing.T) {
 
 	// Create a policy first
 	policy := &acl.Policy{Name: "test-policy", Description: "Test"}
-	handler.evaluator.AddPolicy(policy)
-
+	if err := handler.evaluator.AddPolicy(policy); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
 	// Try to update with different name in body
 	updatedPolicy := acl.Policy{
 		Name:        "different-name",
@@ -336,8 +352,10 @@ func TestACLHandler_DeletePolicy(t *testing.T) {
 
 	// Create a policy and save it to file
 	policy := &acl.Policy{Name: "test-policy", Description: "Test"}
-	handler.evaluator.AddPolicy(policy)
-	handler.savePolicyToFile(policy)
+	if err := handler.evaluator.AddPolicy(policy); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
+	_ = handler.savePolicyToFile(policy)
 
 	// Verify file exists
 	policyFile := filepath.Join(tmpDir, "test-policy.json")
@@ -396,8 +414,9 @@ func TestACLHandler_TestPolicy_KV(t *testing.T) {
 			},
 		},
 	}
-	handler.evaluator.AddPolicy(policy)
-
+	if err := handler.evaluator.AddPolicy(policy); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
 	// Test allowed access
 	testReq := map[string]interface{}{
 		"policies":   []string{"test-policy"},
@@ -419,7 +438,9 @@ func TestACLHandler_TestPolicy_KV(t *testing.T) {
 	}
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 
 	if !result["allowed"].(bool) {
 		t.Error("expected access to be allowed")
@@ -440,8 +461,9 @@ func TestACLHandler_TestPolicy_Denied(t *testing.T) {
 			},
 		},
 	}
-	handler.evaluator.AddPolicy(policy)
-
+	if err := handler.evaluator.AddPolicy(policy); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
 	// Test denied access (wrong path)
 	testReq := map[string]interface{}{
 		"policies":   []string{"test-policy"},
@@ -463,7 +485,9 @@ func TestACLHandler_TestPolicy_Denied(t *testing.T) {
 	}
 
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 
 	if result["allowed"].(bool) {
 		t.Error("expected access to be denied")
@@ -518,12 +542,23 @@ func TestACLHandler_TestPolicy_AllResourceTypes(t *testing.T) {
 		Admin: []acl.AdminRule{{Capabilities: []acl.Capability{acl.CapabilityRead}}},
 	}
 
-	handler.evaluator.AddPolicy(kvPolicy)
-	handler.evaluator.AddPolicy(servicePolicy)
-	handler.evaluator.AddPolicy(healthPolicy)
-	handler.evaluator.AddPolicy(backupPolicy)
-	handler.evaluator.AddPolicy(adminPolicy)
+	if err := handler.evaluator.AddPolicy(kvPolicy); err != nil {
 
+		t.Fatalf("add policy: %v", err)
+
+	}
+	if err := handler.evaluator.AddPolicy(servicePolicy); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
+	if err := handler.evaluator.AddPolicy(healthPolicy); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
+	if err := handler.evaluator.AddPolicy(backupPolicy); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
+	if err := handler.evaluator.AddPolicy(adminPolicy); err != nil {
+		t.Fatalf("add policy: %v", err)
+	}
 	tests := []struct {
 		name         string
 		resourceType string
@@ -557,7 +592,9 @@ func TestACLHandler_TestPolicy_AllResourceTypes(t *testing.T) {
 			}
 
 			var result map[string]interface{}
-			json.NewDecoder(resp.Body).Decode(&result)
+			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
 
 			if result["allowed"].(bool) != tt.shouldAllow {
 				t.Errorf("expected allowed=%v, got %v", tt.shouldAllow, result["allowed"])
@@ -585,8 +622,8 @@ func TestACLHandler_LoadPolicies(t *testing.T) {
 	// Save policies to files
 	data1, _ := json.MarshalIndent(policy1, "", "  ")
 	data2, _ := json.MarshalIndent(policy2, "", "  ")
-	os.WriteFile(filepath.Join(tmpDir, "policy1.json"), data1, 0644)
-	os.WriteFile(filepath.Join(tmpDir, "policy2.json"), data2, 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, "policy1.json"), data1, 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, "policy2.json"), data2, 0644)
 
 	// Load policies
 	err := handler.LoadPolicies()
@@ -622,7 +659,7 @@ func TestACLHandler_LoadPolicies_InvalidJSON(t *testing.T) {
 	handler, _ := setupACLHandler(tmpDir)
 
 	// Create an invalid policy file
-	os.WriteFile(filepath.Join(tmpDir, "invalid.json"), []byte("invalid json"), 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, "invalid.json"), []byte("invalid json"), 0644)
 
 	// Load policies - should not fail, just log error
 	err := handler.LoadPolicies()

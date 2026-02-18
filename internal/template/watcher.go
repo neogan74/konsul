@@ -12,7 +12,7 @@ import (
 // Watcher watches for changes and triggers template re-renders
 type Watcher struct {
 	engine        *Engine
-	template      TemplateConfig
+	template      Config
 	lastHash      string
 	lastRender    time.Time
 	pendingRender bool
@@ -21,7 +21,7 @@ type Watcher struct {
 }
 
 // NewWatcher creates a new watcher for a template
-func NewWatcher(engine *Engine, template TemplateConfig) *Watcher {
+func NewWatcher(engine *Engine, template Config) *Watcher {
 	minWait := 2 * time.Second
 	maxWait := 10 * time.Second
 
