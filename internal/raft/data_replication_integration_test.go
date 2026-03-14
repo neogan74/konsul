@@ -252,13 +252,43 @@ func TestReplication_HighThroughput(t *testing.T) {
 		t.Skip("Skipping high throughput test in short mode")
 	}
 
-	nodes, cleanup := newThreeNodeCluster(t, clusterOptions{})
-	defer cleanup()
+	const writeCount = 1000
+	override := func(cfg *Config) {
+		// This test measures replication throughput, not snapshot throughput.
+		// Keep the log hot and avoid repeated fsync-heavy snapshots that dominate runtime.
+		cfg.SnapshotInterval = time.Hour
+		cfg.SnapshotThreshold = uint64(writeCount * 2)
+		cfg.TrailingLogs = uint64(writeCount * 2)
+	}
+
+	addr1 := getFreeAddr(t)
+	cfg1 := newClusterConfigWithOverrides(t, "node-1", addr1, true, clusterOptions{}, override)
+	node1 := startTestNode(t, cfg1)
+	require.NoError(t, node1.WaitForLeader(10*time.Second))
+
+	addr2 := getFreeAddr(t)
+	cfg2 := newClusterConfigWithOverrides(t, "node-2", addr2, false, clusterOptions{}, override)
+	node2 := startTestNode(t, cfg2)
+
+	addr3 := getFreeAddr(t)
+	cfg3 := newClusterConfigWithOverrides(t, "node-3", addr3, false, clusterOptions{}, override)
+	node3 := startTestNode(t, cfg3)
+
+	time.Sleep(100 * time.Millisecond)
+	require.NoError(t, node1.Join(cfg2.NodeID, cfg2.AdvertiseAddr))
+	require.NoError(t, node1.Join(cfg3.NodeID, cfg3.AdvertiseAddr))
+
+	nodes := []*Node{node1, node2, node3}
+	waitForSingleLeader(t, nodes, 10*time.Second)
+	defer func() {
+		for _, node := range nodes {
+			_ = node.Shutdown()
+		}
+	}()
 
 	leader := waitForSingleLeader(t, nodes, 5*time.Second)
 
 	// Write a large number of operations as fast as possible
-	const writeCount = 1000 // Using 1000 for faster test execution
 	start := time.Now()
 
 	for i := 0; i < writeCount; i++ {

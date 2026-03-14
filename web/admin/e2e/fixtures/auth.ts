@@ -4,7 +4,7 @@ import { test as base, expect } from '@playwright/test';
 export const test = base.extend({
   authenticatedPage: async ({ page }, use) => {
     // Navigate to login page
-    await page.goto('/login');
+    await page.goto('/admin/login');
 
     // Fill in login form
     await page.getByPlaceholder('Enter username').fill('admin');
@@ -14,7 +14,7 @@ export const test = base.extend({
     await page.getByRole('button', { name: /sign in/i }).click();
 
     // Wait for navigation to dashboard
-    await page.waitForURL('/');
+    await page.waitForURL('/admin/');
 
     // Verify we're authenticated
     await expect(page.getByText('Dashboard')).toBeVisible();

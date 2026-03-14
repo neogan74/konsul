@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Authentication Flow', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/login');
+    await page.goto('/admin/login');
   });
 
   test('should display login page correctly', async ({ page }) => {
@@ -25,7 +25,7 @@ test.describe('Authentication Flow', () => {
     await page.getByRole('button', { name: 'Sign In' }).click();
 
     // Check for HTML5 validation (form should not submit)
-    await expect(page).toHaveURL(/login/);
+    await expect(page).toHaveURL(/\/admin\/login/);
   });
 
   test('should successfully login with valid credentials', async ({ page }) => {
@@ -37,7 +37,7 @@ test.describe('Authentication Flow', () => {
     await page.getByRole('button', { name: 'Sign In' }).click();
 
     // Wait for redirect to dashboard
-    await page.waitForURL('/');
+    await page.waitForURL('/admin/');
 
     // Verify we're on the dashboard
     await expect(page.getByText('Dashboard')).toBeVisible();
@@ -54,7 +54,7 @@ test.describe('Authentication Flow', () => {
     await page.getByRole('button', { name: 'Sign In' }).click();
 
     // Wait for redirect
-    await page.waitForURL('/');
+    await page.waitForURL('/admin/');
 
     // Verify dashboard is visible
     await expect(page.getByText('Dashboard')).toBeVisible();
@@ -79,7 +79,7 @@ test.describe('Authentication Flow', () => {
     }
 
     // Eventually should navigate
-    await page.waitForURL('/', { timeout: 5000 });
+    await page.waitForURL('/admin/', { timeout: 5000 });
   });
 
   test('should redirect to dashboard if already authenticated', async ({ page }) => {
@@ -87,13 +87,13 @@ test.describe('Authentication Flow', () => {
     await page.getByPlaceholder('Enter username').fill('admin');
     await page.getByPlaceholder('admin, developer').fill('admin');
     await page.getByRole('button', { name: 'Sign In' }).click();
-    await page.waitForURL('/');
+    await page.waitForURL('/admin/');
 
     // Try to go back to login page
-    await page.goto('/login');
+    await page.goto('/admin/login');
 
     // Should redirect to dashboard
-    await page.waitForURL('/');
+    await page.waitForURL('/admin/');
     await expect(page.getByText('Dashboard')).toBeVisible();
   });
 });

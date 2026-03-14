@@ -2,7 +2,7 @@ import { test, expect } from './fixtures/auth';
 
 test.describe('KV Store Page', () => {
   test.beforeEach(async ({ authenticatedPage }) => {
-    await authenticatedPage.goto('/kv');
+    await authenticatedPage.goto('/admin/kv');
   });
 
   test('should display KV Store page title', async ({ authenticatedPage }) => {

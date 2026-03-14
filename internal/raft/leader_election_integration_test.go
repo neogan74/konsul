@@ -65,6 +65,16 @@ func newClusterConfig(t *testing.T, nodeID, addr string, bootstrap bool, opts cl
 	return cfg
 }
 
+func newClusterConfigWithOverrides(t *testing.T, nodeID, addr string, bootstrap bool, opts clusterOptions, override func(*Config)) *Config {
+	t.Helper()
+
+	cfg := newClusterConfig(t, nodeID, addr, bootstrap, opts)
+	if override != nil {
+		override(cfg)
+	}
+	return cfg
+}
+
 func startTestNode(t *testing.T, cfg *Config) *Node {
 	t.Helper()
 

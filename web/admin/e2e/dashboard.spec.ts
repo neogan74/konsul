@@ -2,7 +2,7 @@ import { test, expect } from './fixtures/auth';
 
 test.describe('Dashboard Page', () => {
   test.beforeEach(async ({ authenticatedPage }) => {
-    await authenticatedPage.goto('/');
+    await authenticatedPage.goto('/admin/');
   });
 
   test('should display dashboard title', async ({ authenticatedPage }) => {

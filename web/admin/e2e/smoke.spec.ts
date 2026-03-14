@@ -2,16 +2,16 @@ import { test, expect } from './fixtures/auth';
 
 test.describe('Smoke Tests', () => {
   test('should load application successfully', async ({ page }) => {
-    await page.goto('/login');
+    await page.goto('/admin/login');
 
     // Check that the page loaded
-    await expect(page).toHaveURL('/login');
+    await expect(page).toHaveURL('/admin/login');
     await expect(page.getByText('Konsul Admin')).toBeVisible();
   });
 
   test('should complete full user journey', async ({ page }) => {
     // 1. Start at login
-    await page.goto('/login');
+    await page.goto('/admin/login');
     await expect(page.getByText('Konsul Admin')).toBeVisible();
 
     // 2. Login
@@ -20,32 +20,32 @@ test.describe('Smoke Tests', () => {
     await page.getByRole('button', { name: 'Sign In' }).click();
 
     // 3. Verify dashboard
-    await page.waitForURL('/');
+    await page.waitForURL('/admin/');
     await expect(page.getByText('Dashboard')).toBeVisible();
 
     // 4. Navigate to Services
     await page.getByRole('link', { name: /services/i }).click();
-    await expect(page).toHaveURL('/services');
+    await expect(page).toHaveURL('/admin/services');
     await expect(page.getByText('Services')).toBeVisible();
 
     // 5. Navigate to KV Store
     await page.getByRole('link', { name: /kv store/i }).click();
-    await expect(page).toHaveURL('/kv');
+    await expect(page).toHaveURL('/admin/kv');
     await expect(page.getByText('Key-Value Store')).toBeVisible();
 
     // 6. Navigate to Health
     await page.getByRole('link', { name: /health/i }).click();
-    await expect(page).toHaveURL('/health');
+    await expect(page).toHaveURL('/admin/health');
     await expect(page.getByText('Cluster Health')).toBeVisible();
 
     // 7. Navigate to API Keys
     await page.getByRole('link', { name: /api keys/i }).click();
-    await expect(page).toHaveURL('/apikeys');
+    await expect(page).toHaveURL('/admin/apikeys');
     await expect(page.getByText('API Keys')).toBeVisible();
 
     // 8. Return to Dashboard
     await page.getByRole('link', { name: /dashboard/i }).click();
-    await expect(page).toHaveURL('/');
+    await expect(page).toHaveURL('/admin/');
     await expect(page.getByText('Dashboard')).toBeVisible();
   });
 
@@ -60,14 +60,14 @@ test.describe('Smoke Tests', () => {
     });
 
     // Login
-    await page.goto('/login');
+    await page.goto('/admin/login');
     await page.getByPlaceholder('Enter username').fill('admin');
     await page.getByPlaceholder('admin, developer').fill('admin');
     await page.getByRole('button', { name: 'Sign In' }).click();
-    await page.waitForURL('/');
+    await page.waitForURL('/admin/');
 
     // Visit each page
-    const pages = ['/', '/services', '/kv', '/health', '/apikeys'];
+    const pages = ['/admin/', '/admin/services', '/admin/kv', '/admin/health', '/admin/apikeys'];
 
     for (const route of pages) {
       await page.goto(route);
@@ -89,11 +89,11 @@ test.describe('Smoke Tests', () => {
     await page.setViewportSize({ width: 375, height: 667 });
 
     // Login
-    await page.goto('/login');
+    await page.goto('/admin/login');
     await page.getByPlaceholder('Enter username').fill('admin');
     await page.getByPlaceholder('admin, developer').fill('admin');
     await page.getByRole('button', { name: 'Sign In' }).click();
-    await page.waitForURL('/');
+    await page.waitForURL('/admin/');
 
     // Verify dashboard is visible on mobile
     await expect(page.getByText('Dashboard')).toBeVisible();

@@ -2,7 +2,7 @@ import { test, expect } from './fixtures/auth';
 
 test.describe('Services Page', () => {
   test.beforeEach(async ({ authenticatedPage }) => {
-    await authenticatedPage.goto('/services');
+    await authenticatedPage.goto('/admin/services');
   });
 
   test('should display services page title', async ({ authenticatedPage }) => {
