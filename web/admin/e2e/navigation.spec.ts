@@ -3,7 +3,7 @@ import { test, expect } from './fixtures/auth';
 test.describe('Application Navigation', () => {
   test.beforeEach(async ({ authenticatedPage }) => {
     // Start on dashboard
-    await authenticatedPage.goto('/');
+    await authenticatedPage.goto('/admin/');
   });
 
   test('should navigate to Services page', async ({ authenticatedPage }) => {
@@ -11,7 +11,7 @@ test.describe('Application Navigation', () => {
     await authenticatedPage.getByRole('link', { name: /services/i }).click();
 
     // Verify URL changed
-    await expect(authenticatedPage).toHaveURL('/services');
+    await expect(authenticatedPage).toHaveURL('/admin/services');
 
     // Verify page content
     await expect(authenticatedPage.getByText('Services')).toBeVisible();
@@ -22,7 +22,7 @@ test.describe('Application Navigation', () => {
     await authenticatedPage.getByRole('link', { name: /kv store/i }).click();
 
     // Verify URL changed
-    await expect(authenticatedPage).toHaveURL('/kv');
+    await expect(authenticatedPage).toHaveURL('/admin/kv');
 
     // Verify page content
     await expect(authenticatedPage.getByText('Key-Value Store')).toBeVisible();
@@ -33,7 +33,7 @@ test.describe('Application Navigation', () => {
     await authenticatedPage.getByRole('link', { name: /health/i }).click();
 
     // Verify URL changed
-    await expect(authenticatedPage).toHaveURL('/health');
+    await expect(authenticatedPage).toHaveURL('/admin/health');
 
     // Verify page content
     await expect(authenticatedPage.getByText('Cluster Health')).toBeVisible();
@@ -44,7 +44,7 @@ test.describe('Application Navigation', () => {
     await authenticatedPage.getByRole('link', { name: /api keys/i }).click();
 
     // Verify URL changed
-    await expect(authenticatedPage).toHaveURL('/apikeys');
+    await expect(authenticatedPage).toHaveURL('/admin/apikeys');
 
     // Verify page content
     await expect(authenticatedPage.getByText('API Keys')).toBeVisible();
@@ -53,13 +53,13 @@ test.describe('Application Navigation', () => {
   test('should return to dashboard', async ({ authenticatedPage }) => {
     // Navigate to another page
     await authenticatedPage.getByRole('link', { name: /services/i }).click();
-    await expect(authenticatedPage).toHaveURL('/services');
+    await expect(authenticatedPage).toHaveURL('/admin/services');
 
     // Click Dashboard link
     await authenticatedPage.getByRole('link', { name: /dashboard/i }).click();
 
     // Verify back on dashboard
-    await expect(authenticatedPage).toHaveURL('/');
+    await expect(authenticatedPage).toHaveURL('/admin/');
     await expect(authenticatedPage.getByText('Dashboard')).toBeVisible();
   });
 

@@ -19,14 +19,14 @@ func JWTAuth(jwtService *auth.JWTService, publicPaths []string) fiber.Handler {
 			continue
 		}
 
-		switch {
-		case strings.HasSuffix(path, "/*"):
+		if strings.HasSuffix(path, "/*") {
 			publicPathPrefixes = append(publicPathPrefixes, strings.TrimSuffix(path, "*"))
-		case path != "/" && strings.HasSuffix(path, "/"):
-			publicPathPrefixes = append(publicPathPrefixes, path)
-		default:
-			publicPathMap[path] = true
+			continue
 		}
+
+		// Only explicit wildcard paths are treated as prefixes.
+		// Trailing slash paths (e.g. /admin/) are exact matches.
+		publicPathMap[path] = true
 	}
 
 	return func(c *fiber.Ctx) error {

@@ -833,6 +833,24 @@ func TestAuth_DefaultValues(t *testing.T) {
 	if cfg.Auth.RequireAuth {
 		t.Error("expected RequireAuth disabled by default")
 	}
+
+	expectedPublicPaths := []string{
+		"/health",
+		"/health/live",
+		"/health/ready",
+		"/metrics",
+		"/admin",
+		"/admin/",
+		"/admin/assets/*",
+	}
+	if len(cfg.Auth.PublicPaths) != len(expectedPublicPaths) {
+		t.Errorf("expected %d default public paths, got %d", len(expectedPublicPaths), len(cfg.Auth.PublicPaths))
+	}
+	for i, expected := range expectedPublicPaths {
+		if i >= len(cfg.Auth.PublicPaths) || cfg.Auth.PublicPaths[i] != expected {
+			t.Errorf("expected public path[%d] = %q, got %q", i, expected, cfg.Auth.PublicPaths[i])
+		}
+	}
 }
 
 func TestAuth_EnvironmentVariables(t *testing.T) {

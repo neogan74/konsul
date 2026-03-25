@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import axios from 'axios';
+import { authApi } from '../lib/api';
 
 interface User {
   user_id: string;
@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (username: string, userId: string, roles: string[], policies: string[] = []) => {
     try {
-      const response = await axios.post('/auth/login', {
+      const response = await authApi.post('/auth/login', {
         user_id: userId,
         username,
         roles,
@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const response = await axios.post('/auth/refresh', {
+      const response = await authApi.post('/auth/refresh', {
         refresh_token: refreshToken,
         username: user.username,
         roles: user.roles,

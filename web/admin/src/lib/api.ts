@@ -1,7 +1,16 @@
 import axios from 'axios';
 
+const apiBaseURL = import.meta.env.VITE_API_URL || '';
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '',
+  baseURL: apiBaseURL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+export const authApi = axios.create({
+  baseURL: apiBaseURL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -40,7 +49,7 @@ api.interceptors.response.use(
         const user = JSON.parse(userStr);
 
         // Try to refresh the token
-        const response = await axios.post('/auth/refresh', {
+        const response = await authApi.post('/auth/refresh', {
           refresh_token: refreshToken,
           username: user.username,
           roles: user.roles,

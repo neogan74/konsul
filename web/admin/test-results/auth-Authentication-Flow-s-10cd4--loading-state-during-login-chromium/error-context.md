@@ -1,0 +1,91 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]:
+      - heading "Konsul Admin" [level=1] [ref=e7]
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - img [ref=e10]
+          - generic [ref=e17]: Disconnected
+        - generic [ref=e18]: Service Discovery & Configuration
+        - button "admin" [ref=e20]:
+          - img [ref=e21]
+          - generic [ref=e24]: admin
+          - img [ref=e25]
+  - generic [ref=e27]:
+    - navigation [ref=e29]:
+      - list [ref=e30]:
+        - listitem [ref=e31]:
+          - link "Dashboard" [ref=e32] [cursor=pointer]:
+            - /url: /admin
+            - img [ref=e33]
+            - generic [ref=e38]: Dashboard
+        - listitem [ref=e39]:
+          - link "Services" [ref=e40] [cursor=pointer]:
+            - /url: /admin/services
+            - img [ref=e41]
+            - generic [ref=e44]: Services
+        - listitem [ref=e45]:
+          - link "KV Store" [ref=e46] [cursor=pointer]:
+            - /url: /admin/kv
+            - img [ref=e47]
+            - generic [ref=e51]: KV Store
+        - listitem [ref=e52]:
+          - link "Health" [ref=e53] [cursor=pointer]:
+            - /url: /admin/health
+            - img [ref=e54]
+            - generic [ref=e56]: Health
+        - listitem [ref=e57]:
+          - link "API Keys" [ref=e58] [cursor=pointer]:
+            - /url: /admin/apikeys
+            - img [ref=e59]
+            - generic [ref=e63]: API Keys
+    - main [ref=e64]:
+      - generic [ref=e65]:
+        - generic [ref=e66]:
+          - heading "Dashboard" [level=1] [ref=e67]
+          - paragraph [ref=e68]: Overview of your Konsul cluster
+        - generic [ref=e69]:
+          - generic [ref=e71]:
+            - generic [ref=e72]:
+              - paragraph [ref=e73]: Total Services
+              - paragraph [ref=e74]: "0"
+              - paragraph [ref=e75]: 0 healthy
+            - img [ref=e77]
+          - generic [ref=e81]:
+            - generic [ref=e82]:
+              - paragraph [ref=e83]: KV Keys
+              - paragraph [ref=e84]: "0"
+            - img [ref=e86]
+          - generic [ref=e91]:
+            - generic [ref=e92]:
+              - paragraph [ref=e93]: System Status
+              - paragraph [ref=e94]: healthy
+            - img [ref=e96]
+          - generic [ref=e99]:
+            - generic [ref=e100]:
+              - paragraph [ref=e101]: Uptime
+              - paragraph [ref=e102]: NaNm
+            - img [ref=e104]
+        - generic [ref=e107]:
+          - generic [ref=e108]:
+            - heading "Recent Services" [level=2] [ref=e109]
+            - paragraph [ref=e110]: No services registered
+          - generic [ref=e111]:
+            - heading "System Information" [level=2] [ref=e112]
+            - generic [ref=e113]:
+              - generic [ref=e114]:
+                - generic [ref=e115]: Status
+                - generic [ref=e116]: healthy
+              - generic [ref=e117]:
+                - generic [ref=e118]: Version
+                - generic [ref=e119]: 0.1.0
+              - generic [ref=e120]:
+                - generic [ref=e121]: Healthy Services
+                - generic [ref=e122]: / 0
+              - generic [ref=e123]:
+                - generic [ref=e124]: Goroutines
+                - generic [ref=e125]: "16"
+```

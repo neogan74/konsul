@@ -142,25 +142,31 @@ func TestJWTService_GenerateRefreshToken(t *testing.T) {
 	service := NewJWTService("test-secret-key", 15*time.Minute, 7*24*time.Hour, "konsul-test")
 
 	tests := []struct {
-		name    string
-		userID  string
-		wantErr bool
+		name     string
+		userID   string
+		username string
+		roles    []string
+		wantErr  bool
 	}{
 		{
-			name:    "valid refresh token",
-			userID:  "user123",
-			wantErr: false,
+			name:     "valid refresh token",
+			userID:   "user123",
+			username: "testuser",
+			roles:    []string{"admin", "user"},
+			wantErr:  false,
 		},
 		{
-			name:    "empty user id",
-			userID:  "",
-			wantErr: false,
+			name:     "empty user id",
+			userID:   "",
+			username: "anonymous",
+			roles:    []string{"user"},
+			wantErr:  false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			token, err := service.GenerateRefreshToken(tt.userID)
+			token, err := service.GenerateRefreshToken(tt.userID, tt.username, tt.roles)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GenerateRefreshToken() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -177,24 +183,30 @@ func TestJWTService_ValidateRefreshToken(t *testing.T) {
 
 	// Generate a valid refresh token
 	userID := "user123"
-	refreshToken, err := service.GenerateRefreshToken(userID)
+	username := "testuser"
+	roles := []string{"admin", "user"}
+	refreshToken, err := service.GenerateRefreshToken(userID, username, roles)
 	if err != nil {
 		t.Fatalf("Failed to generate refresh token: %v", err)
 	}
 
 	tests := []struct {
-		name      string
-		token     string
-		wantErr   error
-		wantID    string
-		checkData bool
+		name         string
+		token        string
+		wantErr      error
+		wantID       string
+		wantUsername string
+		wantRolesLen int
+		checkData    bool
 	}{
 		{
-			name:      "valid refresh token",
-			token:     refreshToken,
-			wantErr:   nil,
-			wantID:    userID,
-			checkData: true,
+			name:         "valid refresh token",
+			token:        refreshToken,
+			wantErr:      nil,
+			wantID:       userID,
+			wantUsername: username,
+			wantRolesLen: len(roles),
+			checkData:    true,
 		},
 		{
 			name:    "empty token",
@@ -210,14 +222,25 @@ func TestJWTService_ValidateRefreshToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			id, err := service.ValidateRefreshToken(tt.token)
+			claims, err := service.ValidateRefreshToken(tt.token)
 			if err != tt.wantErr {
 				t.Errorf("ValidateRefreshToken() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
-			if tt.checkData && id != tt.wantID {
-				t.Errorf("ValidateRefreshToken() id = %v, want %v", id, tt.wantID)
+			if tt.checkData {
+				if claims == nil {
+					t.Fatal("ValidateRefreshToken() returned nil claims")
+				}
+				if claims.UserID != tt.wantID {
+					t.Errorf("ValidateRefreshToken() id = %v, want %v", claims.UserID, tt.wantID)
+				}
+				if claims.Username != tt.wantUsername {
+					t.Errorf("ValidateRefreshToken() username = %v, want %v", claims.Username, tt.wantUsername)
+				}
+				if len(claims.Roles) != tt.wantRolesLen {
+					t.Errorf("ValidateRefreshToken() roles length = %v, want %v", len(claims.Roles), tt.wantRolesLen)
+				}
 			}
 		})
 	}
@@ -231,7 +254,7 @@ func TestJWTService_RefreshToken(t *testing.T) {
 	username := "testuser"
 	roles := []string{"admin"}
 
-	refreshToken, err := service.GenerateRefreshToken(userID)
+	refreshToken, err := service.GenerateRefreshToken(userID, username, roles)
 	if err != nil {
 		t.Fatalf("Failed to generate refresh token: %v", err)
 	}
@@ -239,36 +262,28 @@ func TestJWTService_RefreshToken(t *testing.T) {
 	tests := []struct {
 		name         string
 		refreshToken string
-		username     string
-		roles        []string
 		wantErr      bool
 	}{
 		{
 			name:         "valid refresh",
 			refreshToken: refreshToken,
-			username:     username,
-			roles:        roles,
 			wantErr:      false,
 		},
 		{
 			name:         "invalid refresh token",
 			refreshToken: "invalid.token",
-			username:     username,
-			roles:        roles,
 			wantErr:      true,
 		},
 		{
 			name:         "empty refresh token",
 			refreshToken: "",
-			username:     username,
-			roles:        roles,
 			wantErr:      true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			newToken, newRefreshToken, err := service.RefreshToken(tt.refreshToken, tt.username, tt.roles)
+			newToken, newRefreshToken, err := service.RefreshToken(tt.refreshToken)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("RefreshToken() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -290,13 +305,19 @@ func TestJWTService_RefreshToken(t *testing.T) {
 				if claims.Username != username {
 					t.Errorf("New token username = %v, want %v", claims.Username, username)
 				}
+				if len(claims.Roles) != len(roles) {
+					t.Errorf("New token roles length = %v, want %v", len(claims.Roles), len(roles))
+				}
 
-				newUserID, err := service.ValidateRefreshToken(newRefreshToken)
+				newClaims, err := service.ValidateRefreshToken(newRefreshToken)
 				if err != nil {
 					t.Errorf("New refresh token validation failed: %v", err)
 				}
-				if newUserID != userID {
-					t.Errorf("New refresh token userID = %v, want %v", newUserID, userID)
+				if newClaims.UserID != userID {
+					t.Errorf("New refresh token userID = %v, want %v", newClaims.UserID, userID)
+				}
+				if newClaims.Username != username {
+					t.Errorf("New refresh token username = %v, want %v", newClaims.Username, username)
 				}
 			}
 		})

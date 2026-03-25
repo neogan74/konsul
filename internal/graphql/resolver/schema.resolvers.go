@@ -13,6 +13,7 @@ import (
 	"time"
 
 	hashiraft "github.com/hashicorp/raft"
+	"github.com/neogan74/konsul/internal/acl"
 	"github.com/neogan74/konsul/internal/graphql/generated"
 	"github.com/neogan74/konsul/internal/graphql/model"
 	"github.com/neogan74/konsul/internal/graphql/scalar"
@@ -24,11 +25,9 @@ import (
 
 // KvSet is the resolver for the kvSet field.
 func (r *mutationResolver) KvSet(ctx context.Context, key string, value string) (*model.KVPair, error) {
-	// Check authentication if required
-	// TODO: Add authentication check when auth middleware is implemented
-
-	// Check ACL permissions if enabled
-	// TODO: Add ACL write permission check when ACL middleware is implemented
+	if err := r.authorizeMutation(ctx, acl.NewKVResource(key), acl.CapabilityWrite); err != nil {
+		return nil, err
+	}
 
 	// Set the key-value pair
 	if r.raftNode != nil {
@@ -59,11 +58,9 @@ func (r *mutationResolver) KvSet(ctx context.Context, key string, value string) 
 
 // KvDelete is the resolver for the kvDelete field.
 func (r *mutationResolver) KvDelete(ctx context.Context, key string) (bool, error) {
-	// Check authentication if required
-	// TODO: Add authentication check when auth middleware is implemented
-
-	// Check ACL permissions if enabled
-	// TODO: Add ACL delete permission check when ACL middleware is implemented
+	if err := r.authorizeMutation(ctx, acl.NewKVResource(key), acl.CapabilityDelete); err != nil {
+		return false, err
+	}
 
 	// Check if key exists before deleting
 	_, exists := r.kvStore.Get(key)
@@ -97,11 +94,9 @@ func (r *mutationResolver) KvDelete(ctx context.Context, key string) (bool, erro
 
 // KvCas is the resolver for the kvCAS field.
 func (r *mutationResolver) KvCas(ctx context.Context, key string, value string, index int) (*model.KVPair, error) {
-	// Check authentication if required
-	// TODO: Add authentication check when auth middleware is implemented
-
-	// Check ACL permissions if enabled
-	// TODO: Add ACL write permission check when ACL middleware is implemented
+	if err := r.authorizeMutation(ctx, acl.NewKVResource(key), acl.CapabilityWrite); err != nil {
+		return nil, err
+	}
 
 	// Perform Compare-And-Swap operation
 	var newIndex uint64
@@ -149,11 +144,9 @@ func (r *mutationResolver) KvCas(ctx context.Context, key string, value string, 
 
 // RegisterService is the resolver for the registerService field.
 func (r *mutationResolver) RegisterService(ctx context.Context, input model.RegisterServiceInput) (*model.Service, error) {
-	// Check authentication if required
-	// TODO: Add authentication check when auth middleware is implemented
-
-	// Check ACL permissions if enabled
-	// TODO: Add ACL register permission check when ACL middleware is implemented
+	if err := r.authorizeMutation(ctx, acl.NewServiceResource(input.Name), acl.CapabilityRegister); err != nil {
+		return nil, err
+	}
 
 	// Convert metadata from GraphQL input to map
 	metadata := make(map[string]string)
@@ -217,11 +210,9 @@ func (r *mutationResolver) RegisterService(ctx context.Context, input model.Regi
 
 // DeregisterService is the resolver for the deregisterService field.
 func (r *mutationResolver) DeregisterService(ctx context.Context, name string) (bool, error) {
-	// Check authentication if required
-	// TODO: Add authentication check when auth middleware is implemented
-
-	// Check ACL permissions if enabled
-	// TODO: Add ACL deregister permission check when ACL middleware is implemented
+	if err := r.authorizeMutation(ctx, acl.NewServiceResource(name), acl.CapabilityDeregister); err != nil {
+		return false, err
+	}
 
 	// Check if service exists
 	_, exists := r.serviceStore.Get(name)
@@ -255,11 +246,9 @@ func (r *mutationResolver) DeregisterService(ctx context.Context, name string) (
 
 // UpdateHeartbeat is the resolver for the updateHeartbeat field.
 func (r *mutationResolver) UpdateHeartbeat(ctx context.Context, name string) (*model.Service, error) {
-	// Check authentication if required
-	// TODO: Add authentication check when auth middleware is implemented
-
-	// Check ACL permissions if enabled
-	// TODO: Add ACL heartbeat permission check when ACL middleware is implemented
+	if err := r.authorizeMutation(ctx, acl.NewServiceResource(name), acl.CapabilityWrite); err != nil {
+		return nil, err
+	}
 
 	// Update heartbeat
 	success := false

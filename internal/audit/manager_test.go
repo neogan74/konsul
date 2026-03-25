@@ -68,6 +68,37 @@ func TestManagerFileSinkWritesEvents(t *testing.T) {
 	}
 }
 
+func TestManagerShutdownIsIdempotent(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "audit.log")
+
+	cfg := Config{
+		Enabled:       true,
+		Sink:          "file",
+		FilePath:      path,
+		BufferSize:    8,
+		FlushInterval: 5 * time.Millisecond,
+		DropPolicy:    DropPolicyBlock,
+	}
+
+	mgr, err := NewManager(cfg, logger.GetDefault())
+	if err != nil {
+		t.Fatalf("failed to create manager: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := mgr.Shutdown(ctx); err != nil {
+		t.Fatalf("first shutdown failed: %v", err)
+	}
+
+	secondCtx, secondCancel := context.WithTimeout(context.Background(), time.Second)
+	defer secondCancel()
+	if err := mgr.Shutdown(secondCtx); err != nil {
+		t.Fatalf("second shutdown failed: %v", err)
+	}
+}
+
 func TestManagerRejectsWritesAfterShutdown(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "audit.log")

@@ -2,7 +2,7 @@ import { test, expect } from './fixtures/auth';
 
 test.describe('API Keys Page', () => {
   test.beforeEach(async ({ authenticatedPage }) => {
-    await authenticatedPage.goto('/apikeys');
+    await authenticatedPage.goto('/admin/apikeys');
   });
 
   test('should display API Keys page title', async ({ authenticatedPage }) => {
