@@ -5,6 +5,17 @@ import (
 	"time"
 )
 
+// TLSConfig contains TLS configuration for Raft
+type TLSConfig struct {
+	Enabled    bool
+	CertFile   string
+	KeyFile    string
+	CAFile     string
+	VerifyPeer bool
+	MinVersion string
+	ServerName string
+}
+
 // Config contains configuration for the Raft node.
 type Config struct {
 	// NodeID is the unique identifier for this node in the cluster.
@@ -67,6 +78,9 @@ type Config struct {
 	// LogLevel sets the logging level for Raft (debug, info, warn, error).
 	// Default: info
 	LogLevel string
+
+	// TLS Configuration
+	TLS TLSConfig
 }
 
 // DefaultConfig returns a Config with sensible defaults.
@@ -107,6 +121,17 @@ func (c *Config) Validate() error {
 	}
 	if c.SnapshotThreshold == 0 {
 		return fmt.Errorf("SnapshotThreshold must be positive")
+	}
+	if c.TLS.Enabled {
+		if c.TLS.CertFile == "" {
+			return fmt.Errorf("CertFile is required when TLS is enabled")
+		}
+		if c.TLS.KeyFile == "" {
+			return fmt.Errorf("KeyFile is required when TLS is enabled")
+		}
+		if c.TLS.VerifyPeer && c.TLS.CAFile == "" {
+			return fmt.Errorf("CAFile is required when peer verification is enabled")
+		}
 	}
 	return nil
 }

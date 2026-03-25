@@ -1,264 +1,287 @@
 package raft
 
 import (
+	"sync"
+
 	"github.com/hashicorp/raft"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	metricsInstance *Metrics
+	metricsOnce     sync.Once
 )
 
 // Metrics contains Prometheus metrics for Raft operations.
 type Metrics struct {
 	// State metrics
 	state        *prometheus.GaugeVec
-	isLeader     prometheus.Gauge
-	numPeers     prometheus.Gauge
-	lastIndex    prometheus.Gauge
-	commitIndex  prometheus.Gauge
-	appliedIndex prometheus.Gauge
+	isLeader     *prometheus.GaugeVec
+	numPeers     *prometheus.GaugeVec
+	lastIndex    *prometheus.GaugeVec
+	commitIndex  *prometheus.GaugeVec
+	appliedIndex *prometheus.GaugeVec
 
 	// Operation counters
 	applyTotal    *prometheus.CounterVec
 	applyErrors   *prometheus.CounterVec
-	leaderChanges prometheus.Counter
-	snapshotTotal prometheus.Counter
-	restoreTotal  prometheus.Counter
+	leaderChanges *prometheus.CounterVec
+	snapshotTotal *prometheus.CounterVec
+	restoreTotal  *prometheus.CounterVec
 
 	// Latency histograms
 	applyLatency    *prometheus.HistogramVec
-	commitLatency   prometheus.Histogram
-	snapshotLatency prometheus.Histogram
+	commitLatency   *prometheus.HistogramVec
+	snapshotLatency *prometheus.HistogramVec
 
 	// Replication metrics
-	replicationLag prometheus.Gauge
-	fsmPending     prometheus.Gauge
+	replicationLag *prometheus.GaugeVec
+	fsmPending     *prometheus.GaugeVec
 }
 
 // NewMetrics creates and registers Raft metrics.
+// NewMetrics creates and registers Raft metrics.
+// Returns a singleton instance.
 func NewMetrics(namespace string) *Metrics {
-	if namespace == "" {
-		namespace = "konsul"
-	}
+	metricsOnce.Do(func() {
+		if namespace == "" {
+			namespace = "konsul"
+		}
 
-	m := &Metrics{
-		state: promauto.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Namespace: namespace,
-				Subsystem: "raft",
-				Name:      "state",
-				Help:      "Current Raft state (0=Follower, 1=Candidate, 2=Leader, 3=Shutdown)",
-			},
-			[]string{"node_id"},
-		),
+		metricsInstance = &Metrics{
+			state: promauto.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Namespace: namespace,
+					Subsystem: "raft",
+					Name:      "state",
+					Help:      "Current Raft state (0=Follower, 1=Candidate, 2=Leader, 3=Shutdown)",
+				},
+				[]string{"node_id"},
+			),
 
-		isLeader: promauto.NewGauge(
-			prometheus.GaugeOpts{
-				Namespace: namespace,
-				Subsystem: "raft",
-				Name:      "is_leader",
-				Help:      "Whether this node is the leader (1) or not (0)",
-			},
-		),
+			isLeader: promauto.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Namespace: namespace,
+					Subsystem: "raft",
+					Name:      "is_leader",
+					Help:      "Whether this node is the leader (1) or not (0)",
+				},
+				[]string{"node_id"},
+			),
 
-		numPeers: promauto.NewGauge(
-			prometheus.GaugeOpts{
-				Namespace: namespace,
-				Subsystem: "raft",
-				Name:      "peers_total",
-				Help:      "Number of peers in the cluster",
-			},
-		),
+			numPeers: promauto.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Namespace: namespace,
+					Subsystem: "raft",
+					Name:      "peers_total",
+					Help:      "Number of peers in the cluster",
+				},
+				[]string{"node_id"},
+			),
 
-		lastIndex: promauto.NewGauge(
-			prometheus.GaugeOpts{
-				Namespace: namespace,
-				Subsystem: "raft",
-				Name:      "last_index",
-				Help:      "Last log index",
-			},
-		),
+			lastIndex: promauto.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Namespace: namespace,
+					Subsystem: "raft",
+					Name:      "last_index",
+					Help:      "Last log index",
+				},
+				[]string{"node_id"},
+			),
 
-		commitIndex: promauto.NewGauge(
-			prometheus.GaugeOpts{
-				Namespace: namespace,
-				Subsystem: "raft",
-				Name:      "commit_index",
-				Help:      "Committed log index",
-			},
-		),
+			commitIndex: promauto.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Namespace: namespace,
+					Subsystem: "raft",
+					Name:      "commit_index",
+					Help:      "Committed log index",
+				},
+				[]string{"node_id"},
+			),
 
-		appliedIndex: promauto.NewGauge(
-			prometheus.GaugeOpts{
-				Namespace: namespace,
-				Subsystem: "raft",
-				Name:      "applied_index",
-				Help:      "Applied log index",
-			},
-		),
+			appliedIndex: promauto.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Namespace: namespace,
+					Subsystem: "raft",
+					Name:      "applied_index",
+					Help:      "Applied log index",
+				},
+				[]string{"node_id"},
+			),
 
-		applyTotal: promauto.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: namespace,
-				Subsystem: "raft",
-				Name:      "apply_total",
-				Help:      "Total number of Raft apply operations",
-			},
-			[]string{"command_type"},
-		),
+			applyTotal: promauto.NewCounterVec(
+				prometheus.CounterOpts{
+					Namespace: namespace,
+					Subsystem: "raft",
+					Name:      "apply_total",
+					Help:      "Total number of Raft apply operations",
+				},
+				[]string{"node_id", "command_type"},
+			),
 
-		applyErrors: promauto.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: namespace,
-				Subsystem: "raft",
-				Name:      "apply_errors_total",
-				Help:      "Total number of Raft apply errors",
-			},
-			[]string{"command_type", "error_type"},
-		),
+			applyErrors: promauto.NewCounterVec(
+				prometheus.CounterOpts{
+					Namespace: namespace,
+					Subsystem: "raft",
+					Name:      "apply_errors_total",
+					Help:      "Total number of Raft apply errors",
+				},
+				[]string{"node_id", "command_type", "error_type"},
+			),
 
-		leaderChanges: promauto.NewCounter(
-			prometheus.CounterOpts{
-				Namespace: namespace,
-				Subsystem: "raft",
-				Name:      "leader_changes_total",
-				Help:      "Total number of leader changes",
-			},
-		),
+			leaderChanges: promauto.NewCounterVec(
+				prometheus.CounterOpts{
+					Namespace: namespace,
+					Subsystem: "raft",
+					Name:      "leader_changes_total",
+					Help:      "Total number of leader changes",
+				},
+				[]string{"node_id"},
+			),
 
-		snapshotTotal: promauto.NewCounter(
-			prometheus.CounterOpts{
-				Namespace: namespace,
-				Subsystem: "raft",
-				Name:      "snapshot_total",
-				Help:      "Total number of snapshots taken",
-			},
-		),
+			snapshotTotal: promauto.NewCounterVec(
+				prometheus.CounterOpts{
+					Namespace: namespace,
+					Subsystem: "raft",
+					Name:      "snapshot_total",
+					Help:      "Total number of snapshots taken",
+				},
+				[]string{"node_id"},
+			),
 
-		restoreTotal: promauto.NewCounter(
-			prometheus.CounterOpts{
-				Namespace: namespace,
-				Subsystem: "raft",
-				Name:      "restore_total",
-				Help:      "Total number of snapshot restores",
-			},
-		),
+			restoreTotal: promauto.NewCounterVec(
+				prometheus.CounterOpts{
+					Namespace: namespace,
+					Subsystem: "raft",
+					Name:      "restore_total",
+					Help:      "Total number of snapshot restores",
+				},
+				[]string{"node_id"},
+			),
 
-		applyLatency: promauto.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Namespace: namespace,
-				Subsystem: "raft",
-				Name:      "apply_duration_seconds",
-				Help:      "Time to apply a Raft log entry",
-				Buckets:   []float64{.001, .005, .01, .025, .05, .1, .25, .5, 1},
-			},
-			[]string{"command_type"},
-		),
+			applyLatency: promauto.NewHistogramVec(
+				prometheus.HistogramOpts{
+					Namespace: namespace,
+					Subsystem: "raft",
+					Name:      "apply_duration_seconds",
+					Help:      "Time to apply a Raft log entry",
+					Buckets:   []float64{.001, .005, .01, .025, .05, .1, .25, .5, 1},
+				},
+				[]string{"node_id", "command_type"},
+			),
 
-		commitLatency: promauto.NewHistogram(
-			prometheus.HistogramOpts{
-				Namespace: namespace,
-				Subsystem: "raft",
-				Name:      "commit_duration_seconds",
-				Help:      "Time from apply to commit",
-				Buckets:   []float64{.001, .005, .01, .025, .05, .1, .25, .5, 1},
-			},
-		),
+			commitLatency: promauto.NewHistogramVec(
+				prometheus.HistogramOpts{
+					Namespace: namespace,
+					Subsystem: "raft",
+					Name:      "commit_duration_seconds",
+					Help:      "Time from apply to commit",
+					Buckets:   []float64{.001, .005, .01, .025, .05, .1, .25, .5, 1},
+				},
+				[]string{"node_id"},
+			),
 
-		snapshotLatency: promauto.NewHistogram(
-			prometheus.HistogramOpts{
-				Namespace: namespace,
-				Subsystem: "raft",
-				Name:      "snapshot_duration_seconds",
-				Help:      "Time to create a snapshot",
-				Buckets:   []float64{.01, .05, .1, .25, .5, 1, 2.5, 5, 10},
-			},
-		),
+			snapshotLatency: promauto.NewHistogramVec(
+				prometheus.HistogramOpts{
+					Namespace: namespace,
+					Subsystem: "raft",
+					Name:      "snapshot_duration_seconds",
+					Help:      "Time to create a snapshot",
+					Buckets:   []float64{.01, .05, .1, .25, .5, 1, 2.5, 5, 10},
+				},
+				[]string{"node_id"},
+			),
 
-		replicationLag: promauto.NewGauge(
-			prometheus.GaugeOpts{
-				Namespace: namespace,
-				Subsystem: "raft",
-				Name:      "replication_lag",
-				Help:      "Difference between last index and applied index",
-			},
-		),
+			replicationLag: promauto.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Namespace: namespace,
+					Subsystem: "raft",
+					Name:      "replication_lag",
+					Help:      "Difference between last index and applied index",
+				},
+				[]string{"node_id"},
+			),
 
-		fsmPending: promauto.NewGauge(
-			prometheus.GaugeOpts{
-				Namespace: namespace,
-				Subsystem: "raft",
-				Name:      "fsm_pending",
-				Help:      "Number of pending FSM operations",
-			},
-		),
-	}
+			fsmPending: promauto.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Namespace: namespace,
+					Subsystem: "raft",
+					Name:      "fsm_pending",
+					Help:      "Number of pending FSM operations",
+				},
+				[]string{"node_id"},
+			),
+		}
+	})
 
-	return m
+	return metricsInstance
 }
 
 // SetState updates the state metric.
 func (m *Metrics) SetState(nodeID string, state raft.RaftState) {
 	m.state.WithLabelValues(nodeID).Set(float64(state))
 	if state == raft.Leader {
-		m.isLeader.Set(1)
+		m.isLeader.WithLabelValues(nodeID).Set(1)
 	} else {
-		m.isLeader.Set(0)
+		m.isLeader.WithLabelValues(nodeID).Set(0)
 	}
 }
 
 // SetNumPeers updates the number of peers metric.
-func (m *Metrics) SetNumPeers(count int) {
-	m.numPeers.Set(float64(count))
+func (m *Metrics) SetNumPeers(nodeID string, count int) {
+	m.numPeers.WithLabelValues(nodeID).Set(float64(count))
 }
 
 // SetIndices updates the index metrics.
-func (m *Metrics) SetIndices(last, commit, applied uint64) {
-	m.lastIndex.Set(float64(last))
-	m.commitIndex.Set(float64(commit))
-	m.appliedIndex.Set(float64(applied))
-	m.replicationLag.Set(float64(last - applied))
+func (m *Metrics) SetIndices(nodeID string, last, commit, applied uint64) {
+	m.lastIndex.WithLabelValues(nodeID).Set(float64(last))
+	m.commitIndex.WithLabelValues(nodeID).Set(float64(commit))
+	m.appliedIndex.WithLabelValues(nodeID).Set(float64(applied))
+	m.replicationLag.WithLabelValues(nodeID).Set(float64(last - applied))
 }
 
 // SetFSMPending updates the FSM pending operations metric.
-func (m *Metrics) SetFSMPending(count uint64) {
-	m.fsmPending.Set(float64(count))
+func (m *Metrics) SetFSMPending(nodeID string, count uint64) {
+	m.fsmPending.WithLabelValues(nodeID).Set(float64(count))
 }
 
 // IncApply increments the apply counter for a command type.
-func (m *Metrics) IncApply(cmdType string) {
-	m.applyTotal.WithLabelValues(cmdType).Inc()
+func (m *Metrics) IncApply(nodeID, cmdType string) {
+	m.applyTotal.WithLabelValues(nodeID, cmdType).Inc()
 }
 
 // IncApplyError increments the apply error counter.
-func (m *Metrics) IncApplyError(cmdType, errorType string) {
-	m.applyErrors.WithLabelValues(cmdType, errorType).Inc()
+func (m *Metrics) IncApplyError(nodeID, cmdType, errorType string) {
+	m.applyErrors.WithLabelValues(nodeID, cmdType, errorType).Inc()
 }
 
 // IncLeaderChanges increments the leader changes counter.
-func (m *Metrics) IncLeaderChanges() {
-	m.leaderChanges.Inc()
+func (m *Metrics) IncLeaderChanges(nodeID string) {
+	m.leaderChanges.WithLabelValues(nodeID).Inc()
 }
 
 // IncSnapshot increments the snapshot counter.
-func (m *Metrics) IncSnapshot() {
-	m.snapshotTotal.Inc()
+func (m *Metrics) IncSnapshot(nodeID string) {
+	m.snapshotTotal.WithLabelValues(nodeID).Inc()
 }
 
 // IncRestore increments the restore counter.
-func (m *Metrics) IncRestore() {
-	m.restoreTotal.Inc()
+func (m *Metrics) IncRestore(nodeID string) {
+	m.restoreTotal.WithLabelValues(nodeID).Inc()
 }
 
 // ObserveApplyLatency records the apply latency for a command type.
-func (m *Metrics) ObserveApplyLatency(cmdType string, seconds float64) {
-	m.applyLatency.WithLabelValues(cmdType).Observe(seconds)
+func (m *Metrics) ObserveApplyLatency(nodeID, cmdType string, seconds float64) {
+	m.applyLatency.WithLabelValues(nodeID, cmdType).Observe(seconds)
 }
 
 // ObserveCommitLatency records the commit latency.
-func (m *Metrics) ObserveCommitLatency(seconds float64) {
-	m.commitLatency.Observe(seconds)
+func (m *Metrics) ObserveCommitLatency(nodeID string, seconds float64) {
+	m.commitLatency.WithLabelValues(nodeID).Observe(seconds)
 }
 
 // ObserveSnapshotLatency records the snapshot latency.
-func (m *Metrics) ObserveSnapshotLatency(seconds float64) {
-	m.snapshotLatency.Observe(seconds)
+func (m *Metrics) ObserveSnapshotLatency(nodeID string, seconds float64) {
+	m.snapshotLatency.WithLabelValues(nodeID).Observe(seconds)
 }

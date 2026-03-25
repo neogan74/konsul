@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"sync"
@@ -75,14 +74,9 @@ func NewNode(cfg *Config, kvStore KVStoreInterface, serviceStore ServiceStoreInt
 	raftConfig.MaxAppendEntries = cfg.MaxAppendEntries
 	raftConfig.Logger = logger
 
-	// Create TCP transport
+	// Create Transport (TCP or TLS)
 	advertiseAddr := cfg.GetAdvertiseAddr()
-	addr, err := net.ResolveTCPAddr("tcp", advertiseAddr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve advertise address: %w", err)
-	}
-
-	transport, err := raft.NewTCPTransport(cfg.BindAddr, addr, 3, 10*time.Second, os.Stderr)
+	transport, err := NewTransport(cfg, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create transport: %w", err)
 	}
@@ -649,7 +643,7 @@ func (n *Node) monitorState() {
 
 				// If we transitioned to/from leader, increment leader changes
 				if lastState == raft.Leader || currentState == raft.Leader {
-					n.metrics.IncLeaderChanges()
+					n.metrics.IncLeaderChanges(n.config.NodeID)
 					n.logger.Info("leader change detected",
 						"node_id", n.config.NodeID,
 						"is_leader", currentState == raft.Leader,
@@ -668,18 +662,18 @@ func (n *Node) monitorState() {
 			var commitIndex uint64
 			_, _ = fmt.Sscanf(stats["commit_index"], "%d", &commitIndex)
 
-			n.metrics.SetIndices(lastIndex, commitIndex, appliedIndex)
+			n.metrics.SetIndices(n.config.NodeID, lastIndex, commitIndex, appliedIndex)
 
 			// Update peer count
 			config, err := n.GetConfiguration()
 			if err == nil {
-				n.metrics.SetNumPeers(len(config.Servers))
+				n.metrics.SetNumPeers(n.config.NodeID, len(config.Servers))
 			}
 
 			// Update FSM pending
 			var fsmPending uint64
 			_, _ = fmt.Sscanf(stats["fsm_pending"], "%d", &fsmPending)
-			n.metrics.SetFSMPending(fsmPending)
+			n.metrics.SetFSMPending(n.config.NodeID, fsmPending)
 
 		case <-n.shutdownCh:
 			n.logger.Debug("stopping state monitor goroutine")
