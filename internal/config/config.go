@@ -217,7 +217,7 @@ func Load() (*Config, error) {
 			Issuer:        getEnvString("KONSUL_JWT_ISSUER", "konsul"),
 			APIKeyPrefix:  getEnvString("KONSUL_APIKEY_PREFIX", "konsul"),
 			RequireAuth:   getEnvBool("KONSUL_REQUIRE_AUTH", false),
-			PublicPaths:   getEnvStringSlice("KONSUL_PUBLIC_PATHS", []string{"/health", "/health/live", "/health/ready", "/metrics", "/admin", "/admin/", "/admin/assets/"}),
+			PublicPaths:   getEnvStringSlice("KONSUL_PUBLIC_PATHS", []string{"/health", "/health/live", "/health/ready", "/metrics", "/admin", "/admin/", "/admin/assets/*"}),
 		},
 		Tracing: TracingConfig{
 			Enabled:        getEnvBool("KONSUL_TRACING_ENABLED", false),

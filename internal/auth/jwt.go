@@ -21,6 +21,14 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
+type RefreshClaims struct {
+	UserID   string   `json:"user_id"`
+	Username string   `json:"username"`
+	Roles    []string `json:"roles"`
+	Policies []string `json:"policies,omitempty"`
+	jwt.RegisteredClaims
+}
+
 type JWTService struct {
 	secretKey     []byte
 	tokenExpiry   time.Duration
@@ -61,13 +69,24 @@ func (j *JWTService) GenerateTokenWithPolicies(userID, username string, roles, p
 	return token.SignedString(j.secretKey)
 }
 
-func (j *JWTService) GenerateRefreshToken(userID string) (string, error) {
-	claims := jwt.RegisteredClaims{
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.refreshExpiry)),
-		IssuedAt:  jwt.NewNumericDate(time.Now()),
-		NotBefore: jwt.NewNumericDate(time.Now()),
-		Issuer:    j.issuer,
-		Subject:   userID,
+func (j *JWTService) GenerateRefreshToken(userID, username string, roles []string) (string, error) {
+	return j.GenerateRefreshTokenWithPolicies(userID, username, roles, nil)
+}
+
+// GenerateRefreshTokenWithPolicies generates a refresh token with user claims.
+func (j *JWTService) GenerateRefreshTokenWithPolicies(userID, username string, roles, policies []string) (string, error) {
+	claims := RefreshClaims{
+		UserID:   userID,
+		Username: username,
+		Roles:    roles,
+		Policies: policies,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.refreshExpiry)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+			Issuer:    j.issuer,
+			Subject:   userID,
+		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -100,12 +119,12 @@ func (j *JWTService) ValidateToken(tokenString string) (*Claims, error) {
 	return nil, ErrTokenInvalid
 }
 
-func (j *JWTService) ValidateRefreshToken(tokenString string) (string, error) {
+func (j *JWTService) ValidateRefreshToken(tokenString string) (*RefreshClaims, error) {
 	if tokenString == "" {
-		return "", ErrTokenMissing
+		return nil, ErrTokenMissing
 	}
 
-	token, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &RefreshClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, ErrTokenInvalid
 		}
@@ -114,35 +133,37 @@ func (j *JWTService) ValidateRefreshToken(tokenString string) (string, error) {
 
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {
-			return "", ErrTokenExpired
+			return nil, ErrTokenExpired
 		}
-		return "", ErrTokenInvalid
+		return nil, ErrTokenInvalid
 	}
 
-	if claims, ok := token.Claims.(*jwt.RegisteredClaims); ok && token.Valid {
-		return claims.Subject, nil
+	if claims, ok := token.Claims.(*RefreshClaims); ok && token.Valid {
+		if claims.UserID == "" && claims.Subject != "" {
+			claims.UserID = claims.Subject
+		}
+		if claims.UserID == "" {
+			return nil, ErrTokenInvalid
+		}
+		return claims, nil
 	}
 
-	return "", ErrTokenInvalid
+	return nil, ErrTokenInvalid
 }
 
-func (j *JWTService) RefreshToken(refreshTokenString string, username string, roles []string) (string, string, error) {
-	return j.RefreshTokenWithPolicies(refreshTokenString, username, roles, nil)
-}
-
-// RefreshTokenWithPolicies refreshes a token with policies
-func (j *JWTService) RefreshTokenWithPolicies(refreshTokenString string, username string, roles, policies []string) (string, string, error) {
-	userID, err := j.ValidateRefreshToken(refreshTokenString)
+// RefreshToken refreshes an access and refresh token pair from refresh token claims.
+func (j *JWTService) RefreshToken(refreshTokenString string) (string, string, error) {
+	claims, err := j.ValidateRefreshToken(refreshTokenString)
 	if err != nil {
 		return "", "", err
 	}
 
-	newToken, err := j.GenerateTokenWithPolicies(userID, username, roles, policies)
+	newToken, err := j.GenerateTokenWithPolicies(claims.UserID, claims.Username, claims.Roles, claims.Policies)
 	if err != nil {
 		return "", "", err
 	}
 
-	newRefreshToken, err := j.GenerateRefreshToken(userID)
+	newRefreshToken, err := j.GenerateRefreshTokenWithPolicies(claims.UserID, claims.Username, claims.Roles, claims.Policies)
 	if err != nil {
 		return "", "", err
 	}

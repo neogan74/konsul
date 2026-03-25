@@ -13,6 +13,8 @@ type AuthHandler struct {
 	apiKeyService *auth.APIKeyService
 }
 
+const defaultUserRole = "user"
+
 func NewAuthHandler(jwtService *auth.JWTService, apiKeyService *auth.APIKeyService) *AuthHandler {
 	return &AuthHandler{
 		jwtService:    jwtService,
@@ -22,10 +24,9 @@ func NewAuthHandler(jwtService *auth.JWTService, apiKeyService *auth.APIKeyServi
 
 // LoginRequest represents the login request body
 type LoginRequest struct {
-	UserID   string   `json:"user_id"`
-	Username string   `json:"username"`
-	Password string   `json:"password"`
-	Roles    []string `json:"roles"`
+	UserID   string `json:"user_id"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 // LoginResponse represents the login response body
@@ -37,9 +38,7 @@ type LoginResponse struct {
 
 // RefreshRequest represents the refresh token request body
 type RefreshRequest struct {
-	RefreshToken string   `json:"refresh_token"`
-	Username     string   `json:"username"`
-	Roles        []string `json:"roles"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 // Login handles user login and returns JWT tokens
@@ -61,8 +60,11 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	// TODO: Add actual password validation against a user store
 	// For now, this is a simple implementation that generates tokens
 
+	// Never trust client-provided roles.
+	roles := []string{defaultUserRole}
+
 	// Generate access token
-	token, err := h.jwtService.GenerateToken(req.UserID, req.Username, req.Roles)
+	token, err := h.jwtService.GenerateToken(req.UserID, req.Username, roles)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "failed to generate token",
@@ -70,7 +72,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	}
 
 	// Generate refresh token
-	refreshToken, err := h.jwtService.GenerateRefreshToken(req.UserID)
+	refreshToken, err := h.jwtService.GenerateRefreshToken(req.UserID, req.Username, roles)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "failed to generate refresh token",
@@ -94,14 +96,14 @@ func (h *AuthHandler) Refresh(c *fiber.Ctx) error {
 	}
 
 	// Validate required fields
-	if req.RefreshToken == "" || req.Username == "" {
+	if req.RefreshToken == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "refresh_token and username are required",
+			"error": "refresh_token is required",
 		})
 	}
 
 	// Refresh tokens
-	newToken, newRefreshToken, err := h.jwtService.RefreshToken(req.RefreshToken, req.Username, req.Roles)
+	newToken, newRefreshToken, err := h.jwtService.RefreshToken(req.RefreshToken)
 	if err != nil {
 		switch err {
 		case auth.ErrTokenExpired:

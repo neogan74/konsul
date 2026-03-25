@@ -36,7 +36,7 @@ func setupAuthHandler() (*AuthHandler, *fiber.App) {
 }
 
 func TestAuthHandler_Login_Success(t *testing.T) {
-	_, app := setupAuthHandler()
+	handler, app := setupAuthHandler()
 
 	body := bytes.NewReader([]byte(`{"user_id": "user1", "username": "testuser", "roles": ["admin"]}`))
 	req := httptest.NewRequest(http.MethodPost, "/auth/login", body)
@@ -64,6 +64,44 @@ func TestAuthHandler_Login_Success(t *testing.T) {
 	}
 	if result.ExpiresIn != 900 { // 15 minutes
 		t.Errorf("expected expires_in to be 900, got %d", result.ExpiresIn)
+	}
+
+	claims, err := handler.jwtService.ValidateToken(result.Token)
+	if err != nil {
+		t.Fatalf("failed to validate issued token: %v", err)
+	}
+	if len(claims.Roles) != 1 || claims.Roles[0] != "user" {
+		t.Errorf("expected default role [user], got %v", claims.Roles)
+	}
+}
+
+func TestAuthHandler_Login_IgnoresClientRoles(t *testing.T) {
+	handler, app := setupAuthHandler()
+
+	body := bytes.NewReader([]byte(`{"user_id": "user1", "username": "testuser", "roles": ["admin","superuser"]}`))
+	req := httptest.NewRequest(http.MethodPost, "/auth/login", body)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Login request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+
+	var result LoginResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	claims, err := handler.jwtService.ValidateToken(result.Token)
+	if err != nil {
+		t.Fatalf("failed to validate token: %v", err)
+	}
+
+	if len(claims.Roles) != 1 || claims.Roles[0] != "user" {
+		t.Errorf("expected client roles to be ignored and default to [user], got %v", claims.Roles)
 	}
 }
 
@@ -115,7 +153,7 @@ func TestAuthHandler_Login_InvalidJSON(t *testing.T) {
 }
 
 func TestAuthHandler_Refresh_Success(t *testing.T) {
-	_, app := setupAuthHandler()
+	handler, app := setupAuthHandler()
 
 	// First, login to get tokens
 	loginBody := bytes.NewReader([]byte(`{"user_id": "user1", "username": "testuser", "roles": ["admin"]}`))
@@ -133,7 +171,7 @@ func TestAuthHandler_Refresh_Success(t *testing.T) {
 	}
 
 	// Now refresh the token
-	refreshBody := bytes.NewReader([]byte(`{"refresh_token": "` + loginResult.RefreshToken + `", "username": "testuser", "roles": ["admin"]}`))
+	refreshBody := bytes.NewReader([]byte(`{"refresh_token": "` + loginResult.RefreshToken + `"}`))
 	refreshReq := httptest.NewRequest(http.MethodPost, "/auth/refresh", refreshBody)
 	refreshReq.Header.Set("Content-Type", "application/json")
 
@@ -154,6 +192,66 @@ func TestAuthHandler_Refresh_Success(t *testing.T) {
 	if refreshResult.Token == "" {
 		t.Error("expected new token in response")
 	}
+	if refreshResult.RefreshToken == "" {
+		t.Error("expected new refresh token in response")
+	}
+
+	claims, err := handler.jwtService.ValidateToken(refreshResult.Token)
+	if err != nil {
+		t.Fatalf("failed to validate refreshed access token: %v", err)
+	}
+	if claims.Username != "testuser" {
+		t.Errorf("expected username 'testuser', got %q", claims.Username)
+	}
+	if len(claims.Roles) != 1 || claims.Roles[0] != "user" {
+		t.Errorf("expected default role [user] after refresh, got %v", claims.Roles)
+	}
+}
+
+func TestAuthHandler_Refresh_DoesNotTrustBodyIdentityFields(t *testing.T) {
+	handler, app := setupAuthHandler()
+
+	loginBody := bytes.NewReader([]byte(`{"user_id": "user1", "username": "testuser"}`))
+	loginReq := httptest.NewRequest(http.MethodPost, "/auth/login", loginBody)
+	loginReq.Header.Set("Content-Type", "application/json")
+
+	loginResp, err := app.Test(loginReq)
+	if err != nil {
+		t.Fatalf("Login request failed: %v", err)
+	}
+
+	var loginResult LoginResponse
+	if err := json.NewDecoder(loginResp.Body).Decode(&loginResult); err != nil {
+		t.Fatalf("failed to decode login response: %v", err)
+	}
+
+	refreshBody := bytes.NewReader([]byte(`{"refresh_token":"` + loginResult.RefreshToken + `","username":"attacker","roles":["admin"]}`))
+	refreshReq := httptest.NewRequest(http.MethodPost, "/auth/refresh", refreshBody)
+	refreshReq.Header.Set("Content-Type", "application/json")
+
+	refreshResp, err := app.Test(refreshReq)
+	if err != nil {
+		t.Fatalf("Refresh request failed: %v", err)
+	}
+	if refreshResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", refreshResp.StatusCode)
+	}
+
+	var refreshResult LoginResponse
+	if err := json.NewDecoder(refreshResp.Body).Decode(&refreshResult); err != nil {
+		t.Fatalf("failed to decode refresh response: %v", err)
+	}
+
+	claims, err := handler.jwtService.ValidateToken(refreshResult.Token)
+	if err != nil {
+		t.Fatalf("failed to validate refreshed access token: %v", err)
+	}
+	if claims.Username != "testuser" {
+		t.Errorf("expected username from refresh token claims, got %q", claims.Username)
+	}
+	if len(claims.Roles) != 1 || claims.Roles[0] != "user" {
+		t.Errorf("expected roles from refresh token claims [user], got %v", claims.Roles)
+	}
 }
 
 func TestAuthHandler_Refresh_MissingFields(t *testing.T) {
@@ -163,8 +261,7 @@ func TestAuthHandler_Refresh_MissingFields(t *testing.T) {
 		name string
 		body string
 	}{
-		{"missing refresh_token", `{"username": "testuser"}`},
-		{"missing username", `{"refresh_token": "some-token"}`},
+		{"missing refresh_token", `{"username":"testuser"}`},
 		{"empty body", `{}`},
 	}
 
@@ -189,7 +286,7 @@ func TestAuthHandler_Refresh_MissingFields(t *testing.T) {
 func TestAuthHandler_Refresh_InvalidToken(t *testing.T) {
 	_, app := setupAuthHandler()
 
-	body := bytes.NewReader([]byte(`{"refresh_token": "invalid-token", "username": "testuser"}`))
+	body := bytes.NewReader([]byte(`{"refresh_token": "invalid-token"}`))
 	req := httptest.NewRequest(http.MethodPost, "/auth/refresh", body)
 	req.Header.Set("Content-Type", "application/json")
 

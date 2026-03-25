@@ -52,8 +52,11 @@ type Manager struct {
 	events chan *Event
 	wg     sync.WaitGroup
 
-	flushTicker *time.Ticker
-	stopOnce    sync.Once
+	flushTicker  *time.Ticker
+	stopOnce     sync.Once
+	shutdownOnce sync.Once
+	shutdownDone chan struct{}
+	shutdownErr  error
 
 	enabled bool
 	closed  bool
@@ -179,6 +182,9 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 	if m == nil || !m.enabled {
 		return nil
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	m.stopOnce.Do(func() {
 		m.mu.Lock()
@@ -187,21 +193,23 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 		close(m.events)
 	})
 
-	done := make(chan struct{})
-	go func() {
-		m.wg.Wait()
-		close(done)
-	}()
+	m.shutdownOnce.Do(func() {
+		m.shutdownDone = make(chan struct{})
+		go func() {
+			defer close(m.shutdownDone)
+			m.wg.Wait()
+			m.flushTicker.Stop()
+			m.flush()
+			m.shutdownErr = m.writer.Close(context.Background())
+		}()
+	})
 
 	select {
-	case <-done:
+	case <-m.shutdownDone:
+		return m.shutdownErr
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-
-	m.flushTicker.Stop()
-	m.flush()
-	return m.writer.Close(ctx)
 }
 
 func (m *Manager) write(event *Event) {
