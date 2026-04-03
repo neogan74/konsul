@@ -197,3 +197,15 @@ type ServiceHeartbeatPayload struct {
 type HealthTTLUpdatePayload struct {
 	CheckID string `json:"check_id"`
 }
+
+// CASResult carries the result of a Compare-And-Swap operation through the Raft FSM.
+// FSM.Apply() returns *CASResult for all CAS command types so callers can extract
+// both the new index and any error from a single interface{} return value.
+type CASResult struct {
+	NewIndex   uint64            // new ModifyIndex for single-key CAS ops
+	NewIndices map[string]uint64 // new ModifyIndex per key for batch CAS ops
+	Err        error
+}
+
+// Error implements the error interface for convenience.
+func (r *CASResult) Error() error { return r.Err }

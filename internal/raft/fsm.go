@@ -40,51 +40,58 @@ func NewFSM(cfg FSMConfig) *KonsulFSM {
 // Apply implements raft.FSM.Apply.
 // It applies a Raft log entry to the local state.
 // This is called by Raft after a log entry is committed.
+//
+// Return value convention:
+//   - CAS commands return *CASResult (carries both NewIndex and Err)
+//   - All other commands return error (or nil)
 func (f *KonsulFSM) Apply(log *raft.Log) interface{} {
-	// Parse the command
 	cmd, err := UnmarshalCommand(log.Data)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal command: %w", err)
 	}
 
-	// Apply the command based on its type
-	var applyErr error
 	switch cmd.Type {
+	// --- non-CAS KV ---
 	case CmdKVSet:
-		applyErr = f.applyKVSet(cmd.Payload)
+		return f.applyKVSet(cmd.Payload)
 	case CmdKVSetWithFlags:
-		applyErr = f.applyKVSetWithFlags(cmd.Payload)
-	case CmdKVSetCAS:
-		applyErr = f.applyKVSetCAS(cmd.Payload)
+		return f.applyKVSetWithFlags(cmd.Payload)
 	case CmdKVDelete:
-		applyErr = f.applyKVDelete(cmd.Payload)
-	case CmdKVDeleteCAS:
-		applyErr = f.applyKVDeleteCAS(cmd.Payload)
+		return f.applyKVDelete(cmd.Payload)
 	case CmdKVBatchSet:
-		applyErr = f.applyKVBatchSet(cmd.Payload)
-	case CmdKVBatchSetCAS:
-		applyErr = f.applyKVBatchSetCAS(cmd.Payload)
+		return f.applyKVBatchSet(cmd.Payload)
 	case CmdKVBatchDelete:
-		applyErr = f.applyKVBatchDelete(cmd.Payload)
-	case CmdKVBatchDeleteCAS:
-		applyErr = f.applyKVBatchDeleteCAS(cmd.Payload)
-	case CmdServiceRegister:
-		applyErr = f.applyServiceRegister(cmd.Payload)
-	case CmdServiceRegisterCAS:
-		applyErr = f.applyServiceRegisterCAS(cmd.Payload)
-	case CmdServiceDeregister:
-		applyErr = f.applyServiceDeregister(cmd.Payload)
-	case CmdServiceDeregisterCAS:
-		applyErr = f.applyServiceDeregisterCAS(cmd.Payload)
-	case CmdServiceHeartbeat:
-		applyErr = f.applyServiceHeartbeat(cmd.Payload)
-	case CmdHealthTTLUpdate:
-		applyErr = f.applyHealthTTLUpdate(cmd.Payload)
-	default:
-		applyErr = fmt.Errorf("unknown command type: %d", cmd.Type)
-	}
+		return f.applyKVBatchDelete(cmd.Payload)
 
-	return applyErr
+	// --- CAS KV — return *CASResult ---
+	case CmdKVSetCAS:
+		return f.applyKVSetCAS(cmd.Payload)
+	case CmdKVDeleteCAS:
+		return f.applyKVDeleteCAS(cmd.Payload)
+	case CmdKVBatchSetCAS:
+		return f.applyKVBatchSetCAS(cmd.Payload)
+	case CmdKVBatchDeleteCAS:
+		return f.applyKVBatchDeleteCAS(cmd.Payload)
+
+	// --- non-CAS Service ---
+	case CmdServiceRegister:
+		return f.applyServiceRegister(cmd.Payload)
+	case CmdServiceDeregister:
+		return f.applyServiceDeregister(cmd.Payload)
+	case CmdServiceHeartbeat:
+		return f.applyServiceHeartbeat(cmd.Payload)
+	case CmdHealthTTLUpdate:
+		return f.applyHealthTTLUpdate(cmd.Payload)
+
+	// --- CAS Service — return *CASResult ---
+	case CmdServiceRegisterCAS:
+		return f.applyServiceRegisterCAS(cmd.Payload)
+	case CmdServiceDeregisterCAS:
+		return f.applyServiceDeregisterCAS(cmd.Payload)
+
+	default:
+		return fmt.Errorf("unknown command type: %d", cmd.Type)
+	}
 }
 
 // --- KV Apply Methods ---
@@ -152,17 +159,17 @@ func (f *KonsulFSM) applyKVBatchDelete(payload []byte) error {
 	return f.kvStore.BatchDeleteLocal(p.Keys)
 }
 
-func (f *KonsulFSM) applyKVSetCAS(payload []byte) error {
+func (f *KonsulFSM) applyKVSetCAS(payload []byte) *CASResult {
 	var p KVSetCASPayload
 	if err := json.Unmarshal(payload, &p); err != nil {
-		return fmt.Errorf("failed to unmarshal KVSetCASPayload: %w", err)
+		return &CASResult{Err: fmt.Errorf("failed to unmarshal KVSetCASPayload: %w", err)}
 	}
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	_, err := f.kvStore.SetCASLocal(p.Key, p.Value, p.ExpectedIndex)
-	return err
+	newIndex, err := f.kvStore.SetCASLocal(p.Key, p.Value, p.ExpectedIndex)
+	return &CASResult{NewIndex: newIndex, Err: err}
 }
 
 func (f *KonsulFSM) applyKVDeleteCAS(payload []byte) error {
