@@ -604,7 +604,10 @@ func TestFSM_Apply_KVSetCAS(t *testing.T) {
 		ExpectedIndex: initialIndex,
 	})
 	resp := fsm.Apply(makeLog(t, cmd))
-	assert.Nil(t, resp)
+	casResp, ok := resp.(*CASResult)
+	require.True(t, ok, "expected *CASResult")
+	assert.NoError(t, casResp.Err)
+	assert.Greater(t, casResp.NewIndex, initialIndex)
 
 	entry, _ = kvStore.GetEntrySnapshot("key1")
 	assert.Equal(t, "val2", entry.Value)
@@ -617,8 +620,9 @@ func TestFSM_Apply_KVSetCAS(t *testing.T) {
 		ExpectedIndex: initialIndex,
 	})
 	respFail := fsm.Apply(makeLog(t, cmdFail))
-	assert.NotNil(t, respFail)
-	assert.Error(t, respFail.(error))
+	casRespFail, ok := respFail.(*CASResult)
+	require.True(t, ok, "expected *CASResult")
+	assert.Error(t, casRespFail.Err)
 
 	entry, _ = kvStore.GetEntrySnapshot("key1")
 	assert.Equal(t, "val2", entry.Value)
@@ -640,8 +644,9 @@ func TestFSM_Apply_KVDeleteCAS(t *testing.T) {
 		ExpectedIndex: initialIndex + 1,
 	})
 	respFail := fsm.Apply(makeLog(t, cmdFail))
-	assert.NotNil(t, respFail)
-	assert.Error(t, respFail.(error))
+	casRespFail, ok := respFail.(*CASResult)
+	require.True(t, ok, "expected *CASResult")
+	assert.Error(t, casRespFail.Err)
 	assert.Contains(t, kvStore.data, "key1")
 
 	// Successful CAS
@@ -650,7 +655,9 @@ func TestFSM_Apply_KVDeleteCAS(t *testing.T) {
 		ExpectedIndex: initialIndex,
 	})
 	resp := fsm.Apply(makeLog(t, cmd))
-	assert.Nil(t, resp)
+	casResp, ok := resp.(*CASResult)
+	require.True(t, ok, "expected *CASResult")
+	assert.NoError(t, casResp.Err)
 	assert.NotContains(t, kvStore.data, "key1")
 }
 
@@ -666,7 +673,9 @@ func TestFSM_Apply_ServiceRegisterCAS(t *testing.T) {
 		ExpectedIndex: 0,
 	})
 	resp := fsm.Apply(makeLog(t, cmd))
-	assert.Nil(t, resp)
+	casResp, ok := resp.(*CASResult)
+	require.True(t, ok, "expected *CASResult")
+	assert.NoError(t, casResp.Err)
 
 	entry, ok := serviceStore.data["web"]
 	assert.True(t, ok)
@@ -674,8 +683,9 @@ func TestFSM_Apply_ServiceRegisterCAS(t *testing.T) {
 
 	// Conflict (expectedIndex = 0 but exists)
 	respFail := fsm.Apply(makeLog(t, cmd))
-	assert.NotNil(t, respFail)
-	assert.Error(t, respFail.(error))
+	casRespFail, ok := respFail.(*CASResult)
+	require.True(t, ok, "expected *CASResult")
+	assert.Error(t, casRespFail.Err)
 
 	// Successful Update
 	svc.Address = "4.3.2.1"
@@ -684,6 +694,8 @@ func TestFSM_Apply_ServiceRegisterCAS(t *testing.T) {
 		ExpectedIndex: initialIndex,
 	})
 	respUpdate := fsm.Apply(makeLog(t, cmdUpdate))
-	assert.Nil(t, respUpdate)
+	casRespUpdate, ok := respUpdate.(*CASResult)
+	require.True(t, ok, "expected *CASResult")
+	assert.NoError(t, casRespUpdate.Err)
 	assert.Equal(t, "4.3.2.1", serviceStore.data["web"].Service.Address)
 }

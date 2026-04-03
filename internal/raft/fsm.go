@@ -172,41 +172,43 @@ func (f *KonsulFSM) applyKVSetCAS(payload []byte) *CASResult {
 	return &CASResult{NewIndex: newIndex, Err: err}
 }
 
-func (f *KonsulFSM) applyKVDeleteCAS(payload []byte) error {
+func (f *KonsulFSM) applyKVDeleteCAS(payload []byte) *CASResult {
 	var p KVDeleteCASPayload
 	if err := json.Unmarshal(payload, &p); err != nil {
-		return fmt.Errorf("failed to unmarshal KVDeleteCASPayload: %w", err)
+		return &CASResult{Err: fmt.Errorf("failed to unmarshal KVDeleteCASPayload: %w", err)}
 	}
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	return f.kvStore.DeleteCASLocal(p.Key, p.ExpectedIndex)
+	err := f.kvStore.DeleteCASLocal(p.Key, p.ExpectedIndex)
+	return &CASResult{Err: err}
 }
 
-func (f *KonsulFSM) applyKVBatchSetCAS(payload []byte) error {
+func (f *KonsulFSM) applyKVBatchSetCAS(payload []byte) *CASResult {
 	var p KVBatchSetCASPayload
 	if err := json.Unmarshal(payload, &p); err != nil {
-		return fmt.Errorf("failed to unmarshal KVBatchSetCASPayload: %w", err)
+		return &CASResult{Err: fmt.Errorf("failed to unmarshal KVBatchSetCASPayload: %w", err)}
 	}
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	_, err := f.kvStore.BatchSetCASLocal(p.Items, p.ExpectedIndices)
-	return err
+	indices, err := f.kvStore.BatchSetCASLocal(p.Items, p.ExpectedIndices)
+	return &CASResult{NewIndices: indices, Err: err}
 }
 
-func (f *KonsulFSM) applyKVBatchDeleteCAS(payload []byte) error {
+func (f *KonsulFSM) applyKVBatchDeleteCAS(payload []byte) *CASResult {
 	var p KVBatchDeleteCASPayload
 	if err := json.Unmarshal(payload, &p); err != nil {
-		return fmt.Errorf("failed to unmarshal KVBatchDeleteCASPayload: %w", err)
+		return &CASResult{Err: fmt.Errorf("failed to unmarshal KVBatchDeleteCASPayload: %w", err)}
 	}
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	return f.kvStore.BatchDeleteCASLocal(p.Keys, p.ExpectedIndices)
+	err := f.kvStore.BatchDeleteCASLocal(p.Keys, p.ExpectedIndices)
+	return &CASResult{Err: err}
 }
 
 // --- Service Apply Methods ---
@@ -257,10 +259,10 @@ func (f *KonsulFSM) applyServiceHeartbeat(payload []byte) error {
 	return nil
 }
 
-func (f *KonsulFSM) applyServiceRegisterCAS(payload []byte) error {
+func (f *KonsulFSM) applyServiceRegisterCAS(payload []byte) *CASResult {
 	var p ServiceRegisterCASPayload
 	if err := json.Unmarshal(payload, &p); err != nil {
-		return fmt.Errorf("failed to unmarshal ServiceRegisterCASPayload: %w", err)
+		return &CASResult{Err: fmt.Errorf("failed to unmarshal ServiceRegisterCASPayload: %w", err)}
 	}
 
 	f.mu.Lock()
@@ -274,20 +276,21 @@ func (f *KonsulFSM) applyServiceRegisterCAS(payload []byte) error {
 		Meta:    p.Service.Meta,
 	}
 
-	_, err := f.serviceStore.RegisterCASLocal(service, p.ExpectedIndex)
-	return err
+	newIndex, err := f.serviceStore.RegisterCASLocal(service, p.ExpectedIndex)
+	return &CASResult{NewIndex: newIndex, Err: err}
 }
 
-func (f *KonsulFSM) applyServiceDeregisterCAS(payload []byte) error {
+func (f *KonsulFSM) applyServiceDeregisterCAS(payload []byte) *CASResult {
 	var p ServiceDeregisterCASPayload
 	if err := json.Unmarshal(payload, &p); err != nil {
-		return fmt.Errorf("failed to unmarshal ServiceDeregisterCASPayload: %w", err)
+		return &CASResult{Err: fmt.Errorf("failed to unmarshal ServiceDeregisterCASPayload: %w", err)}
 	}
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	return f.serviceStore.DeregisterCASLocal(p.Name, p.ExpectedIndex)
+	err := f.serviceStore.DeregisterCASLocal(p.Name, p.ExpectedIndex)
+	return &CASResult{Err: err}
 }
 
 func (f *KonsulFSM) applyHealthTTLUpdate(payload []byte) error {

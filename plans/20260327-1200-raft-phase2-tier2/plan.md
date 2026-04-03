@@ -23,7 +23,7 @@ Standalone mode works correctly today.
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 01 | FSM CAS Result type + fix return values | 🔴 Todo | [phase-01](phase-01-fsm-cas-result.md) |
+| 01 | FSM CAS Result type + fix return values | ✅ Done | [phase-01](phase-01-fsm-cas-result.md) |
 | 02 | Node-level CAS methods | 🔴 Todo | [phase-02](phase-02-node-cas-methods.md) |
 | 03 | Fix Handlers (kv + batch) | 🔴 Todo | [phase-03](phase-03-handlers-cas.md) |
 | 04 | Linearizable Reads (ReadIndex/Barrier) | 🔴 Todo | [phase-04](phase-04-linearizable-reads.md) |
