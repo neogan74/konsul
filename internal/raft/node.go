@@ -404,6 +404,90 @@ func (n *Node) KVBatchDelete(keys []string) error {
 	return n.applyCommand(cmd, 10*time.Second)
 }
 
+// KVSetCAS atomically sets a key only if its ModifyIndex matches expectedIndex.
+// expectedIndex=0 means "create only if not exists".
+// Returns the new ModifyIndex on success.
+func (n *Node) KVSetCAS(key, value string, expectedIndex uint64) (uint64, error) {
+	cmd, err := NewCommand(CmdKVSetCAS, KVSetCASPayload{
+		Key:           key,
+		Value:         value,
+		ExpectedIndex: expectedIndex,
+	})
+	if err != nil {
+		return 0, err
+	}
+	resp, err := n.ApplyEntry(cmd, 5*time.Second)
+	if err != nil {
+		return 0, err
+	}
+	res, ok := resp.(*CASResult)
+	if !ok {
+		return 0, fmt.Errorf("unexpected FSM response type: %T", resp)
+	}
+	return res.NewIndex, res.Err
+}
+
+// KVDeleteCAS atomically deletes a key only if its ModifyIndex matches expectedIndex.
+func (n *Node) KVDeleteCAS(key string, expectedIndex uint64) error {
+	cmd, err := NewCommand(CmdKVDeleteCAS, KVDeleteCASPayload{
+		Key:           key,
+		ExpectedIndex: expectedIndex,
+	})
+	if err != nil {
+		return err
+	}
+	resp, err := n.ApplyEntry(cmd, 5*time.Second)
+	if err != nil {
+		return err
+	}
+	res, ok := resp.(*CASResult)
+	if !ok {
+		return fmt.Errorf("unexpected FSM response type: %T", resp)
+	}
+	return res.Err
+}
+
+// KVBatchSetCAS atomically sets multiple keys with per-key CAS checks.
+// Returns map of key→new ModifyIndex on success.
+func (n *Node) KVBatchSetCAS(items map[string]string, expectedIndices map[string]uint64) (map[string]uint64, error) {
+	cmd, err := NewCommand(CmdKVBatchSetCAS, KVBatchSetCASPayload{
+		Items:           items,
+		ExpectedIndices: expectedIndices,
+	})
+	if err != nil {
+		return nil, err
+	}
+	resp, err := n.ApplyEntry(cmd, 10*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	res, ok := resp.(*CASResult)
+	if !ok {
+		return nil, fmt.Errorf("unexpected FSM response type: %T", resp)
+	}
+	return res.NewIndices, res.Err
+}
+
+// KVBatchDeleteCAS atomically deletes multiple keys with per-key CAS checks.
+func (n *Node) KVBatchDeleteCAS(keys []string, expectedIndices map[string]uint64) error {
+	cmd, err := NewCommand(CmdKVBatchDeleteCAS, KVBatchDeleteCASPayload{
+		Keys:            keys,
+		ExpectedIndices: expectedIndices,
+	})
+	if err != nil {
+		return err
+	}
+	resp, err := n.ApplyEntry(cmd, 10*time.Second)
+	if err != nil {
+		return err
+	}
+	res, ok := resp.(*CASResult)
+	if !ok {
+		return fmt.Errorf("unexpected FSM response type: %T", resp)
+	}
+	return res.Err
+}
+
 // ServiceRegister registers a service through Raft consensus.
 func (n *Node) ServiceRegister(name, address string, port int, tags []string, meta map[string]string) error {
 	cmd, err := NewCommand(CmdServiceRegister, ServiceRegisterPayload{
