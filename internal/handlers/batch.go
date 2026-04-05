@@ -112,6 +112,15 @@ func (h *BatchHandler) BatchKVGet(c *fiber.Ctx) error {
 
 	log.Debug("Batch getting keys", logger.Int("count", len(req.Keys)))
 
+	if c.Query("consistent") == "true" && h.raftNode != nil {
+		if err := h.raftNode.EnsureLinearizableRead(5 * time.Second); err != nil {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"error":  "linearizable read failed",
+				"detail": err.Error(),
+			})
+		}
+	}
+
 	found, notFound := h.kvStore.BatchGet(req.Keys)
 
 	log.Info("Batch get completed",

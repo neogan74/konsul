@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/neogan74/konsul/internal/logger"
@@ -75,6 +76,15 @@ func (h *KVHandler) Get(c *fiber.Ctx) error {
 	log := middleware.GetLogger(c)
 
 	log.Debug("Getting key", logger.String("key", key))
+
+	if c.Query("consistent") == "true" && h.raftNode != nil {
+		if err := h.raftNode.EnsureLinearizableRead(5 * time.Second); err != nil {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"error":  "linearizable read failed",
+				"detail": err.Error(),
+			})
+		}
+	}
 
 	// Check if client wants full entry with indices
 	includeMetadata := c.Query("metadata", "false") == "true"
@@ -298,6 +308,15 @@ func (h *KVHandler) List(c *fiber.Ctx) error {
 	log := middleware.GetLogger(c)
 
 	log.Debug("Listing all keys")
+
+	if c.Query("consistent") == "true" && h.raftNode != nil {
+		if err := h.raftNode.EnsureLinearizableRead(5 * time.Second); err != nil {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"error":  "linearizable read failed",
+				"detail": err.Error(),
+			})
+		}
+	}
 
 	keys := h.store.List()
 
