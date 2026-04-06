@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-27
 **Goal:** Fix CAS operations via Raft + Atomic Batch ops + Linearizable Reads
-**Status:** 🔴 Not started
+**Status:** ✅ Complete
 
 ---
 
@@ -27,7 +27,7 @@ Standalone mode works correctly today.
 | 02 | Node-level CAS methods | ✅ Done | [phase-02](phase-02-node-cas-methods.md) |
 | 03 | Fix Handlers (kv + batch) | ✅ Done | [phase-03](phase-03-handlers-cas.md) |
 | 04 | Linearizable Reads (ReadIndex/Barrier) | ✅ Done | [phase-04](phase-04-linearizable-reads.md) |
-| 05 | Tests — unskip integration tests | 🔴 Todo | [phase-05](phase-05-tests.md) |
+| 05 | Tests — unskip integration tests | ✅ Done | [phase-05](phase-05-tests.md) |
 
 ## Estimated Effort
 

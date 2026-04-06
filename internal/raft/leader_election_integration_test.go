@@ -157,6 +157,21 @@ func newThreeNodeCluster(t *testing.T, opts clusterOptions) ([]*Node, func()) {
 	return nodes, cleanup
 }
 
+// waitForKVValue polls until MockKVStore has key=expected or timeout expires.
+func waitForKVValue(t *testing.T, kv *MockKVStore, key, expected string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		e, ok := kv.GetEntrySnapshot(key)
+		if ok && e.Value == expected {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	e, _ := kv.GetEntrySnapshot(key)
+	t.Errorf("timed out waiting for key %q = %q, got %q", key, expected, e.Value)
+}
+
 func TestLeaderElection_ThreeNodeCluster(t *testing.T) {
 	nodes, cleanup := newThreeNodeCluster(t, clusterOptions{})
 	defer cleanup()

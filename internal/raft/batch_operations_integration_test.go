@@ -103,15 +103,11 @@ func TestBatchOperations_BatchCASSuccess(t *testing.T) {
 		assert.Greater(t, newIdx, expectedIndices[k], "new index for %s must be greater", k)
 	}
 
-	time.Sleep(800 * time.Millisecond)
-
-	// Verify all nodes see the updated values
+	// Poll each node until it sees the updated values (avoids fixed-sleep flakiness)
 	for _, node := range nodes {
 		nodeKV := node.fsm.kvStore.(*MockKVStore)
 		for k, v := range updates {
-			e, ok := nodeKV.GetEntrySnapshot(k)
-			assert.True(t, ok, "node %s missing key %s", node.config.NodeID, k)
-			assert.Equal(t, v, e.Value, "node %s key %s value mismatch", node.config.NodeID, k)
+			waitForKVValue(t, nodeKV, k, v, 3*time.Second)
 		}
 	}
 }
