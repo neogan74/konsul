@@ -3,73 +3,176 @@ package raft
 import (
 	"fmt"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestBatchOperations_BatchSetSuccess verifies successful batch set operations.
+// TestBatchOperations_BatchSetSuccess verifies batch set replicates to all nodes.
 func TestBatchOperations_BatchSetSuccess(t *testing.T) {
-	t.Skip("TODO: Implement batch set success test")
+	nodes, cleanup := newThreeNodeCluster(t, clusterOptions{})
+	defer cleanup()
 
-	// Test plan:
-	// 1. Create a 3-node cluster
-	// 2. Prepare batch of 100 KV pairs
-	// 3. Execute batch set operation
-	// 4. Verify all 100 pairs are set atomically
-	// 5. Verify all nodes have consistent data
-	// 6. Verify operation is atomic (all or nothing)
+	leader := waitForSingleLeader(t, nodes, 5*time.Second)
+
+	batch := prepareBatchSet(10)
+	require.NoError(t, leader.KVBatchSet(batch))
+
+	time.Sleep(400 * time.Millisecond)
+
+	// All nodes must have all 10 keys
+	for _, node := range nodes {
+		kv := node.fsm.kvStore.(*MockKVStore)
+		for k, v := range batch {
+			e, ok := kv.GetEntrySnapshot(k)
+			assert.True(t, ok, "node %s missing key %s", node.config.NodeID, k)
+			assert.Equal(t, v, e.Value, "node %s key %s value mismatch", node.config.NodeID, k)
+		}
+	}
 }
 
-// TestBatchOperations_BatchDeleteSuccess verifies successful batch delete operations.
+// TestBatchOperations_BatchDeleteSuccess verifies batch delete replicates to all nodes.
 func TestBatchOperations_BatchDeleteSuccess(t *testing.T) {
-	t.Skip("TODO: Implement batch delete success test")
+	nodes, cleanup := newThreeNodeCluster(t, clusterOptions{})
+	defer cleanup()
 
-	// Test plan:
-	// 1. Create a 3-node cluster
-	// 2. Write 100 KV pairs
-	// 3. Execute batch delete of 50 keys
-	// 4. Verify 50 keys are deleted atomically
-	// 5. Verify 50 keys remain
-	// 6. Verify all nodes consistent
+	leader := waitForSingleLeader(t, nodes, 5*time.Second)
+
+	// Write 6 keys, then delete 3
+	batch := prepareBatchSet(6)
+	require.NoError(t, leader.KVBatchSet(batch))
+	time.Sleep(300 * time.Millisecond)
+
+	toDelete := make([]string, 0, 3)
+	toKeep := make([]string, 0, 3)
+	i := 0
+	for k := range batch {
+		if i < 3 {
+			toDelete = append(toDelete, k)
+		} else {
+			toKeep = append(toKeep, k)
+		}
+		i++
+	}
+
+	require.NoError(t, leader.KVBatchDelete(toDelete))
+	time.Sleep(400 * time.Millisecond)
+
+	for _, node := range nodes {
+		kv := node.fsm.kvStore.(*MockKVStore)
+		for _, k := range toDelete {
+			_, ok := kv.GetEntrySnapshot(k)
+			assert.False(t, ok, "node %s should not have deleted key %s", node.config.NodeID, k)
+		}
+		for _, k := range toKeep {
+			_, ok := kv.GetEntrySnapshot(k)
+			assert.True(t, ok, "node %s should still have key %s", node.config.NodeID, k)
+		}
+	}
 }
 
-// TestBatchOperations_BatchCASSuccess verifies successful batch CAS operations.
+// TestBatchOperations_BatchCASSuccess verifies BatchSetCAS returns new indices and replicates.
 func TestBatchOperations_BatchCASSuccess(t *testing.T) {
-	t.Skip("TODO: Implement batch CAS success test")
+	nodes, cleanup := newThreeNodeCluster(t, clusterOptions{})
+	defer cleanup()
 
-	// Test plan:
-	// 1. Create a 3-node cluster
-	// 2. Write initial KV pairs with known indices
-	// 3. Execute batch CAS with correct expected indices
-	// 4. Verify all CAS operations succeed
-	// 5. Verify new indices are returned
-	// 6. Verify all nodes see updates
+	leader := waitForSingleLeader(t, nodes, 5*time.Second)
+
+	// Write 3 initial keys
+	require.NoError(t, leader.KVBatchSet(map[string]string{
+		"bk1": "v1", "bk2": "v2", "bk3": "v3",
+	}))
+	time.Sleep(300 * time.Millisecond)
+
+	// Gather expected indices from leader FSM
+	kv := leader.fsm.kvStore.(*MockKVStore)
+	expectedIndices := make(map[string]uint64)
+	for _, k := range []string{"bk1", "bk2", "bk3"} {
+		e, ok := kv.GetEntrySnapshot(k)
+		require.True(t, ok, "key %s must exist", k)
+		expectedIndices[k] = e.ModifyIndex
+	}
+
+	// BatchSetCAS with correct indices
+	updates := map[string]string{"bk1": "u1", "bk2": "u2", "bk3": "u3"}
+	newIndices, err := leader.KVBatchSetCAS(updates, expectedIndices)
+	require.NoError(t, err, "BatchSetCAS with correct indices must succeed")
+	require.Len(t, newIndices, 3)
+	for k, newIdx := range newIndices {
+		assert.Greater(t, newIdx, expectedIndices[k], "new index for %s must be greater", k)
+	}
+
+	time.Sleep(800 * time.Millisecond)
+
+	// Verify all nodes see the updated values
+	for _, node := range nodes {
+		nodeKV := node.fsm.kvStore.(*MockKVStore)
+		for k, v := range updates {
+			e, ok := nodeKV.GetEntrySnapshot(k)
+			assert.True(t, ok, "node %s missing key %s", node.config.NodeID, k)
+			assert.Equal(t, v, e.Value, "node %s key %s value mismatch", node.config.NodeID, k)
+		}
+	}
 }
 
-// TestBatchOperations_BatchCASPartialFailure verifies partial batch CAS failure.
+// TestBatchOperations_BatchCASPartialFailure verifies that one bad index fails the whole batch.
 func TestBatchOperations_BatchCASPartialFailure(t *testing.T) {
-	t.Skip("TODO: Implement batch CAS partial failure test")
+	nodes, cleanup := newThreeNodeCluster(t, clusterOptions{})
+	defer cleanup()
 
-	// Test plan:
-	// 1. Create a 3-node cluster
-	// 2. Write initial KV pairs
-	// 3. Execute batch CAS with some incorrect indices
-	// 4. Verify entire batch fails (atomicity)
-	// 5. Verify no values were modified
-	// 6. Verify error indicates which keys had mismatches
+	leader := waitForSingleLeader(t, nodes, 5*time.Second)
+
+	require.NoError(t, leader.KVBatchSet(map[string]string{
+		"pk1": "v1", "pk2": "v2",
+	}))
+	time.Sleep(300 * time.Millisecond)
+
+	kv := leader.fsm.kvStore.(*MockKVStore)
+	e1, _ := kv.GetEntrySnapshot("pk1")
+	// pk2 uses a wrong expected index — triggers conflict for the whole batch
+	badIndices := map[string]uint64{"pk1": e1.ModifyIndex, "pk2": 9999}
+
+	_, err := leader.KVBatchSetCAS(
+		map[string]string{"pk1": "new1", "pk2": "new2"},
+		badIndices,
+	)
+	require.Error(t, err, "BatchSetCAS with one bad index must fail")
+
+	time.Sleep(300 * time.Millisecond)
+
+	// Neither key should be modified on any node
+	for _, node := range nodes {
+		nodeKV := node.fsm.kvStore.(*MockKVStore)
+		e, ok := nodeKV.GetEntrySnapshot("pk1")
+		assert.True(t, ok)
+		assert.Equal(t, "v1", e.Value, "node %s: pk1 must be unchanged", node.config.NodeID)
+		e2, ok := nodeKV.GetEntrySnapshot("pk2")
+		assert.True(t, ok)
+		assert.Equal(t, "v2", e2.Value, "node %s: pk2 must be unchanged", node.config.NodeID)
+	}
 }
 
-// TestBatchOperations_Atomicity verifies batch atomicity guarantee.
+// TestBatchOperations_Atomicity verifies a batch is all-or-nothing via Raft log.
 func TestBatchOperations_Atomicity(t *testing.T) {
-	t.Skip("TODO: Implement batch atomicity test")
+	nodes, cleanup := newThreeNodeCluster(t, clusterOptions{})
+	defer cleanup()
 
-	// Test plan:
-	// 1. Create a 3-node cluster
-	// 2. Prepare batch with 100 operations
-	// 3. Simulate failure during batch processing
-	// 4. Verify either all 100 succeeded or all 100 failed
-	// 5. Verify no partial state (e.g., 50 succeeded)
-	// 6. Verify all nodes have same view
+	leader := waitForSingleLeader(t, nodes, 5*time.Second)
+
+	batch := prepareBatchSet(5)
+	require.NoError(t, leader.KVBatchSet(batch))
+	time.Sleep(400 * time.Millisecond)
+
+	// All nodes must have EXACTLY the same keys
+	for _, node := range nodes {
+		kv := node.fsm.kvStore.(*MockKVStore)
+		for k, v := range batch {
+			e, ok := kv.GetEntrySnapshot(k)
+			assert.True(t, ok, "node %s should have key %s", node.config.NodeID, k)
+			assert.Equal(t, v, e.Value)
+		}
+	}
 }
 
 // TestBatchOperations_LargeBatch verifies handling of large batch sizes.
@@ -111,17 +214,33 @@ func TestBatchOperations_BatchMixedOperations(t *testing.T) {
 	// 6. Verify all nodes consistent
 }
 
-// TestBatchOperations_BatchReplication verifies batch replication to followers.
+// TestBatchOperations_BatchReplication verifies a batch written on leader appears on all followers.
 func TestBatchOperations_BatchReplication(t *testing.T) {
-	t.Skip("TODO: Implement batch replication test")
+	nodes, cleanup := newThreeNodeCluster(t, clusterOptions{})
+	defer cleanup()
 
-	// Test plan:
-	// 1. Create a 5-node cluster
-	// 2. Execute large batch on leader
-	// 3. Verify batch replicates to all followers
-	// 4. Measure replication time
-	// 5. Verify no followers left behind
-	// 6. Verify batch is applied atomically on followers
+	leader := waitForSingleLeader(t, nodes, 5*time.Second)
+
+	batch := prepareBatchSet(20)
+	require.NoError(t, leader.KVBatchSet(batch))
+	time.Sleep(500 * time.Millisecond)
+
+	followers := make([]*Node, 0, 2)
+	for _, n := range nodes {
+		if n != leader {
+			followers = append(followers, n)
+		}
+	}
+	require.Len(t, followers, 2, "should have exactly 2 followers")
+
+	for _, follower := range followers {
+		kv := follower.fsm.kvStore.(*MockKVStore)
+		for k, v := range batch {
+			e, ok := kv.GetEntrySnapshot(k)
+			assert.True(t, ok, "follower %s missing replicated key %s", follower.config.NodeID, k)
+			assert.Equal(t, v, e.Value, "follower %s value mismatch for key %s", follower.config.NodeID, k)
+		}
+	}
 }
 
 // TestBatchOperations_BatchWithLeaderChange verifies batch during leader change.

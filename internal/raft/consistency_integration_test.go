@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -91,55 +92,36 @@ func TestConsistency_StaleReads(t *testing.T) {
 	require.Equal(t, "fresh-value", value, "follower should have fresh value after replication")
 }
 
-// TestConsistency_CASOperationSuccess verifies successful CAS operation.
+// TestConsistency_CASOperationSuccess verifies successful CAS operation in a cluster.
 func TestConsistency_CASOperationSuccess(t *testing.T) {
-	t.Skip("CAS requires MockKVStore with proper index tracking - future enhancement")
-
-	// Note: Current MockKVStore (node_test.go) has stub CAS implementation
-	// Need to use mockKVStore from fsm_test.go which properly tracks ModifyIndex
-
 	nodes, cleanup := newThreeNodeCluster(t, clusterOptions{})
 	defer cleanup()
 
 	leader := waitForSingleLeader(t, nodes, 5*time.Second)
 
-	// Write initial value
-	cmd, err := NewCommand(CmdKVSet, KVSetPayload{
-		Key:   "cas-key",
-		Value: "initial-value",
-	})
-	require.NoError(t, err)
-	_, err = leader.ApplyEntry(cmd, 5*time.Second)
-	require.NoError(t, err)
+	// Write initial value via Node API
+	require.NoError(t, leader.KVSet("cas-key", "initial-value"))
+	time.Sleep(300 * time.Millisecond)
 
-	// Wait for replication
+	// Get the actual ModifyIndex from the leader's FSM store
+	kvStore := leader.fsm.kvStore.(*MockKVStore)
+	entry, ok := kvStore.GetEntrySnapshot("cas-key")
+	require.True(t, ok, "key should exist after KVSet")
+	initialIndex := entry.ModifyIndex
+	require.Greater(t, initialIndex, uint64(0))
+
+	// CAS update with correct index via Node API
+	newIndex, err := leader.KVSetCAS("cas-key", "updated-value", initialIndex)
+	require.NoError(t, err, "CAS with correct index should succeed")
+	assert.Greater(t, newIndex, initialIndex, "new ModifyIndex must be greater than old")
+
+	// Verify all nodes see the updated value after replication
 	time.Sleep(500 * time.Millisecond)
-
-	// Get current index from MockKVStore (simulating ModifyIndex)
-	// For this test, we'll use index 1 as the expected index
-	expectedIndex := uint64(1)
-
-	// Perform CAS operation
-	casCmd, err := NewCommand(CmdKVSetCAS, KVSetCASPayload{
-		Key:           "cas-key",
-		Value:         "updated-value",
-		ExpectedIndex: expectedIndex,
-	})
-	require.NoError(t, err)
-
-	_, err = leader.ApplyEntry(casCmd, 5*time.Second)
-	require.NoError(t, err, "CAS operation should succeed")
-
-	// Wait for replication
-	time.Sleep(500 * time.Millisecond)
-
-	// Verify all nodes see the updated value
 	for _, node := range nodes {
-		kvStore := node.fsm.kvStore.(*MockKVStore)
-		value, exists, err := kvStore.Get("cas-key")
-		require.NoError(t, err)
-		require.True(t, exists)
-		require.Equal(t, "updated-value", value, "CAS should update value on node %s", node.config.NodeID)
+		kv := node.fsm.kvStore.(*MockKVStore)
+		e, exists := kv.GetEntrySnapshot("cas-key")
+		assert.True(t, exists, "node %s should have key", node.config.NodeID)
+		assert.Equal(t, "updated-value", e.Value, "node %s should have updated value", node.config.NodeID)
 	}
 }
 
@@ -286,63 +268,52 @@ func TestConsistency_CASRaceCondition(t *testing.T) {
 	}
 }
 
-// TestConsistency_CASAcrossLeaderChange verifies CAS during leader change.
+// TestConsistency_CASAcrossLeaderChange verifies CAS survives a leader re-election.
 func TestConsistency_CASAcrossLeaderChange(t *testing.T) {
-	t.Skip("CAS requires MockKVStore with proper index tracking - future enhancement")
-
-	// Note: Current MockKVStore (node_test.go) has stub CAS implementation
-	// Need to use mockKVStore from fsm_test.go which properly tracks ModifyIndex
-
 	nodes, cleanup := newThreeNodeCluster(t, clusterOptions{})
 	defer cleanup()
 
 	leader := waitForSingleLeader(t, nodes, 5*time.Second)
 
-	// Write value on old leader
-	cmd, err := NewCommand(CmdKVSet, KVSetPayload{
-		Key:   "leader-change-key",
-		Value: "initial-value",
-	})
-	require.NoError(t, err)
-	_, err = leader.ApplyEntry(cmd, 5*time.Second)
-	require.NoError(t, err)
-
+	// Write value on current leader
+	require.NoError(t, leader.KVSet("leader-change-key", "initial-value"))
 	time.Sleep(500 * time.Millisecond)
 
+	// Capture the actual ModifyIndex from leader's FSM store
+	leaderKV := leader.fsm.kvStore.(*MockKVStore)
+	entry, ok := leaderKV.GetEntrySnapshot("leader-change-key")
+	require.True(t, ok)
+	initialIndex := entry.ModifyIndex
+
 	// Shutdown old leader to trigger election
+	oldLeaderID := leader.config.NodeID
 	require.NoError(t, leader.Shutdown())
 
-	// Wait for new leader
 	var remaining []*Node
 	for _, node := range nodes {
-		if node != leader {
+		if node.config.NodeID != oldLeaderID {
 			remaining = append(remaining, node)
 		}
 	}
 
-	newLeader := waitForSingleLeader(t, remaining, 5*time.Second)
-	require.NotNil(t, newLeader)
+	newLeader := waitForSingleLeader(t, remaining, 10*time.Second)
+	require.NotNil(t, newLeader, "new leader must be elected")
 
-	// Perform CAS on new leader
-	casCmd, err := NewCommand(CmdKVSetCAS, KVSetCASPayload{
-		Key:           "leader-change-key",
-		Value:         "updated-after-election",
-		ExpectedIndex: uint64(1),
-	})
-	require.NoError(t, err)
+	// Give new leader time to apply any committed entries
+	time.Sleep(500 * time.Millisecond)
 
-	_, err = newLeader.ApplyEntry(casCmd, 5*time.Second)
-	require.NoError(t, err, "CAS should succeed on new leader")
+	// Perform CAS on new leader using the known initialIndex
+	newIndex, err := newLeader.KVSetCAS("leader-change-key", "updated-after-election", initialIndex)
+	require.NoError(t, err, "CAS should succeed on new leader after election")
+	assert.Greater(t, newIndex, initialIndex)
 
 	time.Sleep(500 * time.Millisecond)
 
-	// Verify all remaining nodes have the updated value
 	for _, node := range remaining {
-		kvStore := node.fsm.kvStore.(*MockKVStore)
-		value, exists, err := kvStore.Get("leader-change-key")
-		require.NoError(t, err)
-		require.True(t, exists)
-		require.Equal(t, "updated-after-election", value)
+		kv := node.fsm.kvStore.(*MockKVStore)
+		e, exists := kv.GetEntrySnapshot("leader-change-key")
+		assert.True(t, exists, "node %s should have key", node.config.NodeID)
+		assert.Equal(t, "updated-after-election", e.Value, "node %s value mismatch", node.config.NodeID)
 	}
 }
 
