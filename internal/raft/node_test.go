@@ -1,6 +1,8 @@
 package raft
 
 import (
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -11,106 +13,216 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// MockKVStore is a simple in-memory implementation for testing
+// MockKVStore is a thread-safe in-memory KV store with ModifyIndex tracking.
 type MockKVStore struct {
-	data map[string]string
+	mu        sync.Mutex
+	data      map[string]store.KVEntrySnapshot
+	nextIndex uint64
 }
 
 func NewMockKVStore() *MockKVStore {
-	return &MockKVStore{
-		data: make(map[string]string),
-	}
+	return &MockKVStore{data: make(map[string]store.KVEntrySnapshot)}
 }
 
+// setLocked sets key=value, increments nextIndex. Caller must hold mu.
+func (m *MockKVStore) setLocked(key, value string) uint64 {
+	m.nextIndex++
+	existing := m.data[key]
+	createIdx := existing.CreateIndex
+	if createIdx == 0 {
+		createIdx = m.nextIndex
+	}
+	m.data[key] = store.KVEntrySnapshot{Value: value, ModifyIndex: m.nextIndex, CreateIndex: createIdx}
+	return m.nextIndex
+}
+
+// Extra methods used directly by integration tests (not part of KVStoreInterface)
+
 func (m *MockKVStore) Set(key, value string) error {
-	m.data[key] = value
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.setLocked(key, value)
 	return nil
 }
 
-func (m *MockKVStore) SetWithFlags(key, value string, _ uint64) error {
-	m.data[key] = value
+func (m *MockKVStore) SetWithFlags(key, value string, flags uint64) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.nextIndex++
+	existing := m.data[key]
+	createIdx := existing.CreateIndex
+	if createIdx == 0 {
+		createIdx = m.nextIndex
+	}
+	m.data[key] = store.KVEntrySnapshot{Value: value, ModifyIndex: m.nextIndex, CreateIndex: createIdx, Flags: flags}
 	return nil
 }
 
 func (m *MockKVStore) Get(key string) (string, bool, error) {
-	val, ok := m.data[key]
-	return val, ok, nil
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	entry, ok := m.data[key]
+	return entry.Value, ok, nil
 }
 
 func (m *MockKVStore) Delete(key string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	delete(m.data, key)
 	return nil
 }
 
 func (m *MockKVStore) List(_ string) (map[string]string, error) {
-	result := make(map[string]string)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	result := make(map[string]string, len(m.data))
 	for k, v := range m.data {
-		result[k] = v
+		result[k] = v.Value
 	}
 	return result, nil
 }
 
+// KVStoreInterface methods
+
 func (m *MockKVStore) SetLocal(key, value string) {
-	m.data[key] = value
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.setLocked(key, value)
 }
 
-func (m *MockKVStore) SetWithFlagsLocal(key, value string, _ uint64) {
-	m.data[key] = value
+func (m *MockKVStore) SetWithFlagsLocal(key, value string, flags uint64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.nextIndex++
+	existing := m.data[key]
+	createIdx := existing.CreateIndex
+	if createIdx == 0 {
+		createIdx = m.nextIndex
+	}
+	m.data[key] = store.KVEntrySnapshot{Value: value, ModifyIndex: m.nextIndex, CreateIndex: createIdx, Flags: flags}
 }
 
 func (m *MockKVStore) DeleteLocal(key string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	delete(m.data, key)
 }
 
 func (m *MockKVStore) BatchSetLocal(items map[string]string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	for k, v := range items {
-		m.data[k] = v
+		m.setLocked(k, v)
 	}
 	return nil
 }
 
 func (m *MockKVStore) BatchDeleteLocal(keys []string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	for _, k := range keys {
 		delete(m.data, k)
 	}
 	return nil
 }
 
-func (m *MockKVStore) SetCASLocal(_, _ string, _ uint64) (uint64, error) {
-	return 0, nil
+func (m *MockKVStore) SetCASLocal(key, value string, expectedIndex uint64) (uint64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	entry, ok := m.data[key]
+	if expectedIndex == 0 {
+		if ok {
+			return 0, fmt.Errorf("CAS conflict: key %q already exists", key)
+		}
+	} else {
+		if !ok || entry.ModifyIndex != expectedIndex {
+			return 0, fmt.Errorf("CAS conflict: key %q expected index %d, got %d", key, expectedIndex, entry.ModifyIndex)
+		}
+	}
+	return m.setLocked(key, value), nil
 }
 
-func (m *MockKVStore) DeleteCASLocal(_ string, _ uint64) error {
+func (m *MockKVStore) DeleteCASLocal(key string, expectedIndex uint64) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	entry, ok := m.data[key]
+	if !ok || entry.ModifyIndex != expectedIndex {
+		return fmt.Errorf("CAS conflict: delete key %q expected index %d", key, expectedIndex)
+	}
+	delete(m.data, key)
 	return nil
 }
 
-func (m *MockKVStore) BatchSetCASLocal(_ map[string]string, _ map[string]uint64) (map[string]uint64, error) {
-	return nil, nil
+func (m *MockKVStore) BatchSetCASLocal(items map[string]string, expectedIndices map[string]uint64) (map[string]uint64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	// Validate all keys first (atomicity guarantee)
+	for k := range items {
+		expected := expectedIndices[k]
+		entry, ok := m.data[k]
+		if expected == 0 {
+			if ok {
+				return nil, fmt.Errorf("CAS conflict: key %q already exists", k)
+			}
+		} else {
+			if !ok || entry.ModifyIndex != expected {
+				return nil, fmt.Errorf("CAS conflict: key %q index mismatch", k)
+			}
+		}
+	}
+	// Apply all (no validation errors means proceed)
+	results := make(map[string]uint64, len(items))
+	for k, v := range items {
+		results[k] = m.setLocked(k, v)
+	}
+	return results, nil
 }
 
-func (m *MockKVStore) BatchDeleteCASLocal(_ []string, _ map[string]uint64) error {
+func (m *MockKVStore) BatchDeleteCASLocal(keys []string, expectedIndices map[string]uint64) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	// Validate all keys first (atomicity guarantee)
+	for _, k := range keys {
+		entry, ok := m.data[k]
+		if !ok || entry.ModifyIndex != expectedIndices[k] {
+			return fmt.Errorf("CAS conflict: batch delete key %q index mismatch", k)
+		}
+	}
+	// Apply all
+	for _, k := range keys {
+		delete(m.data, k)
+	}
 	return nil
 }
 
 func (m *MockKVStore) GetAllData() map[string]store.KVEntrySnapshot {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	result := make(map[string]store.KVEntrySnapshot, len(m.data))
 	for k, v := range m.data {
-		result[k] = store.KVEntrySnapshot{Value: v}
+		result[k] = v
 	}
 	return result
 }
 
 func (m *MockKVStore) RestoreFromSnapshot(data map[string]store.KVEntrySnapshot) error {
-	m.data = make(map[string]string, len(data))
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.data = make(map[string]store.KVEntrySnapshot, len(data))
 	for k, v := range data {
-		m.data[k] = v.Value
+		m.data[k] = v
+		if v.ModifyIndex > m.nextIndex {
+			m.nextIndex = v.ModifyIndex
+		}
 	}
 	return nil
 }
 
 func (m *MockKVStore) GetEntrySnapshot(key string) (store.KVEntrySnapshot, bool) {
-	val, ok := m.data[key]
-	return store.KVEntrySnapshot{Value: val}, ok
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	entry, ok := m.data[key]
+	return entry, ok
 }
 
 // MockServiceStore is a simple in-memory implementation for testing

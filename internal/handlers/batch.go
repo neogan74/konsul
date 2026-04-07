@@ -112,6 +112,15 @@ func (h *BatchHandler) BatchKVGet(c *fiber.Ctx) error {
 
 	log.Debug("Batch getting keys", logger.Int("count", len(req.Keys)))
 
+	if c.Query("consistent") == "true" && h.raftNode != nil {
+		if err := h.raftNode.EnsureLinearizableRead(5 * time.Second); err != nil {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"error":  "linearizable read failed",
+				"detail": err.Error(),
+			})
+		}
+	}
+
 	found, notFound := h.kvStore.BatchGet(req.Keys)
 
 	log.Info("Batch get completed",
@@ -271,25 +280,12 @@ func (h *BatchHandler) BatchKVSetCAS(c *fiber.Ctx) error {
 	var newIndices map[string]uint64
 	var err error
 	if h.raftNode != nil {
-		cmd, marshalErr := konsulraft.NewCommand(konsulraft.CmdKVBatchSetCAS, konsulraft.KVBatchSetCASPayload{
-			Items:           req.Items,
-			ExpectedIndices: req.ExpectedIndices,
-		})
-		if marshalErr != nil {
-			log.Error("Failed to build raft log entry", logger.Error(marshalErr))
-			return middleware.InternalError(c, "Failed to set keys")
-		}
-		resp, applyErr := h.raftNode.ApplyEntry(cmd, 10*time.Second)
-		if applyErr != nil {
-			if errors.Is(applyErr, hashiraft.ErrNotLeader) {
-				return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
-					"error":  "not leader",
-					"leader": h.raftNode.Leader(),
-				})
-			}
-			err = applyErr
-		} else if cast, ok := resp.(map[string]uint64); ok {
-			newIndices = cast
+		newIndices, err = h.raftNode.KVBatchSetCAS(req.Items, req.ExpectedIndices)
+		if errors.Is(err, konsulraft.ErrNotLeader) {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"error":  "not leader",
+				"leader": h.raftNode.Leader(),
+			})
 		}
 	} else {
 		newIndices, err = h.kvStore.BatchSetCAS(req.Items, req.ExpectedIndices)
@@ -354,22 +350,12 @@ func (h *BatchHandler) BatchKVDeleteCAS(c *fiber.Ctx) error {
 
 	var err error
 	if h.raftNode != nil {
-		cmd, marshalErr := konsulraft.NewCommand(konsulraft.CmdKVBatchDeleteCAS, konsulraft.KVBatchDeleteCASPayload{
-			Keys:            req.Keys,
-			ExpectedIndices: req.ExpectedIndices,
-		})
-		if marshalErr != nil {
-			log.Error("Failed to build raft log entry", logger.Error(marshalErr))
-			return middleware.InternalError(c, "Failed to delete keys")
-		}
-		if _, applyErr := h.raftNode.ApplyEntry(cmd, 10*time.Second); applyErr != nil {
-			if errors.Is(applyErr, hashiraft.ErrNotLeader) {
-				return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
-					"error":  "not leader",
-					"leader": h.raftNode.Leader(),
-				})
-			}
-			err = applyErr
+		err = h.raftNode.KVBatchDeleteCAS(req.Keys, req.ExpectedIndices)
+		if errors.Is(err, konsulraft.ErrNotLeader) {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"error":  "not leader",
+				"leader": h.raftNode.Leader(),
+			})
 		}
 	} else {
 		err = h.kvStore.BatchDeleteCAS(req.Keys, req.ExpectedIndices)

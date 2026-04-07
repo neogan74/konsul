@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	hashiraft "github.com/hashicorp/raft"
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/metrics"
 	"github.com/neogan74/konsul/internal/middleware"
@@ -78,6 +77,15 @@ func (h *KVHandler) Get(c *fiber.Ctx) error {
 
 	log.Debug("Getting key", logger.String("key", key))
 
+	if c.Query("consistent") == "true" && h.raftNode != nil {
+		if err := h.raftNode.EnsureLinearizableRead(5 * time.Second); err != nil {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"error":  "linearizable read failed",
+				"detail": err.Error(),
+			})
+		}
+	}
+
 	// Check if client wants full entry with indices
 	includeMetadata := c.Query("metadata", "false") == "true"
 
@@ -142,26 +150,12 @@ func (h *KVHandler) Set(c *fiber.Ctx) error {
 		var newIndex uint64
 		var err error
 		if h.raftNode != nil {
-			cmd, marshalErr := konsulraft.NewCommand(konsulraft.CmdKVSetCAS, konsulraft.KVSetCASPayload{
-				Key:           key,
-				Value:         body.Value,
-				ExpectedIndex: *body.CAS,
-			})
-			if marshalErr != nil {
-				log.Error("Failed to build raft command", logger.Error(marshalErr))
-				return middleware.InternalError(c, "Failed to set key")
-			}
-			resp, applyErr := h.raftNode.ApplyEntry(cmd, 5*time.Second)
-			if applyErr != nil {
-				if errors.Is(applyErr, hashiraft.ErrNotLeader) {
-					return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
-						"error":  "not leader",
-						"leader": h.raftNode.Leader(),
-					})
-				}
-				err = applyErr
-			} else if index, ok := resp.(uint64); ok {
-				newIndex = index
+			newIndex, err = h.raftNode.KVSetCAS(key, body.Value, *body.CAS)
+			if errors.Is(err, konsulraft.ErrNotLeader) {
+				return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+					"error":  "not leader",
+					"leader": h.raftNode.Leader(),
+				})
 			}
 		} else {
 			newIndex, err = h.store.SetCAS(key, body.Value, *body.CAS)
@@ -254,22 +248,12 @@ func (h *KVHandler) Delete(c *fiber.Ctx) error {
 
 		var err error
 		if h.raftNode != nil {
-			cmd, marshalErr := konsulraft.NewCommand(konsulraft.CmdKVDeleteCAS, konsulraft.KVDeleteCASPayload{
-				Key:           key,
-				ExpectedIndex: expectedIndex,
-			})
-			if marshalErr != nil {
-				log.Error("Failed to build raft command", logger.Error(marshalErr))
-				return middleware.InternalError(c, "Failed to delete key")
-			}
-			if _, applyErr := h.raftNode.ApplyEntry(cmd, 5*time.Second); applyErr != nil {
-				if errors.Is(applyErr, hashiraft.ErrNotLeader) {
-					return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
-						"error":  "not leader",
-						"leader": h.raftNode.Leader(),
-					})
-				}
-				err = applyErr
+			err = h.raftNode.KVDeleteCAS(key, expectedIndex)
+			if errors.Is(err, konsulraft.ErrNotLeader) {
+				return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+					"error":  "not leader",
+					"leader": h.raftNode.Leader(),
+				})
 			}
 		} else {
 			err = h.store.DeleteCAS(key, expectedIndex)
@@ -324,6 +308,15 @@ func (h *KVHandler) List(c *fiber.Ctx) error {
 	log := middleware.GetLogger(c)
 
 	log.Debug("Listing all keys")
+
+	if c.Query("consistent") == "true" && h.raftNode != nil {
+		if err := h.raftNode.EnsureLinearizableRead(5 * time.Second); err != nil {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"error":  "linearizable read failed",
+				"detail": err.Error(),
+			})
+		}
+	}
 
 	keys := h.store.List()
 

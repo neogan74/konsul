@@ -699,3 +699,41 @@ func TestFSM_Apply_ServiceRegisterCAS(t *testing.T) {
 	assert.NoError(t, casRespUpdate.Err)
 	assert.Equal(t, "4.3.2.1", serviceStore.data["web"].Service.Address)
 }
+
+// TestFSM_CASResultReturned verifies that FSM.Apply returns *CASResult with populated NewIndex.
+func TestFSM_CASResultReturned(t *testing.T) {
+	kvStore := newMockKVStore()
+	fsm := NewFSM(FSMConfig{KVStore: kvStore})
+
+	cmd, _ := NewCommand(CmdKVSetCAS, KVSetCASPayload{
+		Key: "k", Value: "v", ExpectedIndex: 0,
+	})
+	result := fsm.Apply(makeLog(t, cmd))
+
+	casResult, ok := result.(*CASResult)
+	require.True(t, ok, "FSM must return *CASResult for CAS commands")
+	require.NoError(t, casResult.Err)
+	assert.Greater(t, casResult.NewIndex, uint64(0), "NewIndex must be positive on successful CAS create")
+}
+
+// TestFSM_BatchCASResultReturned verifies that batch CAS returns *CASResult with NewIndices map.
+func TestFSM_BatchCASResultReturned(t *testing.T) {
+	kvStore := newMockKVStore()
+	fsm := NewFSM(FSMConfig{KVStore: kvStore})
+
+	items := map[string]string{"k1": "v1", "k2": "v2"}
+	expectedIndices := map[string]uint64{"k1": 0, "k2": 0}
+	cmd, _ := NewCommand(CmdKVBatchSetCAS, KVBatchSetCASPayload{
+		Items:           items,
+		ExpectedIndices: expectedIndices,
+	})
+	result := fsm.Apply(makeLog(t, cmd))
+
+	casResult, ok := result.(*CASResult)
+	require.True(t, ok, "FSM must return *CASResult for batch CAS commands")
+	require.NoError(t, casResult.Err)
+	require.Len(t, casResult.NewIndices, 2)
+	for k, idx := range casResult.NewIndices {
+		assert.Greater(t, idx, uint64(0), "key %s should have positive NewIndex", k)
+	}
+}
