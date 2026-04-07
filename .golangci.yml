@@ -8,19 +8,12 @@ run:
   # Include test files
   tests: true
   
-  # Skip directories
-  skip-dirs:
-    - vendor
-    - third_party
 
 # Output configuration
 output:
-  # Colored output
-  format: colored-line-number
-  
   # Print linter name at the end of lines
   print-linter-name: true
-  
+
   # Sort results by file, line, column
   sort-results: true
 
@@ -58,9 +51,6 @@ linters-settings:
       - fieldalignment  # Not critical for correctness
 
   staticcheck:
-    # Select the Go version to target
-    go: "1.24"
-
     # SA1019: package is deprecated - still report
     # SA5001: ineffectual assignment - still report
     checks:
