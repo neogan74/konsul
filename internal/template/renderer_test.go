@@ -38,7 +38,7 @@ Services:
 {{- end }}
 `
 
-	if err := os.WriteFile(templatePath, []byte(templateContent), 0644); err != nil {
+	if err := os.WriteFile(templatePath, []byte(templateContent), 0o644); err != nil {
 		t.Fatalf("Failed to write template file: %v", err)
 	}
 
@@ -81,14 +81,14 @@ func TestRendererFileWrite(t *testing.T) {
 	outputPath := filepath.Join(tmpDir, "output.txt")
 
 	templateContent := `{{ kv "greeting" }}`
-	if err := os.WriteFile(templatePath, []byte(templateContent), 0644); err != nil {
+	if err := os.WriteFile(templatePath, []byte(templateContent), 0o644); err != nil {
 		t.Fatalf("Failed to write template file: %v", err)
 	}
 
 	config := Config{
 		Source:      templatePath,
 		Destination: outputPath,
-		Perms:       0644,
+		Perms:       0o644,
 	}
 
 	result, err := renderer.Render(config)
@@ -130,13 +130,13 @@ func TestRendererBackup(t *testing.T) {
 
 	// Write initial content
 	initialContent := "old value"
-	if err := os.WriteFile(outputPath, []byte(initialContent), 0644); err != nil {
+	if err := os.WriteFile(outputPath, []byte(initialContent), 0o644); err != nil {
 		t.Fatalf("Failed to write initial file: %v", err)
 	}
 
 	// Write template
 	templateContent := `{{ kv "value" }}`
-	if err := os.WriteFile(templatePath, []byte(templateContent), 0644); err != nil {
+	if err := os.WriteFile(templatePath, []byte(templateContent), 0o644); err != nil {
 		t.Fatalf("Failed to write template file: %v", err)
 	}
 
@@ -144,7 +144,7 @@ func TestRendererBackup(t *testing.T) {
 		Source:      templatePath,
 		Destination: outputPath,
 		Backup:      true,
-		Perms:       0644,
+		Perms:       0o644,
 	}
 
 	_, err := renderer.Render(config)
@@ -189,7 +189,7 @@ func TestRendererDryRun(t *testing.T) {
 	outputPath := filepath.Join(tmpDir, "output.txt")
 
 	templateContent := `{{ kv "test" }}`
-	if err := os.WriteFile(templatePath, []byte(templateContent), 0644); err != nil {
+	if err := os.WriteFile(templatePath, []byte(templateContent), 0o644); err != nil {
 		t.Fatalf("Failed to write template file: %v", err)
 	}
 

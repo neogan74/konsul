@@ -243,8 +243,8 @@ func (cmd *ACLCommands) deletePolicy(args []string) {
 	var confirm string
 	_, _ = fmt.Scanln(&confirm)
 
-	if strings.ToLower(confirm) != "yes" && strings.ToLower(confirm) != "y" {
-		cmd.cli.Printf("Deletion cancelled\n")
+	if !strings.EqualFold(confirm, "yes") && !strings.EqualFold(confirm, "y") {
+		cmd.cli.Printf("Deletion canceled\n")
 		return
 	}
 

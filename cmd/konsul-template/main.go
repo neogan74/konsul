@@ -66,7 +66,7 @@ func main() {
 			{
 				Source:      *templateSrc,
 				Destination: *dest,
-				Perms:       0644,
+				Perms:       0o644,
 			},
 		}
 	}
@@ -111,7 +111,7 @@ func main() {
 	case err := <-errCh:
 		if err != nil {
 			log.Error("Engine error", logger.Error(err))
-			os.Exit(1)
+			os.Exit(1) //nolint:gocritic // exitAfterDefer: cancel() is a context cancel, safe to skip on error exit
 		}
 	}
 

@@ -135,29 +135,3 @@ func TestSnapshot_InstallOnNewFollower(t *testing.T) {
 	// 5. Verify leader installs snapshot on new follower
 	// 6. Verify new follower catches up and has all data
 }
-
-// Helper functions for snapshot tests
-
-// waitForSnapshot waits for a snapshot to be created within timeout.
-func waitForSnapshot(t *testing.T, node *Node, timeout time.Duration) {
-	t.Helper()
-
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		// Check if snapshot directory has any files
-		// Implementation depends on Node exposing snapshot info
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	t.Fatalf("timed out waiting for snapshot")
-}
-
-// verifySnapshotContains verifies snapshot contains expected data.
-func verifySnapshotContains(t *testing.T, node *Node, expectedKV map[string]string) {
-	t.Helper()
-
-	// Implementation will read snapshot and verify contents
-	// This requires accessing the FSM's snapshot data
-	require.NotNil(t, node)
-	require.NotEmpty(t, expectedKV)
-}

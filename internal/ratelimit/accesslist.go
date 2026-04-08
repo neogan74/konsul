@@ -230,7 +230,7 @@ func (a *AccessList) GetBlacklistEntry(identifier string) *BlacklistEntry {
 }
 
 // Count returns the number of active whitelist and blacklist entries
-func (a *AccessList) Count() (whitelisted int, blacklisted int) {
+func (a *AccessList) Count() (whitelisted, blacklisted int) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 

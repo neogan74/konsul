@@ -515,15 +515,16 @@ func (s *ServiceStore) CleanupExpired() int {
 	expiredServices := make([]string, 0)
 
 	for name, entry := range s.Data {
-		if entry.ExpiresAt.Before(now) {
-			// Remove from indexes before deleting
-			s.removeFromTagIndex(name, entry.Service.Tags)
-			s.removeFromMetaIndex(name, entry.Service.Meta)
-
-			delete(s.Data, name)
-			expiredServices = append(expiredServices, name)
-			count++
+		if !entry.ExpiresAt.Before(now) {
+			continue
 		}
+		// Remove from indexes before deleting
+		s.removeFromTagIndex(name, entry.Service.Tags)
+		s.removeFromMetaIndex(name, entry.Service.Meta)
+
+		delete(s.Data, name)
+		expiredServices = append(expiredServices, name)
+		count++
 	}
 
 	// Delete expired services from persistence

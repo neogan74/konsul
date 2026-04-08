@@ -19,7 +19,7 @@ import (
 )
 
 // Helper to generate certs. passing parentCert/Key allows signing.
-func generateCert(t *testing.T, dir string, name string, isCA bool, parentCert *x509.Certificate, parentKey *rsa.PrivateKey) (string, string, *x509.Certificate, *rsa.PrivateKey) {
+func generateCert(t *testing.T, dir, name string, isCA bool, parentCert *x509.Certificate, parentKey *rsa.PrivateKey) (string, string, *x509.Certificate, *rsa.PrivateKey) {
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 

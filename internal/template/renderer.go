@@ -91,7 +91,7 @@ func (r *Renderer) Render(config Config) (*RenderResult, error) {
 func (r *Renderer) writeFile(config Config) error {
 	// Ensure destination directory exists
 	destDir := filepath.Dir(config.Destination)
-	if err := os.MkdirAll(destDir, 0755); err != nil {
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create destination directory %s: %w", destDir, err)
 	}
 
@@ -109,7 +109,7 @@ func (r *Renderer) writeFile(config Config) error {
 	tempPath := config.Destination + ".tmp"
 	perms := os.FileMode(config.Perms)
 	if perms == 0 {
-		perms = 0644 // Default permissions
+		perms = 0o644 // Default permissions
 	}
 
 	if err := os.WriteFile(tempPath, []byte(r.getRenderedContent(config)), perms); err != nil {

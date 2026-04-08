@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb/v2"
+
 	"github.com/neogan74/konsul/internal/store"
 )
 
@@ -40,7 +41,7 @@ func NewNode(cfg *Config, kvStore KVStoreInterface, serviceStore ServiceStoreInt
 	}
 
 	// Create data directory if it doesn't exist
-	if err := os.MkdirAll(cfg.DataDir, 0755); err != nil {
+	if err := os.MkdirAll(cfg.DataDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create data directory: %w", err)
 	}
 
@@ -638,8 +639,9 @@ func (n *Node) GetClusterInfo() (*ClusterInfo, error) {
 	}
 
 	// Build peer list
-	var peers []PeerInfo
-	for _, srv := range configFuture.Configuration().Servers {
+	servers := configFuture.Configuration().Servers
+	peers := make([]PeerInfo, 0, len(servers))
+	for _, srv := range servers {
 		state := "Voter"
 		switch srv.Suffrage {
 		case raft.Nonvoter:

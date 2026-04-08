@@ -104,8 +104,8 @@ func (cli *CLI) HandleError(err error, context string) {
 }
 
 // ValidateArgs checks if the number of arguments is within the expected range
-func (cli *CLI) ValidateArgs(args []string, min, max int, usage string) {
-	if len(args) < min || len(args) > max {
+func (cli *CLI) ValidateArgs(args []string, minArgs, maxArgs int, usage string) {
+	if len(args) < minArgs || len(args) > maxArgs {
 		cli.Errorln(usage)
 		cli.Exit(1)
 	}

@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"github.com/hashicorp/raft"
-	"github.com/neogan74/konsul/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/neogan74/konsul/internal/store"
 )
 
 // mockKVStore implements KVStoreInterface for testing.

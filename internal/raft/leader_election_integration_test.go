@@ -123,7 +123,7 @@ func waitForConfigSize(t *testing.T, node *Node, expected int, timeout time.Dura
 	t.Fatalf("timed out waiting for config size %d", expected)
 }
 
-func newThreeNodeCluster(t *testing.T, opts clusterOptions) ([]*Node, func()) {
+func newThreeNodeCluster(t *testing.T, opts clusterOptions) (nodes []*Node, cleanup func()) {
 	t.Helper()
 
 	addr1 := getFreeAddr(t)

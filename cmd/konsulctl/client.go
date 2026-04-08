@@ -201,7 +201,7 @@ func NewKonsulClientWithTLS(baseURL string, tlsConfig *TLSConfig) *KonsulClient 
 	// Configure TLS if provided
 	if tlsConfig != nil && (tlsConfig.Enabled || strings.HasPrefix(baseURL, "https://")) {
 		tlsClientConfig := &tls.Config{
-			InsecureSkipVerify: tlsConfig.SkipVerify,
+			InsecureSkipVerify: tlsConfig.SkipVerify, //nolint:gosec // InsecureSkipVerify is intentionally user-configurable
 		}
 
 		// Load CA certificate if provided
@@ -304,7 +304,7 @@ func (c *KonsulClient) SetKV(key, value string) error {
 func (c *KonsulClient) DeleteKV(key string) error {
 	reqURL := fmt.Sprintf("%s/kv/%s", c.BaseURL, url.PathEscape(key))
 
-	req, err := http.NewRequest("DELETE", reqURL, nil)
+	req, err := http.NewRequest("DELETE", reqURL, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -483,7 +483,7 @@ func (c *KonsulClient) ListServices() ([]Service, error) {
 func (c *KonsulClient) DeregisterService(name string) error {
 	url := fmt.Sprintf("%s/deregister/%s", c.BaseURL, name)
 
-	req, err := http.NewRequest("DELETE", url, nil)
+	req, err := http.NewRequest("DELETE", url, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}

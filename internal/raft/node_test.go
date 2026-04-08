@@ -7,10 +7,11 @@ import (
 	"time"
 
 	"github.com/hashicorp/raft"
-	"github.com/neogan74/konsul/internal/store"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/neogan74/konsul/internal/store"
 )
 
 // MockKVStore is a thread-safe in-memory KV store with ModifyIndex tracking.
@@ -58,7 +59,7 @@ func (m *MockKVStore) SetWithFlags(key, value string, flags uint64) error {
 	return nil
 }
 
-func (m *MockKVStore) Get(key string) (string, bool, error) {
+func (m *MockKVStore) Get(key string) (value string, ok bool, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	entry, ok := m.data[key]
@@ -246,7 +247,7 @@ func (m *MockServiceStore) Deregister(name string) error {
 	return nil
 }
 
-func (m *MockServiceStore) Get(name string) (interface{}, bool, error) {
+func (m *MockServiceStore) Get(name string) (svc interface{}, ok bool, err error) {
 	svc, ok := m.services[name]
 	return svc, ok, nil
 }
