@@ -66,7 +66,7 @@ func GenerateSelfSignedCert(certFile, keyFile string) error {
 	}
 
 	// Write private key to file
-	keyOut, err := os.OpenFile(keyFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	keyOut, err := os.OpenFile(keyFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to open key file for writing: %w", err)
 	}

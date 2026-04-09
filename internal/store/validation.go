@@ -39,7 +39,7 @@ func ValidateTags(tags []string) error {
 
 	seen := make(map[string]bool)
 	for _, tag := range tags {
-		if len(tag) == 0 {
+		if tag == "" {
 			return fmt.Errorf("empty tag not allowed")
 		}
 
@@ -67,7 +67,7 @@ func ValidateMetadata(meta map[string]string) error {
 	}
 
 	for key, value := range meta {
-		if len(key) == 0 {
+		if key == "" {
 			return fmt.Errorf("empty metadata key not allowed")
 		}
 

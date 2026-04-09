@@ -18,6 +18,8 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/neogan74/konsul/internal/acl"
 	"github.com/neogan74/konsul/internal/audit"
 	"github.com/neogan74/konsul/internal/auth"
@@ -37,7 +39,6 @@ import (
 	"github.com/neogan74/konsul/internal/telemetry"
 	konsultls "github.com/neogan74/konsul/internal/tls"
 	"github.com/neogan74/konsul/internal/watch"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 //go:embed all:ui
@@ -108,7 +109,7 @@ func main() {
 		DropPolicy:    audit.DropPolicy(cfg.Audit.DropPolicy),
 	}, appLogger)
 	if err != nil {
-		log.Fatalf("Failed to initialize audit logging: %v", err)
+		log.Fatalf("Failed to initialize audit logging: %v", err) //nolint:gocritic // exitAfterDefer: defer not yet registered at this point
 	}
 
 	defer func() {
@@ -713,7 +714,7 @@ func main() {
 			keyFile := "./certs/server.key"
 
 			// Create certs directory if it doesn't exist
-			if err := os.MkdirAll("./certs", 0755); err != nil {
+			if err := os.MkdirAll("./certs", 0o755); err != nil {
 				appLogger.Error("Failed to create certs directory", logger.Error(err))
 				log.Fatalf("Failed to create certs directory: %v", err)
 			}

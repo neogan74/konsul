@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+
 	"github.com/neogan74/konsul/internal/acl"
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/metrics"

@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/raft"
+
 	"github.com/neogan74/konsul/internal/store"
 )
 

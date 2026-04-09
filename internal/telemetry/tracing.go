@@ -70,11 +70,12 @@ func InitTracing(ctx context.Context, config TracingConfig) (*TracerProvider, er
 
 	// Create sampler based on sampling ratio
 	var sampler sdktrace.Sampler
-	if config.SamplingRatio >= 1.0 {
+	switch {
+	case config.SamplingRatio >= 1.0:
 		sampler = sdktrace.AlwaysSample()
-	} else if config.SamplingRatio <= 0.0 {
+	case config.SamplingRatio <= 0.0:
 		sampler = sdktrace.NeverSample()
-	} else {
+	default:
 		sampler = sdktrace.TraceIDRatioBased(config.SamplingRatio)
 	}
 

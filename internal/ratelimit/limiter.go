@@ -239,7 +239,7 @@ func (s *Store) GetClients(clientType string) []ClientInfo {
 }
 
 // GetClientStatus returns status for a specific client
-func (s *Store) GetClientStatus(identifier string, clientType string) *ClientInfo {
+func (s *Store) GetClientStatus(identifier, clientType string) *ClientInfo {
 	s.mu.RLock()
 	limiter, exists := s.limiters[identifier]
 	s.mu.RUnlock()
@@ -533,7 +533,7 @@ func (l *Limiter) GetTimestamps() (firstSeen, lastRequest time.Time) {
 
 // GetHeaders returns RFC 6585 compliant rate limit headers
 // Returns: limit (max burst), remaining tokens, reset timestamp (Unix)
-func (l *Limiter) GetHeaders() (limit int, remaining int, resetAt int64) {
+func (l *Limiter) GetHeaders() (limit, remaining int, resetAt int64) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 

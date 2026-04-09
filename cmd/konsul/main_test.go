@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/store"
 )
 
@@ -97,7 +98,7 @@ func TestServiceDiscoveryIntegration(t *testing.T) {
 	}
 
 	// List services
-	req = httptest.NewRequest(http.MethodGet, "/services/", nil)
+	req = httptest.NewRequest(http.MethodGet, "/services/", http.NoBody)
 	resp, err = app.Test(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatalf("list failed: %v, status: %d", err, resp.StatusCode)
@@ -111,7 +112,7 @@ func TestServiceDiscoveryIntegration(t *testing.T) {
 	}
 
 	// Get service by name
-	req = httptest.NewRequest(http.MethodGet, "/services/auth", nil)
+	req = httptest.NewRequest(http.MethodGet, "/services/auth", http.NoBody)
 	resp, err = app.Test(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatalf("get by name failed: %v, status: %d", err, resp.StatusCode)
@@ -125,14 +126,14 @@ func TestServiceDiscoveryIntegration(t *testing.T) {
 	}
 
 	// Deregister service
-	req = httptest.NewRequest(http.MethodDelete, "/deregister/auth", nil)
+	req = httptest.NewRequest(http.MethodDelete, "/deregister/auth", http.NoBody)
 	resp, err = app.Test(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatalf("deregister failed: %v, status: %d", err, resp.StatusCode)
 	}
 
 	// Confirm service is gone
-	req = httptest.NewRequest(http.MethodGet, "/services/auth", nil)
+	req = httptest.NewRequest(http.MethodGet, "/services/auth", http.NoBody)
 	resp, err = app.Test(req)
 	if err != nil {
 		t.Fatalf("get after delete failed: %v", err)
@@ -156,7 +157,7 @@ func TestHeartbeatIntegration(t *testing.T) {
 	}
 
 	// Send heartbeat for existing service
-	req = httptest.NewRequest(http.MethodPut, "/heartbeat/web", nil)
+	req = httptest.NewRequest(http.MethodPut, "/heartbeat/web", http.NoBody)
 	resp, err = app.Test(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatalf("heartbeat failed: %v, status: %d", err, resp.StatusCode)
@@ -172,7 +173,7 @@ func TestHeartbeatIntegration(t *testing.T) {
 	}
 
 	// Send heartbeat for non-existent service
-	req = httptest.NewRequest(http.MethodPut, "/heartbeat/nonexistent", nil)
+	req = httptest.NewRequest(http.MethodPut, "/heartbeat/nonexistent", http.NoBody)
 	resp, err = app.Test(req)
 	if err != nil {
 		t.Fatalf("heartbeat request failed: %v", err)
@@ -186,7 +187,7 @@ func TestKVStoreIntegration(t *testing.T) {
 	app := setupApp()
 
 	// Test GET on non-existent key
-	req := httptest.NewRequest(http.MethodGet, "/kv/nonexistent", nil)
+	req := httptest.NewRequest(http.MethodGet, "/kv/nonexistent", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("GET request failed: %v", err)
@@ -198,7 +199,7 @@ func TestKVStoreIntegration(t *testing.T) {
 	// Test PUT to set a key
 	key := "test-key"
 	value := "test-value"
-	body := fmt.Sprintf(`{"value": "%s"}`, value)
+	body := fmt.Sprintf(`{"value": %q}`, value)
 	req = httptest.NewRequest(http.MethodPut, "/kv/"+key, bytes.NewReader([]byte(body)))
 	req.Header.Set("Content-Type", "application/json")
 	resp, err = app.Test(req)
@@ -216,7 +217,7 @@ func TestKVStoreIntegration(t *testing.T) {
 	}
 
 	// Test GET on existing key
-	req = httptest.NewRequest(http.MethodGet, "/kv/"+key, nil)
+	req = httptest.NewRequest(http.MethodGet, "/kv/"+key, http.NoBody)
 	resp, err = app.Test(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatalf("GET request failed: %v, status: %d", err, resp.StatusCode)
@@ -233,7 +234,7 @@ func TestKVStoreIntegration(t *testing.T) {
 
 	// Test PUT to update existing key
 	newValue := "updated-value"
-	body = fmt.Sprintf(`{"value": "%s"}`, newValue)
+	body = fmt.Sprintf(`{"value": %q}`, newValue)
 	req = httptest.NewRequest(http.MethodPut, "/kv/"+key, bytes.NewReader([]byte(body)))
 	req.Header.Set("Content-Type", "application/json")
 	resp, err = app.Test(req)
@@ -242,7 +243,7 @@ func TestKVStoreIntegration(t *testing.T) {
 	}
 
 	// Verify updated value
-	req = httptest.NewRequest(http.MethodGet, "/kv/"+key, nil)
+	req = httptest.NewRequest(http.MethodGet, "/kv/"+key, http.NoBody)
 	resp, err = app.Test(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatalf("GET after update failed: %v, status: %d", err, resp.StatusCode)
@@ -255,7 +256,7 @@ func TestKVStoreIntegration(t *testing.T) {
 	}
 
 	// Test DELETE
-	req = httptest.NewRequest(http.MethodDelete, "/kv/"+key, nil)
+	req = httptest.NewRequest(http.MethodDelete, "/kv/"+key, http.NoBody)
 	resp, err = app.Test(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatalf("DELETE request failed: %v, status: %d", err, resp.StatusCode)
@@ -271,7 +272,7 @@ func TestKVStoreIntegration(t *testing.T) {
 	}
 
 	// Verify key is gone
-	req = httptest.NewRequest(http.MethodGet, "/kv/"+key, nil)
+	req = httptest.NewRequest(http.MethodGet, "/kv/"+key, http.NoBody)
 	resp, err = app.Test(req)
 	if err != nil {
 		t.Fatalf("GET after delete failed: %v", err)
@@ -292,7 +293,7 @@ func TestKVStoreEdgeCases(t *testing.T) {
 		t.Fatalf("PUT with empty value failed: %v, status: %d", err, resp.StatusCode)
 	}
 
-	req = httptest.NewRequest(http.MethodGet, "/kv/empty-key", nil)
+	req = httptest.NewRequest(http.MethodGet, "/kv/empty-key", http.NoBody)
 	resp, err = app.Test(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatalf("GET empty value failed: %v, status: %d", err, resp.StatusCode)
@@ -314,7 +315,7 @@ func TestKVStoreEdgeCases(t *testing.T) {
 		t.Fatalf("PUT with special key failed: %v, status: %d", err, resp.StatusCode)
 	}
 
-	req = httptest.NewRequest(http.MethodGet, "/kv/"+url.PathEscape(specialKey), nil)
+	req = httptest.NewRequest(http.MethodGet, "/kv/"+url.PathEscape(specialKey), http.NoBody)
 	resp, err = app.Test(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatalf("GET special key failed: %v, status: %d", err, resp.StatusCode)
@@ -339,14 +340,14 @@ func TestKVStoreEdgeCases(t *testing.T) {
 		t.Fatalf("PUT with missing value field failed: %v, status: %d", err, resp.StatusCode)
 	}
 	// Missing value field should result in empty string value
-	req = httptest.NewRequest(http.MethodGet, "/kv/test", nil)
+	req = httptest.NewRequest(http.MethodGet, "/kv/test", http.NoBody)
 	resp, err = app.Test(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatalf("GET after missing value field failed: %v, status: %d", err, resp.StatusCode)
 	}
 
 	// Test DELETE on non-existent key (should succeed)
-	req = httptest.NewRequest(http.MethodDelete, "/kv/nonexistent", nil)
+	req = httptest.NewRequest(http.MethodDelete, "/kv/nonexistent", http.NoBody)
 	resp, err = app.Test(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatalf("DELETE non-existent key failed: %v, status: %d", err, resp.StatusCode)
