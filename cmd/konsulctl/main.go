@@ -37,6 +37,9 @@ func main() {
 	case "acl":
 		aclCmd := NewACLCommands(cli)
 		aclCmd.Handle(args)
+	case "cluster":
+		clusterCmd := NewClusterCommands(cli)
+		clusterCmd.Handle(args)
 	case "version":
 		cli.Printf("konsulctl version %s\n", version)
 	case "help", "-h", "--help":
@@ -94,6 +97,14 @@ func printUsage() {
 	fmt.Println("    policy update <file>  Update policy from JSON file")
 	fmt.Println("    policy delete <name>  Delete a policy")
 	fmt.Println("    test <policies> <resource> <path> <capability>  Test ACL permissions")
+	fmt.Println()
+	fmt.Println("  cluster <subcommand>  Cluster management")
+	fmt.Println("    status           Show cluster status")
+	fmt.Println("    leader           Show current leader")
+	fmt.Println("    peers            List cluster peers")
+	fmt.Println("    join <id> <addr> Add a node to the cluster")
+	fmt.Println("    leave <id>       Remove a node from the cluster")
+	fmt.Println("    snapshot         Trigger a Raft snapshot")
 	fmt.Println()
 	fmt.Println("  version            Show version")
 	fmt.Println("  help               Show this help")
