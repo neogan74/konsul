@@ -2,9 +2,6 @@ package raft
 
 import (
 	"testing"
-	"time"
-
-	"github.com/stretchr/testify/require"
 )
 
 // TestFailure_SingleNodeFailure verifies cluster survives single node failure.
