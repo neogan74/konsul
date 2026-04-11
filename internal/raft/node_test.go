@@ -248,7 +248,7 @@ func (m *MockServiceStore) Deregister(name string) error {
 }
 
 func (m *MockServiceStore) Get(name string) (svc interface{}, ok bool, err error) {
-	svc, ok := m.services[name]
+	svc, ok = m.services[name]
 	return svc, ok, nil
 }
 

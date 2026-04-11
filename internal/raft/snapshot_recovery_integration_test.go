@@ -2,9 +2,6 @@ package raft
 
 import (
 	"testing"
-	"time"
-
-	"github.com/stretchr/testify/require"
 )
 
 // TestSnapshot_AutomaticCreation verifies that snapshots are created automatically

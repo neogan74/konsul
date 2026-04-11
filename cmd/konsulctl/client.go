@@ -1324,6 +1324,233 @@ func (c *KonsulClient) TestACLPolicy(policies []string, resource, path, capabili
 	return result, nil
 }
 
+// Cluster response types
+
+// ClusterPeerInfo represents a peer node in the cluster.
+type ClusterPeerInfo struct {
+	ID      string `json:"id"`
+	Address string `json:"address"`
+	State   string `json:"state"`
+}
+
+// ClusterRaftStats holds Raft statistics.
+type ClusterRaftStats struct {
+	Term              uint64 `json:"term"`
+	LastLogIndex      uint64 `json:"last_log_index"`
+	CommitIndex       uint64 `json:"commit_index"`
+	AppliedIndex      uint64 `json:"applied_index"`
+	NumPeers          int    `json:"num_peers"`
+	LastSnapshotIndex uint64 `json:"last_snapshot_index"`
+}
+
+// ClusterStatusResponse is the response from GET /cluster/status.
+type ClusterStatusResponse struct {
+	NodeID      string            `json:"node_id"`
+	State       string            `json:"state"`
+	LeaderID    string            `json:"leader_id"`
+	LeaderAddr  string            `json:"leader_addr"`
+	Peers       []ClusterPeerInfo `json:"peers"`
+	LastIndex   uint64            `json:"last_index"`
+	AppliedIdx  uint64            `json:"applied_index"`
+	CommitIndex uint64            `json:"commit_index"`
+	Stats       ClusterRaftStats  `json:"stats"`
+}
+
+// ClusterLeaderResponse is the response from GET /cluster/leader.
+type ClusterLeaderResponse struct {
+	LeaderID   string `json:"leader_id"`
+	LeaderAddr string `json:"leader_addr"`
+	IsSelf     bool   `json:"is_self"`
+}
+
+// ClusterPeersResponse is the response from GET /cluster/peers.
+type ClusterPeersResponse struct {
+	Peers []ClusterPeerInfo `json:"peers"`
+	Count int               `json:"count"`
+}
+
+// ClusterJoinRequest is the request body for POST /cluster/join.
+type ClusterJoinRequest struct {
+	NodeID  string `json:"node_id"`
+	Address string `json:"address"`
+}
+
+// ClusterActionResponse is a generic cluster action response.
+type ClusterActionResponse struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
+	NodeID  string `json:"node_id,omitempty"`
+	Address string `json:"address,omitempty"`
+}
+
+// ClusterStatus fetches the current cluster status.
+func (c *KonsulClient) ClusterStatus() (*ClusterStatusResponse, error) {
+	reqURL := fmt.Sprintf("%s/cluster/status", c.BaseURL)
+	req, err := http.NewRequest("GET", reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer closeResponseBody(resp.Body)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned %d: %s", resp.StatusCode, string(body))
+	}
+	var result ClusterStatusResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return &result, nil
+}
+
+// ClusterLeader fetches the current cluster leader.
+func (c *KonsulClient) ClusterLeader() (*ClusterLeaderResponse, error) {
+	reqURL := fmt.Sprintf("%s/cluster/leader", c.BaseURL)
+	req, err := http.NewRequest("GET", reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer closeResponseBody(resp.Body)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned %d: %s", resp.StatusCode, string(body))
+	}
+	var result ClusterLeaderResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return &result, nil
+}
+
+// ClusterPeers fetches the list of cluster peers.
+func (c *KonsulClient) ClusterPeers() (*ClusterPeersResponse, error) {
+	reqURL := fmt.Sprintf("%s/cluster/peers", c.BaseURL)
+	req, err := http.NewRequest("GET", reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer closeResponseBody(resp.Body)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned %d: %s", resp.StatusCode, string(body))
+	}
+	var result ClusterPeersResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return &result, nil
+}
+
+// ClusterJoin adds a node to the cluster.
+func (c *KonsulClient) ClusterJoin(nodeID, address string) (*ClusterActionResponse, error) {
+	joinReq := ClusterJoinRequest{NodeID: nodeID, Address: address}
+	jsonData, err := json.Marshal(joinReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+	reqURL := fmt.Sprintf("%s/cluster/join", c.BaseURL)
+	req, err := http.NewRequest("POST", reqURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer closeResponseBody(resp.Body)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned %d: %s", resp.StatusCode, string(body))
+	}
+	var result ClusterActionResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return &result, nil
+}
+
+// ClusterLeave removes a node from the cluster.
+func (c *KonsulClient) ClusterLeave(nodeID string) (*ClusterActionResponse, error) {
+	reqURL := fmt.Sprintf("%s/cluster/leave/%s", c.BaseURL, url.PathEscape(nodeID))
+	req, err := http.NewRequest("DELETE", reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer closeResponseBody(resp.Body)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned %d: %s", resp.StatusCode, string(body))
+	}
+	var result ClusterActionResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return &result, nil
+}
+
+// ClusterSnapshot triggers a Raft snapshot on the leader.
+func (c *KonsulClient) ClusterSnapshot() (*ClusterActionResponse, error) {
+	reqURL := fmt.Sprintf("%s/cluster/snapshot", c.BaseURL)
+	req, err := http.NewRequest("POST", reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer closeResponseBody(resp.Body)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned %d: %s", resp.StatusCode, string(body))
+	}
+	var result ClusterActionResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return &result, nil
+}
+
 // ACL Response types
 
 // ACLPoliciesResponse represents the response from listing policies

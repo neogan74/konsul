@@ -145,10 +145,10 @@ func newThreeNodeCluster(t *testing.T, opts clusterOptions) (nodes []*Node, clea
 	require.NoError(t, node1.Join(cfg2.NodeID, cfg2.AdvertiseAddr))
 	require.NoError(t, node1.Join(cfg3.NodeID, cfg3.AdvertiseAddr))
 
-	nodes := []*Node{node1, node2, node3}
+	nodes = []*Node{node1, node2, node3}
 	waitForSingleLeader(t, nodes, 10*time.Second)
 
-	cleanup := func() {
+	cleanup = func() {
 		for _, node := range nodes {
 			_ = node.Shutdown()
 		}
