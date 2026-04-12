@@ -332,9 +332,9 @@ func (c *KonsulClient) DeleteKV(key string) error {
 }
 
 func (c *KonsulClient) ListKV() ([]string, error) {
-	url := fmt.Sprintf("%s/kv/", c.BaseURL)
+	reqURL := fmt.Sprintf("%s/kv/", c.BaseURL)
 
-	resp, err := c.HTTPClient.Get(url)
+	resp, err := c.HTTPClient.Get(reqURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
@@ -362,7 +362,7 @@ func (c *KonsulClient) ListKV() ([]string, error) {
 }
 
 func (c *KonsulClient) RegisterService(name, address, port string) error {
-	url := fmt.Sprintf("%s/register", c.BaseURL)
+	reqURL := fmt.Sprintf("%s/register", c.BaseURL)
 
 	// Convert port to int
 	portInt := 0
@@ -381,7 +381,7 @@ func (c *KonsulClient) RegisterService(name, address, port string) error {
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("PUT", reqURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -406,7 +406,7 @@ func (c *KonsulClient) RegisterService(name, address, port string) error {
 }
 
 func (c *KonsulClient) RegisterServiceWithChecks(name, address, port string, checks []*CheckDefinition) error {
-	url := fmt.Sprintf("%s/register", c.BaseURL)
+	reqURL := fmt.Sprintf("%s/register", c.BaseURL)
 
 	// Convert port to int
 	portInt := 0
@@ -426,7 +426,7 @@ func (c *KonsulClient) RegisterServiceWithChecks(name, address, port string, che
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("PUT", reqURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -451,9 +451,9 @@ func (c *KonsulClient) RegisterServiceWithChecks(name, address, port string, che
 }
 
 func (c *KonsulClient) ListServices() ([]Service, error) {
-	url := fmt.Sprintf("%s/services/", c.BaseURL)
+	reqURL := fmt.Sprintf("%s/services/", c.BaseURL)
 
-	resp, err := c.HTTPClient.Get(url)
+	resp, err := c.HTTPClient.Get(reqURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
@@ -481,9 +481,9 @@ func (c *KonsulClient) ListServices() ([]Service, error) {
 }
 
 func (c *KonsulClient) DeregisterService(name string) error {
-	url := fmt.Sprintf("%s/deregister/%s", c.BaseURL, name)
+	reqURL := fmt.Sprintf("%s/deregister/%s", c.BaseURL, name)
 
-	req, err := http.NewRequest("DELETE", url, http.NoBody)
+	req, err := http.NewRequest("DELETE", reqURL, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -511,9 +511,9 @@ func (c *KonsulClient) DeregisterService(name string) error {
 }
 
 func (c *KonsulClient) ServiceHeartbeat(name string) error {
-	url := fmt.Sprintf("%s/heartbeat/%s", c.BaseURL, name)
+	reqURL := fmt.Sprintf("%s/heartbeat/%s", c.BaseURL, name)
 
-	req, err := http.NewRequest("PUT", url, nil)
+	req, err := http.NewRequest("PUT", reqURL, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -541,9 +541,9 @@ func (c *KonsulClient) ServiceHeartbeat(name string) error {
 }
 
 func (c *KonsulClient) CreateBackup() (string, error) {
-	url := fmt.Sprintf("%s/backup", c.BaseURL)
+	reqURL := fmt.Sprintf("%s/backup", c.BaseURL)
 
-	req, err := http.NewRequest("POST", url, nil)
+	req, err := http.NewRequest("POST", reqURL, http.NoBody)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -576,7 +576,7 @@ func (c *KonsulClient) CreateBackup() (string, error) {
 }
 
 func (c *KonsulClient) RestoreBackup(backupPath string) error {
-	url := fmt.Sprintf("%s/restore", c.BaseURL)
+	reqURL := fmt.Sprintf("%s/restore", c.BaseURL)
 
 	reqBody := RestoreRequest{BackupPath: backupPath}
 	jsonData, err := json.Marshal(reqBody)
@@ -584,7 +584,7 @@ func (c *KonsulClient) RestoreBackup(backupPath string) error {
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", reqURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -609,9 +609,9 @@ func (c *KonsulClient) RestoreBackup(backupPath string) error {
 }
 
 func (c *KonsulClient) ListBackups() ([]string, error) {
-	url := fmt.Sprintf("%s/backups", c.BaseURL)
+	reqURL := fmt.Sprintf("%s/backups", c.BaseURL)
 
-	resp, err := c.HTTPClient.Get(url)
+	resp, err := c.HTTPClient.Get(reqURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
@@ -639,9 +639,9 @@ func (c *KonsulClient) ListBackups() ([]string, error) {
 }
 
 func (c *KonsulClient) ExportData() (string, error) {
-	url := fmt.Sprintf("%s/export", c.BaseURL)
+	reqURL := fmt.Sprintf("%s/export", c.BaseURL)
 
-	resp, err := c.HTTPClient.Get(url)
+	resp, err := c.HTTPClient.Get(reqURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to make request: %w", err)
 	}
@@ -666,9 +666,9 @@ func (c *KonsulClient) ExportData() (string, error) {
 // Rate limit admin methods
 
 func (c *KonsulClient) GetRateLimitStats() (*RateLimitStats, error) {
-	url := fmt.Sprintf("%s/admin/ratelimit/stats", c.BaseURL)
+	reqURL := fmt.Sprintf("%s/admin/ratelimit/stats", c.BaseURL)
 
-	resp, err := c.HTTPClient.Get(url)
+	resp, err := c.HTTPClient.Get(reqURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
@@ -696,9 +696,9 @@ func (c *KonsulClient) GetRateLimitStats() (*RateLimitStats, error) {
 }
 
 func (c *KonsulClient) GetRateLimitConfig() (*RateLimitConfig, error) {
-	url := fmt.Sprintf("%s/admin/ratelimit/config", c.BaseURL)
+	reqURL := fmt.Sprintf("%s/admin/ratelimit/config", c.BaseURL)
 
-	resp, err := c.HTTPClient.Get(url)
+	resp, err := c.HTTPClient.Get(reqURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
@@ -726,9 +726,9 @@ func (c *KonsulClient) GetRateLimitConfig() (*RateLimitConfig, error) {
 }
 
 func (c *KonsulClient) GetRateLimitClients(limiterType string) (*RateLimitClientsResponse, error) {
-	url := fmt.Sprintf("%s/admin/ratelimit/clients?type=%s", c.BaseURL, limiterType)
+	reqURL := fmt.Sprintf("%s/admin/ratelimit/clients?type=%s", c.BaseURL, limiterType)
 
-	resp, err := c.HTTPClient.Get(url)
+	resp, err := c.HTTPClient.Get(reqURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
