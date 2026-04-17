@@ -327,7 +327,7 @@ func (k *KVCommands) watchSSE(config *ClientConfig, pattern string) {
 		cancel()
 	}()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, httpURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, httpURL, http.NoBody)
 	k.cli.HandleError(err, "creating SSE request")
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Cache-Control", "no-cache")
