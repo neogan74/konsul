@@ -35,7 +35,7 @@ func (g *GRPCChecker) Check(ctx context.Context, check *Check) (Status, string, 
 	// Configure credentials
 	var creds credentials.TransportCredentials
 	if check.GRPCUseTLS {
-		creds = credentials.NewTLS(&tls.Config{})
+		creds = credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})
 	} else {
 		creds = insecure.NewCredentials()
 	}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	hashiraft "github.com/hashicorp/raft"
+
 	"github.com/neogan74/konsul/internal/healthcheck"
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/middleware"

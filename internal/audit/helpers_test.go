@@ -94,7 +94,7 @@ func TestExtractResourceFromPath(t *testing.T) {
 		return nil
 	})
 
-	req := httptest.NewRequest("GET", "/kv/config/app", nil)
+	req := httptest.NewRequest("GET", "/kv/config/app", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -165,7 +165,7 @@ func TestBuildEvent(t *testing.T) {
 		return c.SendStatus(200)
 	})
 
-	req := httptest.NewRequest("POST", "/api/v1/kv/test-key", nil)
+	req := httptest.NewRequest("POST", "/api/v1/kv/test-key", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)

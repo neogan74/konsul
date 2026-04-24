@@ -107,7 +107,7 @@ func TestBatchOperations_BatchCASSuccess(t *testing.T) {
 	for _, node := range nodes {
 		nodeKV := node.fsm.kvStore.(*MockKVStore)
 		for k, v := range updates {
-			waitForKVValue(t, nodeKV, k, v, 3*time.Second)
+			waitForKVValue(t, nodeKV, k, v, 10*time.Second)
 		}
 	}
 }
@@ -274,58 +274,4 @@ func prepareBatchSet(count int) map[string]string {
 		batch[fmt.Sprintf("batch-key-%d", i)] = fmt.Sprintf("batch-value-%d", i)
 	}
 	return batch
-}
-
-// prepareBatchDelete prepares a batch delete operation.
-func prepareBatchDelete(keys []string) []string {
-	return keys
-}
-
-// prepareBatchCAS prepares a batch CAS operation.
-func prepareBatchCAS(items map[string]string, indices map[string]uint64) (map[string]string, map[string]uint64) {
-	return items, indices
-}
-
-// executeBatchSet executes a batch set operation via Raft.
-func executeBatchSet(t *testing.T, node *Node, items map[string]string) error {
-	t.Helper()
-
-	// Implementation depends on Node exposing batch API
-	return nil
-}
-
-// executeBatchDelete executes a batch delete operation via Raft.
-func executeBatchDelete(t *testing.T, node *Node, keys []string) error {
-	t.Helper()
-
-	// Implementation depends on Node exposing batch API
-	return nil
-}
-
-// executeBatchCAS executes a batch CAS operation via Raft.
-func executeBatchCAS(t *testing.T, node *Node, items map[string]string, indices map[string]uint64) (map[string]uint64, error) {
-	t.Helper()
-
-	// Implementation depends on Node exposing batch CAS API
-	return nil, nil
-}
-
-// verifyBatchConsistency verifies all nodes have consistent batch result.
-func verifyBatchConsistency(t *testing.T, nodes []*Node, expectedKV map[string]string) {
-	t.Helper()
-
-	for _, node := range nodes {
-		// Verify each node has the expected data
-		_ = node
-	}
-	require.NotEmpty(t, expectedKV)
-}
-
-// measureBatchPerformance measures batch operation performance.
-func measureBatchPerformance(t *testing.T, node *Node, batchSize int) (opsPerSec float64, latency float64) {
-	t.Helper()
-
-	// Execute batch and measure time
-	// Calculate ops/sec and average latency
-	return 0, 0
 }

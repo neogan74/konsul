@@ -62,6 +62,7 @@ func NewServerClient(serverURL string, tlsConfig TLSConfig, agentID string) (*Se
 // buildTLSConfig builds TLS configuration from config
 func buildTLSConfig(cfg TLSConfig) (*tls.Config, error) {
 	tlsConfig := &tls.Config{
+		MinVersion:         tls.VersionTLS12,
 		InsecureSkipVerify: cfg.SkipVerify,
 	}
 

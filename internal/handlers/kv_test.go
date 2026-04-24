@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/store"
 )
 
@@ -27,7 +28,7 @@ func TestKVHandler_Get(t *testing.T) {
 	handler, app := setupKVHandler()
 
 	// Test non-existent key
-	req := httptest.NewRequest(http.MethodGet, "/kv/nonexistent", nil)
+	req := httptest.NewRequest(http.MethodGet, "/kv/nonexistent", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("GET request failed: %v", err)
@@ -40,7 +41,7 @@ func TestKVHandler_Get(t *testing.T) {
 	handler.store.Set("test-key", "test-value")
 
 	// Test existing key
-	req = httptest.NewRequest(http.MethodGet, "/kv/test-key", nil)
+	req = httptest.NewRequest(http.MethodGet, "/kv/test-key", http.NoBody)
 	resp, err = app.Test(req)
 	if err != nil {
 		t.Fatalf("GET request failed: %v", err)
@@ -101,7 +102,7 @@ func TestKVHandler_Delete(t *testing.T) {
 	handler.store.Set("delete-key", "delete-value")
 
 	// Test delete
-	req := httptest.NewRequest(http.MethodDelete, "/kv/delete-key", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/kv/delete-key", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("DELETE request failed: %v", err)

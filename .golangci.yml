@@ -106,6 +106,7 @@ linters:
       # Exclude specific rules
       excludes:
         - G104  # Audit errors not checked - covered by errcheck
+        - G115  # Integer overflow conversion - legitimate in context (ports, hashes, timestamps)
         - G304  # File inclusion via variable - often intentional
         - G404  # Weak random number generator - ok for non-crypto use
 
@@ -184,6 +185,19 @@ linters:
         linters:
           - govet
         text: "shadow"
+
+      # Exclude gocritic style issues in gqlgen semi-generated resolver file
+      - path: internal/graphql/resolver/schema\.resolvers\.go
+        linters:
+          - gocritic
+
+      # Exclude all linters in fully generated GraphQL code
+      - path: internal/graphql/generated/
+        linters:
+          - gocritic
+          - gosec
+          - revive
+          - unused
 
       # Exclude fmt.Sscanf errors - parsing failures are handled via default values
       - text: "Error return value of `fmt.Sscanf`"

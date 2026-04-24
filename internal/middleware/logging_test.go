@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/logger"
 )
 
@@ -17,7 +18,7 @@ func TestRequestLogging(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	req.Header.Set("User-Agent", "test-agent")
 	resp, err := app.Test(req)
 	if err != nil {
@@ -48,7 +49,7 @@ func TestRequestLogging_WithRequestID(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	_, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -72,7 +73,7 @@ func TestRequestLogging_WithLogger(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -105,7 +106,7 @@ func TestRequestLogging_StatusCodes(t *testing.T) {
 				return c.SendStatus(tc.status)
 			})
 
-			req := httptest.NewRequest("GET", "/test", nil)
+			req := httptest.NewRequest("GET", "/test", http.NoBody)
 			resp, err := app.Test(req)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
@@ -127,7 +128,7 @@ func TestRequestLogging_WithError(t *testing.T) {
 		return fiber.NewError(fiber.StatusInternalServerError, "test error")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -148,7 +149,7 @@ func TestGetRequestID_NoContext(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	_, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -170,7 +171,7 @@ func TestGetLogger_NoContext(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -195,7 +196,7 @@ func TestRequestLogging_LargeResponse(t *testing.T) {
 		return c.Send(largeData)
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -219,7 +220,7 @@ func TestRequestLogging_DifferentMethods(t *testing.T) {
 				return c.SendString("ok")
 			})
 
-			req := httptest.NewRequest(method, "/test", nil)
+			req := httptest.NewRequest(method, "/test", http.NoBody)
 			resp, err := app.Test(req)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)

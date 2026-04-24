@@ -10,6 +10,7 @@ import (
 	"time"
 
 	badger "github.com/dgraph-io/badger/v4"
+
 	"github.com/neogan74/konsul/internal/logger"
 )
 

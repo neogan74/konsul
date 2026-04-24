@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/persistence"
-	"go.uber.org/zap/zapcore"
 )
 
 // MockPersistenceEngine is a mock implementation of persistence.Engine for testing
@@ -159,7 +160,7 @@ func TestBackupHandler_CreateBackup_Success(t *testing.T) {
 
 	_, app := setupBackupHandler(mockEngine)
 
-	req := httptest.NewRequest(http.MethodPost, "/backup", nil)
+	req := httptest.NewRequest(http.MethodPost, "/backup", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("CreateBackup request failed: %v", err)
@@ -191,7 +192,7 @@ func TestBackupHandler_CreateBackup_EngineError(t *testing.T) {
 
 	_, app := setupBackupHandler(mockEngine)
 
-	req := httptest.NewRequest(http.MethodPost, "/backup", nil)
+	req := httptest.NewRequest(http.MethodPost, "/backup", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("CreateBackup request failed: %v", err)
@@ -205,7 +206,7 @@ func TestBackupHandler_CreateBackup_EngineError(t *testing.T) {
 func TestBackupHandler_CreateBackup_NilEngine(t *testing.T) {
 	_, app := setupBackupHandler(nil)
 
-	req := httptest.NewRequest(http.MethodPost, "/backup", nil)
+	req := httptest.NewRequest(http.MethodPost, "/backup", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("CreateBackup request failed: %v", err)
@@ -329,7 +330,7 @@ func TestBackupHandler_ExportData_Success(t *testing.T) {
 
 	_, app := setupBackupHandler(mockEngine)
 
-	req := httptest.NewRequest(http.MethodGet, "/export", nil)
+	req := httptest.NewRequest(http.MethodGet, "/export", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("ExportData request failed: %v", err)
@@ -345,7 +346,7 @@ func TestBackupHandler_ExportData_Success(t *testing.T) {
 func TestBackupHandler_ExportData_NilEngine(t *testing.T) {
 	_, app := setupBackupHandler(nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/export", nil)
+	req := httptest.NewRequest(http.MethodGet, "/export", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("ExportData request failed: %v", err)
@@ -416,7 +417,7 @@ func TestBackupHandler_ListBackups_NotImplemented(t *testing.T) {
 	mockEngine := &MockPersistenceEngine{}
 	_, app := setupBackupHandler(mockEngine)
 
-	req := httptest.NewRequest(http.MethodGet, "/backups", nil)
+	req := httptest.NewRequest(http.MethodGet, "/backups", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("ListBackups request failed: %v", err)
@@ -440,7 +441,7 @@ func TestBackupHandler_ListBackups_NotImplemented(t *testing.T) {
 func TestBackupHandler_ListBackups_NilEngine(t *testing.T) {
 	_, app := setupBackupHandler(nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/backups", nil)
+	req := httptest.NewRequest(http.MethodGet, "/backups", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("ListBackups request failed: %v", err)

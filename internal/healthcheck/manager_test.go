@@ -466,12 +466,12 @@ func TestManager_Stop(t *testing.T) {
 	// Stop should not panic
 	manager.Stop()
 
-	// Verify context is cancelled
+	// Verify context is canceled
 	select {
 	case <-manager.ctx.Done():
-		// Success - context was cancelled
+		// Success - context was canceled
 	case <-time.After(100 * time.Millisecond):
-		t.Error("expected context to be cancelled after Stop()")
+		t.Error("expected context to be canceled after Stop()")
 	}
 }
 

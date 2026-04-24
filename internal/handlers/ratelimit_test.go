@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/ratelimit"
-	"github.com/stretchr/testify/assert"
 )
 
 func setupRateLimitTestApp() (*fiber.App, *ratelimit.Service, *RateLimitHandler) {
@@ -37,7 +38,7 @@ func TestGetStats(t *testing.T) {
 	app, _, handler := setupRateLimitTestApp()
 	app.Get("/admin/ratelimit/stats", handler.GetStats)
 
-	req := httptest.NewRequest("GET", "/admin/ratelimit/stats", nil)
+	req := httptest.NewRequest("GET", "/admin/ratelimit/stats", http.NoBody)
 	resp, err := app.Test(req)
 
 	assert.NoError(t, err)
@@ -59,7 +60,7 @@ func TestGetConfig(t *testing.T) {
 	app, _, handler := setupRateLimitTestApp()
 	app.Get("/admin/ratelimit/config", handler.GetConfig)
 
-	req := httptest.NewRequest("GET", "/admin/ratelimit/config", nil)
+	req := httptest.NewRequest("GET", "/admin/ratelimit/config", http.NoBody)
 	resp, err := app.Test(req)
 
 	assert.NoError(t, err)
@@ -89,7 +90,7 @@ func TestResetIP(t *testing.T) {
 	service.AllowIP(testIP)
 
 	// Reset the IP
-	req := httptest.NewRequest("POST", "/admin/ratelimit/reset/ip/"+testIP, nil)
+	req := httptest.NewRequest("POST", "/admin/ratelimit/reset/ip/"+testIP, http.NoBody)
 	resp, err := app.Test(req)
 
 	assert.NoError(t, err)
@@ -108,7 +109,7 @@ func TestResetIPMissingParam(t *testing.T) {
 	app, _, handler := setupRateLimitTestApp()
 	app.Post("/admin/ratelimit/reset/ip/:ip", handler.ResetIP)
 
-	req := httptest.NewRequest("POST", "/admin/ratelimit/reset/ip/", nil)
+	req := httptest.NewRequest("POST", "/admin/ratelimit/reset/ip/", http.NoBody)
 	resp, err := app.Test(req)
 
 	assert.NoError(t, err)
@@ -124,7 +125,7 @@ func TestResetAPIKey(t *testing.T) {
 	service.AllowAPIKey(testKeyID)
 
 	// Reset the API key
-	req := httptest.NewRequest("POST", "/admin/ratelimit/reset/apikey/"+testKeyID, nil)
+	req := httptest.NewRequest("POST", "/admin/ratelimit/reset/apikey/"+testKeyID, http.NoBody)
 	resp, err := app.Test(req)
 
 	assert.NoError(t, err)
@@ -161,7 +162,7 @@ func TestResetAll(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("POST", "/admin/ratelimit/reset/all"+tt.queryParam, nil)
+			req := httptest.NewRequest("POST", "/admin/ratelimit/reset/all"+tt.queryParam, http.NoBody)
 			resp, err := app.Test(req)
 
 			assert.NoError(t, err)
@@ -181,7 +182,7 @@ func TestResetAllInvalidType(t *testing.T) {
 	app, _, handler := setupRateLimitTestApp()
 	app.Post("/admin/ratelimit/reset/all", handler.ResetAll)
 
-	req := httptest.NewRequest("POST", "/admin/ratelimit/reset/all?type=invalid", nil)
+	req := httptest.NewRequest("POST", "/admin/ratelimit/reset/all?type=invalid", http.NoBody)
 	resp, err := app.Test(req)
 
 	assert.NoError(t, err)
@@ -219,7 +220,7 @@ func TestGetActiveClients(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", "/admin/ratelimit/clients"+tt.queryParam, nil)
+			req := httptest.NewRequest("GET", "/admin/ratelimit/clients"+tt.queryParam, http.NoBody)
 			resp, err := app.Test(req)
 
 			assert.NoError(t, err)
@@ -248,7 +249,7 @@ func TestGetClientStatus(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	req := httptest.NewRequest("GET", "/admin/ratelimit/client/"+testIP, nil)
+	req := httptest.NewRequest("GET", "/admin/ratelimit/client/"+testIP, http.NoBody)
 	resp, err := app.Test(req)
 
 	assert.NoError(t, err)
@@ -271,7 +272,7 @@ func TestGetClientStatusNotFound(t *testing.T) {
 	app, _, handler := setupRateLimitTestApp()
 	app.Get("/admin/ratelimit/client/:identifier", handler.GetClientStatus)
 
-	req := httptest.NewRequest("GET", "/admin/ratelimit/client/nonexistent", nil)
+	req := httptest.NewRequest("GET", "/admin/ratelimit/client/nonexistent", http.NoBody)
 	resp, err := app.Test(req)
 
 	assert.NoError(t, err)
@@ -427,7 +428,7 @@ func TestGetWhitelist(t *testing.T) {
 		AddedBy:    "admin",
 	})
 
-	req := httptest.NewRequest("GET", "/admin/ratelimit/whitelist", nil)
+	req := httptest.NewRequest("GET", "/admin/ratelimit/whitelist", http.NoBody)
 	resp, err := app.Test(req)
 
 	assert.NoError(t, err)
@@ -600,7 +601,7 @@ func TestRemoveFromWhitelist(t *testing.T) {
 		AddedBy:    "admin",
 	})
 
-	req := httptest.NewRequest("DELETE", "/admin/ratelimit/whitelist/"+identifier, nil)
+	req := httptest.NewRequest("DELETE", "/admin/ratelimit/whitelist/"+identifier, http.NoBody)
 	resp, err := app.Test(req)
 
 	assert.NoError(t, err)
@@ -622,7 +623,7 @@ func TestRemoveFromWhitelistNotFound(t *testing.T) {
 	app, _, handler := setupRateLimitTestApp()
 	app.Delete("/admin/ratelimit/whitelist/:identifier", handler.RemoveFromWhitelist)
 
-	req := httptest.NewRequest("DELETE", "/admin/ratelimit/whitelist/nonexistent", nil)
+	req := httptest.NewRequest("DELETE", "/admin/ratelimit/whitelist/nonexistent", http.NoBody)
 	resp, err := app.Test(req)
 
 	assert.NoError(t, err)
@@ -656,7 +657,7 @@ func TestGetBlacklist(t *testing.T) {
 		ExpiresAt:  time.Now().Add(24 * time.Hour),
 	})
 
-	req := httptest.NewRequest("GET", "/admin/ratelimit/blacklist", nil)
+	req := httptest.NewRequest("GET", "/admin/ratelimit/blacklist", http.NoBody)
 	resp, err := app.Test(req)
 
 	assert.NoError(t, err)
@@ -774,7 +775,7 @@ func TestRemoveFromBlacklist(t *testing.T) {
 		ExpiresAt:  time.Now().Add(1 * time.Hour),
 	})
 
-	req := httptest.NewRequest("DELETE", "/admin/ratelimit/blacklist/"+identifier, nil)
+	req := httptest.NewRequest("DELETE", "/admin/ratelimit/blacklist/"+identifier, http.NoBody)
 	resp, err := app.Test(req)
 
 	assert.NoError(t, err)
@@ -796,7 +797,7 @@ func TestRemoveFromBlacklistNotFound(t *testing.T) {
 	app, _, handler := setupRateLimitTestApp()
 	app.Delete("/admin/ratelimit/blacklist/:identifier", handler.RemoveFromBlacklist)
 
-	req := httptest.NewRequest("DELETE", "/admin/ratelimit/blacklist/nonexistent", nil)
+	req := httptest.NewRequest("DELETE", "/admin/ratelimit/blacklist/nonexistent", http.NoBody)
 	resp, err := app.Test(req)
 
 	assert.NoError(t, err)

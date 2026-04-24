@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/store"
 )
 
@@ -84,7 +85,7 @@ func TestServiceHandler_List(t *testing.T) {
 	_ = handler.store.Register(service2)
 
 	// Test list
-	req := httptest.NewRequest(http.MethodGet, "/services/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/services/", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("list request failed: %v", err)
@@ -106,7 +107,7 @@ func TestServiceHandler_Get(t *testing.T) {
 	handler, app := setupServiceHandler()
 
 	// Test non-existent service
-	req := httptest.NewRequest(http.MethodGet, "/services/nonexistent", nil)
+	req := httptest.NewRequest(http.MethodGet, "/services/nonexistent", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("get request failed: %v", err)
@@ -120,7 +121,7 @@ func TestServiceHandler_Get(t *testing.T) {
 	_ = handler.store.Register(service)
 
 	// Test existing service
-	req = httptest.NewRequest(http.MethodGet, "/services/test-service", nil)
+	req = httptest.NewRequest(http.MethodGet, "/services/test-service", http.NoBody)
 	resp, err = app.Test(req)
 	if err != nil {
 		t.Fatalf("get request failed: %v", err)
@@ -146,7 +147,7 @@ func TestServiceHandler_Deregister(t *testing.T) {
 	_ = handler.store.Register(service)
 
 	// Test deregister
-	req := httptest.NewRequest(http.MethodDelete, "/deregister/test-service", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/deregister/test-service", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("deregister request failed: %v", err)
@@ -174,7 +175,7 @@ func TestServiceHandler_Heartbeat(t *testing.T) {
 	handler, app := setupServiceHandler()
 
 	// Test heartbeat on non-existent service
-	req := httptest.NewRequest(http.MethodPut, "/heartbeat/nonexistent", nil)
+	req := httptest.NewRequest(http.MethodPut, "/heartbeat/nonexistent", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("heartbeat request failed: %v", err)
@@ -188,7 +189,7 @@ func TestServiceHandler_Heartbeat(t *testing.T) {
 	_ = handler.store.Register(service)
 
 	// Test successful heartbeat
-	req = httptest.NewRequest(http.MethodPut, "/heartbeat/test-service", nil)
+	req = httptest.NewRequest(http.MethodPut, "/heartbeat/test-service", http.NoBody)
 	resp, err = app.Test(req)
 	if err != nil {
 		t.Fatalf("heartbeat request failed: %v", err)

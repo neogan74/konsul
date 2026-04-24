@@ -18,6 +18,7 @@ func NewHTTPChecker() *HTTPChecker {
 			Timeout: 10 * time.Second,
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
+					MinVersion:         tls.VersionTLS12,
 					InsecureSkipVerify: false,
 				},
 				DisableKeepAlives:   true,

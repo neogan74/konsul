@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/loadbalancer"
 	"github.com/neogan74/konsul/internal/store"
 )
@@ -63,7 +64,7 @@ func setupLoadBalancerHandler(t *testing.T) (*LoadBalancerHandler, *fiber.App) {
 func TestLoadBalancerHandler_SelectService_Success(t *testing.T) {
 	_, app := setupLoadBalancerHandler(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/lb/service/test-service", nil)
+	req := httptest.NewRequest(http.MethodGet, "/lb/service/test-service", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("SelectService request failed: %v", err)
@@ -89,7 +90,7 @@ func TestLoadBalancerHandler_SelectService_Success(t *testing.T) {
 func TestLoadBalancerHandler_SelectService_NotFound(t *testing.T) {
 	_, app := setupLoadBalancerHandler(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/lb/service/nonexistent-service", nil)
+	req := httptest.NewRequest(http.MethodGet, "/lb/service/nonexistent-service", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("SelectService request failed: %v", err)
@@ -103,7 +104,7 @@ func TestLoadBalancerHandler_SelectService_NotFound(t *testing.T) {
 func TestLoadBalancerHandler_SelectServiceByTags_Success(t *testing.T) {
 	_, app := setupLoadBalancerHandler(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/lb/tags?tags=web&tags=api", nil)
+	req := httptest.NewRequest(http.MethodGet, "/lb/tags?tags=web&tags=api", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("SelectServiceByTags request failed: %v", err)
@@ -132,7 +133,7 @@ func TestLoadBalancerHandler_SelectServiceByTags_Success(t *testing.T) {
 func TestLoadBalancerHandler_SelectServiceByTags_NoTags(t *testing.T) {
 	_, app := setupLoadBalancerHandler(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/lb/tags", nil)
+	req := httptest.NewRequest(http.MethodGet, "/lb/tags", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("SelectServiceByTags request failed: %v", err)
@@ -146,7 +147,7 @@ func TestLoadBalancerHandler_SelectServiceByTags_NoTags(t *testing.T) {
 func TestLoadBalancerHandler_SelectServiceByTags_NotFound(t *testing.T) {
 	_, app := setupLoadBalancerHandler(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/lb/tags?tags=nonexistent-tag", nil)
+	req := httptest.NewRequest(http.MethodGet, "/lb/tags?tags=nonexistent-tag", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("SelectServiceByTags request failed: %v", err)
@@ -160,7 +161,7 @@ func TestLoadBalancerHandler_SelectServiceByTags_NotFound(t *testing.T) {
 func TestLoadBalancerHandler_SelectServiceByMetadata_Success(t *testing.T) {
 	_, app := setupLoadBalancerHandler(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/lb/metadata?env=test&version=1.0", nil)
+	req := httptest.NewRequest(http.MethodGet, "/lb/metadata?env=test&version=1.0", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("SelectServiceByMetadata request failed: %v", err)
@@ -186,7 +187,7 @@ func TestLoadBalancerHandler_SelectServiceByMetadata_Success(t *testing.T) {
 func TestLoadBalancerHandler_SelectServiceByMetadata_NoFilters(t *testing.T) {
 	_, app := setupLoadBalancerHandler(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/lb/metadata", nil)
+	req := httptest.NewRequest(http.MethodGet, "/lb/metadata", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("SelectServiceByMetadata request failed: %v", err)
@@ -200,7 +201,7 @@ func TestLoadBalancerHandler_SelectServiceByMetadata_NoFilters(t *testing.T) {
 func TestLoadBalancerHandler_SelectServiceByMetadata_NotFound(t *testing.T) {
 	_, app := setupLoadBalancerHandler(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/lb/metadata?env=nonexistent", nil)
+	req := httptest.NewRequest(http.MethodGet, "/lb/metadata?env=nonexistent", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("SelectServiceByMetadata request failed: %v", err)
@@ -214,7 +215,7 @@ func TestLoadBalancerHandler_SelectServiceByMetadata_NotFound(t *testing.T) {
 func TestLoadBalancerHandler_SelectServiceByQuery_Success(t *testing.T) {
 	_, app := setupLoadBalancerHandler(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/lb/query?tags=web&meta.env=test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/lb/query?tags=web&meta.env=test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("SelectServiceByQuery request failed: %v", err)
@@ -252,7 +253,7 @@ func TestLoadBalancerHandler_SelectServiceByQuery_Success(t *testing.T) {
 func TestLoadBalancerHandler_SelectServiceByQuery_TagsOnly(t *testing.T) {
 	_, app := setupLoadBalancerHandler(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/lb/query?tags=web", nil)
+	req := httptest.NewRequest(http.MethodGet, "/lb/query?tags=web", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("SelectServiceByQuery request failed: %v", err)
@@ -266,7 +267,7 @@ func TestLoadBalancerHandler_SelectServiceByQuery_TagsOnly(t *testing.T) {
 func TestLoadBalancerHandler_SelectServiceByQuery_MetadataOnly(t *testing.T) {
 	_, app := setupLoadBalancerHandler(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/lb/query?meta.env=test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/lb/query?meta.env=test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("SelectServiceByQuery request failed: %v", err)
@@ -280,7 +281,7 @@ func TestLoadBalancerHandler_SelectServiceByQuery_MetadataOnly(t *testing.T) {
 func TestLoadBalancerHandler_SelectServiceByQuery_NoFilters(t *testing.T) {
 	_, app := setupLoadBalancerHandler(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/lb/query", nil)
+	req := httptest.NewRequest(http.MethodGet, "/lb/query", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("SelectServiceByQuery request failed: %v", err)
@@ -294,7 +295,7 @@ func TestLoadBalancerHandler_SelectServiceByQuery_NoFilters(t *testing.T) {
 func TestLoadBalancerHandler_SelectServiceByQuery_NotFound(t *testing.T) {
 	_, app := setupLoadBalancerHandler(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/lb/query?tags=nonexistent&meta.env=invalid", nil)
+	req := httptest.NewRequest(http.MethodGet, "/lb/query?tags=nonexistent&meta.env=invalid", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("SelectServiceByQuery request failed: %v", err)
@@ -308,7 +309,7 @@ func TestLoadBalancerHandler_SelectServiceByQuery_NotFound(t *testing.T) {
 func TestLoadBalancerHandler_GetStrategy(t *testing.T) {
 	_, app := setupLoadBalancerHandler(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/lb/strategy", nil)
+	req := httptest.NewRequest(http.MethodGet, "/lb/strategy", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("GetStrategy request failed: %v", err)
@@ -412,7 +413,7 @@ func TestLoadBalancerHandler_StrategyPersistence(t *testing.T) {
 	}
 
 	// Verify strategy was updated
-	getReq := httptest.NewRequest(http.MethodGet, "/lb/strategy", nil)
+	getReq := httptest.NewRequest(http.MethodGet, "/lb/strategy", http.NoBody)
 	getResp, err := app.Test(getReq)
 	if err != nil {
 		t.Fatalf("GetStrategy request failed: %v", err)

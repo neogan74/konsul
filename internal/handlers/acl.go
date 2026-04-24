@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/acl"
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/middleware"
@@ -218,7 +219,7 @@ func (h *ACLHandler) LoadPolicies() error {
 	}
 
 	// Create policy directory if it doesn't exist
-	if err := os.MkdirAll(h.policyDir, 0755); err != nil {
+	if err := os.MkdirAll(h.policyDir, 0o755); err != nil {
 		return err
 	}
 
@@ -255,7 +256,7 @@ func (h *ACLHandler) LoadPolicies() error {
 // savePolicyToFile saves a policy to a JSON file
 func (h *ACLHandler) savePolicyToFile(policy *acl.Policy) error {
 	// Create policy directory if it doesn't exist
-	if err := os.MkdirAll(h.policyDir, 0755); err != nil {
+	if err := os.MkdirAll(h.policyDir, 0o755); err != nil {
 		return err
 	}
 
@@ -265,5 +266,5 @@ func (h *ACLHandler) savePolicyToFile(policy *acl.Policy) error {
 		return err
 	}
 
-	return os.WriteFile(policyFile, data, 0644)
+	return os.WriteFile(policyFile, data, 0o600)
 }

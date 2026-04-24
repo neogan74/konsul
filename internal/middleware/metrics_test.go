@@ -14,7 +14,7 @@ func TestMetricsMiddleware_SuccessfulRequest(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -35,7 +35,7 @@ func TestMetricsMiddleware_ErrorRequest(t *testing.T) {
 		return c.Status(fiber.StatusInternalServerError).SendString("error")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -57,7 +57,7 @@ func TestMetricsMiddleware_DifferentMethods(t *testing.T) {
 				return c.SendString("ok")
 			})
 
-			req := httptest.NewRequest(method, "/test", nil)
+			req := httptest.NewRequest(method, "/test", http.NoBody)
 			resp, err := app.Test(req)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
@@ -81,7 +81,7 @@ func TestMetricsMiddleware_DifferentPaths(t *testing.T) {
 				return c.SendString("ok")
 			})
 
-			req := httptest.NewRequest("GET", path, nil)
+			req := httptest.NewRequest("GET", path, http.NoBody)
 			resp, err := app.Test(req)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
@@ -101,7 +101,7 @@ func TestMetricsMiddleware_SkipsMetricsEndpoint(t *testing.T) {
 		return c.SendString("metrics")
 	})
 
-	req := httptest.NewRequest("GET", "/metrics", nil)
+	req := httptest.NewRequest("GET", "/metrics", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -132,7 +132,7 @@ func TestMetricsMiddleware_DifferentStatusCodes(t *testing.T) {
 				return c.SendStatus(status)
 			})
 
-			req := httptest.NewRequest("GET", "/test", nil)
+			req := httptest.NewRequest("GET", "/test", http.NoBody)
 			resp, err := app.Test(req)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
@@ -152,7 +152,7 @@ func TestMetricsMiddleware_WithError(t *testing.T) {
 		return fiber.NewError(fiber.StatusBadRequest, "validation error")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -172,7 +172,7 @@ func TestMetricsMiddleware_MultipleRequests(t *testing.T) {
 
 	// Make multiple requests to test metric accumulation
 	for i := 0; i < 10; i++ {
-		req := httptest.NewRequest("GET", "/test", nil)
+		req := httptest.NewRequest("GET", "/test", http.NoBody)
 		resp, err := app.Test(req)
 		if err != nil {
 			t.Fatalf("request %d failed: %v", i, err)
@@ -196,7 +196,7 @@ func TestMetricsMiddleware_ConcurrentRequests(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		go func(id int) {
-			req := httptest.NewRequest("GET", "/test", nil)
+			req := httptest.NewRequest("GET", "/test", http.NoBody)
 			resp, err := app.Test(req)
 			if err != nil {
 				t.Errorf("concurrent request %d failed: %v", id, err)
@@ -226,7 +226,7 @@ func TestMetricsMiddleware_ChainedWithOtherMiddleware(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)

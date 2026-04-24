@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/golang-lru/v2/expirable"
+
 	"github.com/neogan74/konsul/internal/store"
 )
 
