@@ -18,6 +18,7 @@ func NewHTTPChecker() *HTTPChecker {
 			Timeout: 10 * time.Second,
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
+					MinVersion:         tls.VersionTLS12,
 					InsecureSkipVerify: false,
 				},
 				DisableKeepAlives:   true,
@@ -38,7 +39,7 @@ func (h *HTTPChecker) Check(ctx context.Context, check *Check) (Status, string, 
 		method = "GET"
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, check.HTTP, nil)
+	req, err := http.NewRequestWithContext(ctx, method, check.HTTP, http.NoBody)
 	if err != nil {
 		return StatusCritical, fmt.Sprintf("Failed to create request: %v", err), err
 	}
@@ -82,9 +83,9 @@ func (h *HTTPChecker) Check(ctx context.Context, check *Check) (Status, string, 
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return StatusPassing, output, nil
-	} else if resp.StatusCode >= 300 && resp.StatusCode < 400 {
-		return StatusWarning, output, nil
-	} else {
-		return StatusCritical, output, fmt.Errorf("HTTP check failed with status %d", resp.StatusCode)
 	}
+	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+		return StatusWarning, output, nil
+	}
+	return StatusCritical, output, fmt.Errorf("HTTP check failed with status %d", resp.StatusCode)
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/logger"
 )
 
@@ -20,7 +21,7 @@ func TestBadRequest(t *testing.T) {
 		return BadRequest(c, "invalid input data")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -64,7 +65,7 @@ func TestNotFound(t *testing.T) {
 		return NotFound(c, "resource not found")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -97,7 +98,7 @@ func TestInternalServerError(t *testing.T) {
 		return InternalServerError(c, "database connection failed")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -130,7 +131,7 @@ func TestUnprocessableEntity(t *testing.T) {
 		return UnprocessableEntity(c, "validation failed")
 	})
 
-	req := httptest.NewRequest("POST", "/test", nil)
+	req := httptest.NewRequest("POST", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -163,7 +164,7 @@ func TestConflict(t *testing.T) {
 		return Conflict(c, "resource already exists")
 	})
 
-	req := httptest.NewRequest("POST", "/test", nil)
+	req := httptest.NewRequest("POST", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -196,7 +197,7 @@ func TestInternalError_Alias(t *testing.T) {
 		return InternalError(c, "something went wrong")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -228,7 +229,7 @@ func TestErrorResponse_WithoutRequestID(t *testing.T) {
 		return BadRequest(c, "test error")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -267,7 +268,7 @@ func TestErrorResponse_TimestampRecent(t *testing.T) {
 	})
 
 	before := time.Now()
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	after := time.Now()
 
@@ -308,7 +309,7 @@ func TestErrorResponse_DifferentPaths(t *testing.T) {
 				return NotFound(c, "test")
 			})
 
-			req := httptest.NewRequest("GET", tc.path, nil)
+			req := httptest.NewRequest("GET", tc.path, http.NoBody)
 			resp, err := app.Test(req)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
@@ -336,7 +337,7 @@ func TestErrorResponse_EmptyMessage(t *testing.T) {
 		return BadRequest(c, "")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -368,7 +369,7 @@ func TestErrorResponse_JSONStructure(t *testing.T) {
 		return Conflict(c, "duplicate entry")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -400,7 +401,7 @@ func TestErrorResponse_ContentType(t *testing.T) {
 		return InternalServerError(c, "error")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)

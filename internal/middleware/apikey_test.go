@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/auth"
 )
 
@@ -19,7 +20,7 @@ func TestAPIKeyAuth_PublicPath(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/health", nil)
+	req := httptest.NewRequest("GET", "/health", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -39,7 +40,7 @@ func TestAPIKeyAuth_MissingKey(t *testing.T) {
 		return c.SendString("data")
 	})
 
-	req := httptest.NewRequest("GET", "/api/data", nil)
+	req := httptest.NewRequest("GET", "/api/data", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -89,7 +90,7 @@ func TestAPIKeyAuth_ValidKey_XAPIKeyHeader(t *testing.T) {
 		return c.SendString("data")
 	})
 
-	req := httptest.NewRequest("GET", "/api/data", nil)
+	req := httptest.NewRequest("GET", "/api/data", http.NoBody)
 	req.Header.Set("X-API-Key", keyString)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -117,7 +118,7 @@ func TestAPIKeyAuth_ValidKey_AuthorizationHeader(t *testing.T) {
 		return c.SendString("data")
 	})
 
-	req := httptest.NewRequest("GET", "/api/data", nil)
+	req := httptest.NewRequest("GET", "/api/data", http.NoBody)
 	req.Header.Set("Authorization", "ApiKey "+keyString)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -138,7 +139,7 @@ func TestAPIKeyAuth_InvalidKey(t *testing.T) {
 		return c.SendString("data")
 	})
 
-	req := httptest.NewRequest("GET", "/api/data", nil)
+	req := httptest.NewRequest("GET", "/api/data", http.NoBody)
 	req.Header.Set("X-API-Key", "invalid-key")
 	resp, err := app.Test(req)
 	if err != nil {
@@ -171,7 +172,7 @@ func TestAPIKeyAuth_ExpiredKey(t *testing.T) {
 		return c.SendString("data")
 	})
 
-	req := httptest.NewRequest("GET", "/api/data", nil)
+	req := httptest.NewRequest("GET", "/api/data", http.NoBody)
 	req.Header.Set("X-API-Key", keyString)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -209,7 +210,7 @@ func TestAPIKeyAuth_DisabledKey(t *testing.T) {
 		return c.SendString("data")
 	})
 
-	req := httptest.NewRequest("GET", "/api/data", nil)
+	req := httptest.NewRequest("GET", "/api/data", http.NoBody)
 	req.Header.Set("X-API-Key", keyString)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -236,7 +237,7 @@ func TestGetAPIKeyID_NoContext(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	_, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -253,7 +254,7 @@ func TestGetAPIKeyName_NoContext(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	_, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -270,7 +271,7 @@ func TestGetAPIKeyPermissions_NoContext(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	_, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -287,7 +288,7 @@ func TestGetAPIKey_NoContext(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	_, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -313,7 +314,7 @@ func TestHasPermission(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	_, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -339,7 +340,7 @@ func TestHasPermission_Wildcard(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	_, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -357,7 +358,7 @@ func TestRequirePermission_Success(t *testing.T) {
 		return c.SendString("data")
 	})
 
-	req := httptest.NewRequest("GET", "/data", nil)
+	req := httptest.NewRequest("GET", "/data", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -379,7 +380,7 @@ func TestRequirePermission_Forbidden(t *testing.T) {
 		return c.SendString("data")
 	})
 
-	req := httptest.NewRequest("GET", "/data", nil)
+	req := httptest.NewRequest("GET", "/data", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)

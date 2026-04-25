@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/auth"
 )
 
@@ -22,7 +23,7 @@ func TestJWTAuth_PublicPath(t *testing.T) {
 	})
 
 	// Test public path without token
-	req := httptest.NewRequest("GET", "/health", nil)
+	req := httptest.NewRequest("GET", "/health", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -42,7 +43,7 @@ func TestJWTAuth_PublicPathWildcardPrefix(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/admin/health", nil)
+	req := httptest.NewRequest("GET", "/admin/health", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -62,7 +63,7 @@ func TestJWTAuth_TrailingSlashPathIsExactMatch(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/admin/health", nil)
+	req := httptest.NewRequest("GET", "/admin/health", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -82,7 +83,7 @@ func TestJWTAuth_MissingHeader(t *testing.T) {
 		return c.SendString("data")
 	})
 
-	req := httptest.NewRequest("GET", "/api/data", nil)
+	req := httptest.NewRequest("GET", "/api/data", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -119,7 +120,7 @@ func TestJWTAuth_InvalidHeaderFormat(t *testing.T) {
 				return c.SendString("data")
 			})
 
-			req := httptest.NewRequest("GET", "/api/data", nil)
+			req := httptest.NewRequest("GET", "/api/data", http.NoBody)
 			req.Header.Set("Authorization", tc.header)
 			resp, err := app.Test(req)
 			if err != nil {
@@ -166,7 +167,7 @@ func TestJWTAuth_ValidToken(t *testing.T) {
 		return c.SendString("data")
 	})
 
-	req := httptest.NewRequest("GET", "/api/data", nil)
+	req := httptest.NewRequest("GET", "/api/data", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -187,7 +188,7 @@ func TestJWTAuth_InvalidToken(t *testing.T) {
 		return c.SendString("data")
 	})
 
-	req := httptest.NewRequest("GET", "/api/data", nil)
+	req := httptest.NewRequest("GET", "/api/data", http.NoBody)
 	req.Header.Set("Authorization", "Bearer invalid-token")
 	resp, err := app.Test(req)
 	if err != nil {
@@ -214,7 +215,7 @@ func TestGetUserID_NoContext(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	_, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -231,7 +232,7 @@ func TestGetUsername_NoContext(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	_, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -248,7 +249,7 @@ func TestGetRoles_NoContext(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	_, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -265,7 +266,7 @@ func TestGetClaims_NoContext(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	_, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -291,7 +292,7 @@ func TestHasRole(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	_, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -310,7 +311,7 @@ func TestRequireRole_Success(t *testing.T) {
 		return c.SendString("admin area")
 	})
 
-	req := httptest.NewRequest("GET", "/admin", nil)
+	req := httptest.NewRequest("GET", "/admin", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -333,7 +334,7 @@ func TestRequireRole_Forbidden(t *testing.T) {
 		return c.SendString("admin area")
 	})
 
-	req := httptest.NewRequest("GET", "/admin", nil)
+	req := httptest.NewRequest("GET", "/admin", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)

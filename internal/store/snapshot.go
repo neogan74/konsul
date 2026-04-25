@@ -9,11 +9,11 @@ import (
 )
 
 // SnapshotState returns a copy of KV entries and current global index.
-func (kv *KVStore) SnapshotState() (entries map[string]KVEntry, index uint64) {
+func (kv *KVStore) SnapshotState() (map[string]KVEntry, uint64) {
 	kv.Mutex.RLock()
 	defer kv.Mutex.RUnlock()
 
-	entries = make(map[string]KVEntry, len(kv.Data))
+	entries := make(map[string]KVEntry, len(kv.Data))
 	for key, entry := range kv.Data {
 		entries[key] = entry
 	}
@@ -33,11 +33,11 @@ func (kv *KVStore) RestoreSnapshot(entries map[string]KVEntry, index uint64) {
 }
 
 // SnapshotState returns a copy of service entries and current global index.
-func (s *ServiceStore) SnapshotState() (entries map[string]ServiceEntry, index uint64) {
+func (s *ServiceStore) SnapshotState() (map[string]ServiceEntry, uint64) {
 	s.Mutex.RLock()
 	defer s.Mutex.RUnlock()
 
-	entries = make(map[string]ServiceEntry, len(s.Data))
+	entries := make(map[string]ServiceEntry, len(s.Data))
 	for name, entry := range s.Data {
 		entries[name] = entry
 	}

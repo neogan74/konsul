@@ -78,8 +78,6 @@ func (b *Balancer) SelectService(serviceTag string) (store.Service, bool) {
 		return b.selectLeastConnections(instances), true
 	case StrategyWeightedRoundRobin:
 		return b.selectWeightedRoundRobin(serviceTag, instances), true
-	case StrategyRoundRobin:
-		fallthrough
 	default:
 		return b.selectRoundRobin(serviceTag, instances), true
 	}
@@ -98,8 +96,6 @@ func (b *Balancer) SelectServiceByTags(tags []string) (store.Service, bool) {
 		return b.selectRandom(services), true
 	case StrategyLeastConnections:
 		return b.selectLeastConnections(services), true
-	case StrategyRoundRobin:
-		fallthrough
 	default:
 		// For tag-based queries, use first service name for counter
 		return b.selectRoundRobin(services[0].Name, services), true
@@ -119,8 +115,6 @@ func (b *Balancer) SelectServiceByMetadata(filters map[string]string) (store.Ser
 		return b.selectRandom(services), true
 	case StrategyLeastConnections:
 		return b.selectLeastConnections(services), true
-	case StrategyRoundRobin:
-		fallthrough
 	default:
 		// For metadata-based queries, use first service name for counter
 		return b.selectRoundRobin(services[0].Name, services), true
@@ -140,8 +134,6 @@ func (b *Balancer) SelectServiceByQuery(tags []string, metadata map[string]strin
 		return b.selectRandom(services), true
 	case StrategyLeastConnections:
 		return b.selectLeastConnections(services), true
-	case StrategyRoundRobin:
-		fallthrough
 	default:
 		// For combined queries, use first service name for counter
 		return b.selectRoundRobin(services[0].Name, services), true

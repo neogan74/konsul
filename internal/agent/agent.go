@@ -372,7 +372,7 @@ func (a *Agent) Stats() AgentStats {
 // Health returns agent health status
 func (a *Agent) Health() bool {
 	// Agent is healthy if:
-	// 1. Context is not cancelled
+	// 1. Context is not canceled
 	// 2. Last sync was recent (within 2x sync interval)
 	// 3. Not too many sync errors
 

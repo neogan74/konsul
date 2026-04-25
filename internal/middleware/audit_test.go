@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/audit"
 	"github.com/neogan74/konsul/internal/logger"
 )
@@ -29,7 +30,7 @@ func TestAuditMiddleware_DisabledManager(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -153,7 +154,7 @@ func TestDeriveAction_DefaultMapping(t *testing.T) {
 				return c.SendStatus(200)
 			})
 
-			req := httptest.NewRequest(tt.method, tt.path, nil)
+			req := httptest.NewRequest(tt.method, tt.path, http.NoBody)
 			_, _ = app.Test(req)
 		})
 	}
@@ -184,7 +185,7 @@ func TestKVActionMapper(t *testing.T) {
 				return c.SendStatus(200)
 			})
 
-			req := httptest.NewRequest(tt.method, tt.uri, nil)
+			req := httptest.NewRequest(tt.method, tt.uri, http.NoBody)
 			_, err := app.Test(req)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
@@ -225,7 +226,7 @@ func TestServiceActionMapper(t *testing.T) {
 				uri += "?" + tt.query
 			}
 
-			req := httptest.NewRequest(tt.method, uri, nil)
+			req := httptest.NewRequest(tt.method, uri, http.NoBody)
 			_, err := app.Test(req)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
@@ -262,7 +263,7 @@ func TestACLActionMapper(t *testing.T) {
 				return c.SendStatus(200)
 			})
 
-			req := httptest.NewRequest(tt.method, tt.uri, nil)
+			req := httptest.NewRequest(tt.method, tt.uri, http.NoBody)
 			_, err := app.Test(req)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
@@ -297,7 +298,7 @@ func TestBackupActionMapper(t *testing.T) {
 				return c.SendStatus(200)
 			})
 
-			req := httptest.NewRequest(tt.method, tt.uri, nil)
+			req := httptest.NewRequest(tt.method, tt.uri, http.NoBody)
 			_, err := app.Test(req)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)

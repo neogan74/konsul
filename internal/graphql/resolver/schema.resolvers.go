@@ -13,6 +13,7 @@ import (
 	"time"
 
 	hashiraft "github.com/hashicorp/raft"
+
 	"github.com/neogan74/konsul/internal/acl"
 	"github.com/neogan74/konsul/internal/graphql/generated"
 	"github.com/neogan74/konsul/internal/graphql/model"
@@ -697,7 +698,7 @@ func (r *subscriptionResolver) KvChanged(ctx context.Context, key *string, prefi
 		for {
 			select {
 			case <-ctx.Done():
-				// Context cancelled - subscription ended
+				// Context canceled - subscription ended
 				return
 			case watchEvent, ok := <-watcher.Events:
 				if !ok {
@@ -730,7 +731,7 @@ func (r *subscriptionResolver) KvChanged(ctx context.Context, key *string, prefi
 				case eventChan <- gqlEvent:
 					// Event sent successfully
 				case <-ctx.Done():
-					// Context cancelled while sending
+					// Context canceled while sending
 					return
 				}
 			}

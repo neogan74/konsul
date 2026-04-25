@@ -296,7 +296,7 @@ func (k *KVCommands) watchWebSocket(config *ClientConfig, pattern string) {
 			err := conn.ReadJSON(&event)
 			if err != nil {
 				if ctx.Err() != nil {
-					return // Context cancelled, exit gracefully
+					return // Context canceled, exit gracefully
 				}
 				k.cli.Errorf("Error reading event: %v\n", err)
 				return
@@ -327,7 +327,7 @@ func (k *KVCommands) watchSSE(config *ClientConfig, pattern string) {
 		cancel()
 	}()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, httpURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, httpURL, http.NoBody)
 	k.cli.HandleError(err, "creating SSE request")
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Cache-Control", "no-cache")
@@ -466,6 +466,7 @@ func (k *KVCommands) buildTLSClientConfig(tlsConfig *TLSConfig) (*tls.Config, er
 	}
 
 	clientConfig := &tls.Config{
+		MinVersion:         tls.VersionTLS12,
 		InsecureSkipVerify: tlsConfig.SkipVerify,
 	}
 

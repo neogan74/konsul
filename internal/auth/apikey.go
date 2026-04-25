@@ -193,7 +193,7 @@ func (a *APIKeyService) GetAPIKey(keyID string) (*APIKey, error) {
 	return nil, ErrAPIKeyNotFound
 }
 
-func (a *APIKeyService) UpdateAPIKey(keyID string, name string, permissions []string, metadata map[string]string, enabled *bool) error {
+func (a *APIKeyService) UpdateAPIKey(keyID, name string, permissions []string, metadata map[string]string, enabled *bool) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 

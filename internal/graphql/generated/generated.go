@@ -13,10 +13,11 @@ import (
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
-	"github.com/neogan74/konsul/internal/graphql/model"
-	"github.com/neogan74/konsul/internal/graphql/scalar"
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
+
+	"github.com/neogan74/konsul/internal/graphql/model"
+	"github.com/neogan74/konsul/internal/graphql/scalar"
 )
 
 // region    ************************** generated!.gotpl **************************

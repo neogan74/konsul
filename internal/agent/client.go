@@ -62,6 +62,7 @@ func NewServerClient(serverURL string, tlsConfig TLSConfig, agentID string) (*Se
 // buildTLSConfig builds TLS configuration from config
 func buildTLSConfig(cfg TLSConfig) (*tls.Config, error) {
 	tlsConfig := &tls.Config{
+		MinVersion:         tls.VersionTLS12,
 		InsecureSkipVerify: cfg.SkipVerify,
 	}
 
@@ -130,7 +131,7 @@ func (c *ServerClient) RegisterService(ctx context.Context, svc store.Service) e
 // DeregisterService deregisters a service from the server
 func (c *ServerClient) DeregisterService(ctx context.Context, name string) error {
 	url := fmt.Sprintf("%s/deregister/%s", c.serverURL, name)
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, http.NoBody)
 	if err != nil {
 		return err
 	}
@@ -153,7 +154,7 @@ func (c *ServerClient) DeregisterService(ctx context.Context, name string) error
 func (c *ServerClient) GetService(ctx context.Context, name string) ([]*store.ServiceEntry, error) {
 	url := fmt.Sprintf("%s/services/%s", c.serverURL, name)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +182,7 @@ func (c *ServerClient) GetService(ctx context.Context, name string) ([]*store.Se
 func (c *ServerClient) GetKV(ctx context.Context, key string) (*store.KVEntry, error) {
 	url := fmt.Sprintf("%s/kv/%s", c.serverURL, key)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +219,7 @@ func (c *ServerClient) SetKV(ctx context.Context, key string, entry *store.KVEnt
 // DeleteKV deletes a KV entry from the server
 func (c *ServerClient) DeleteKV(ctx context.Context, key string) error {
 	url := fmt.Sprintf("%s/kv/%s", c.serverURL, key)
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, http.NoBody)
 	if err != nil {
 		return err
 	}
@@ -245,15 +246,15 @@ func (c *ServerClient) ReportHealthCheck(ctx context.Context, update HealthUpdat
 
 // Helper methods
 
-func (c *ServerClient) doPost(ctx context.Context, url string, body interface{}, result interface{}) error {
+func (c *ServerClient) doPost(ctx context.Context, url string, body, result interface{}) error {
 	return c.doRequest(ctx, http.MethodPost, url, body, result)
 }
 
-func (c *ServerClient) doPut(ctx context.Context, url string, body interface{}, result interface{}) error {
+func (c *ServerClient) doPut(ctx context.Context, url string, body, result interface{}) error {
 	return c.doRequest(ctx, http.MethodPut, url, body, result)
 }
 
-func (c *ServerClient) doRequest(ctx context.Context, method, url string, body interface{}, result interface{}) error {
+func (c *ServerClient) doRequest(ctx context.Context, method, url string, body, result interface{}) error {
 	var bodyReader io.Reader
 	if body != nil {
 		jsonBody, err := json.Marshal(body)

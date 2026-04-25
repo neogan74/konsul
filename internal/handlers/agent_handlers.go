@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/agent"
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/store"
@@ -58,8 +59,8 @@ func (r *AgentRegistry) UpdateLastSeen(agentID string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if agent, ok := r.agents[agentID]; ok {
-		agent.LastSeen = time.Now()
+	if reg, ok := r.agents[agentID]; ok {
+		reg.LastSeen = time.Now()
 	}
 }
 
@@ -68,8 +69,8 @@ func (r *AgentRegistry) UpdateSyncIndex(agentID string, index int64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if agent, ok := r.agents[agentID]; ok {
-		agent.LastSyncIndex = index
+	if reg, ok := r.agents[agentID]; ok {
+		reg.LastSyncIndex = index
 	}
 }
 
@@ -78,8 +79,8 @@ func (r *AgentRegistry) GetAgent(agentID string) (*RegisteredAgent, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	agent, ok := r.agents[agentID]
-	return agent, ok
+	reg, ok := r.agents[agentID]
+	return reg, ok
 }
 
 // ListAgents returns all registered agents
@@ -88,8 +89,8 @@ func (r *AgentRegistry) ListAgents() []*RegisteredAgent {
 	defer r.mu.RUnlock()
 
 	agents := make([]*RegisteredAgent, 0, len(r.agents))
-	for _, agent := range r.agents {
-		agents = append(agents, agent)
+	for _, reg := range r.agents {
+		agents = append(agents, reg)
 	}
 
 	return agents
@@ -112,8 +113,8 @@ func (r *AgentRegistry) CleanupStaleAgents(timeout time.Duration) int {
 	staleAgents := make([]string, 0)
 	now := time.Now()
 
-	for id, agent := range r.agents {
-		if now.Sub(agent.LastSeen) > timeout {
+	for id, reg := range r.agents {
+		if now.Sub(reg.LastSeen) > timeout {
 			staleAgents = append(staleAgents, id)
 		}
 	}

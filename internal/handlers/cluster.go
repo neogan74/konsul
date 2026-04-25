@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"github.com/gofiber/fiber/v2"
+
 	konsulraft "github.com/neogan74/konsul/internal/raft"
 )
 

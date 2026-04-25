@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/store"
 )
 
@@ -29,7 +30,7 @@ func TestHealthHandler_Check(t *testing.T) {
 	healthHandler := NewHealthHandler(kvStore, serviceStore, "1.0.0-test")
 	app.Get("/health", healthHandler.Check)
 
-	req := httptest.NewRequest("GET", "/health", nil)
+	req := httptest.NewRequest("GET", "/health", http.NoBody)
 	resp, err := app.Test(req, -1)
 
 	if err != nil {
@@ -75,7 +76,7 @@ func TestHealthHandler_Liveness(t *testing.T) {
 
 	app.Get("/health/live", healthHandler.Liveness)
 
-	req := httptest.NewRequest("GET", "/health/live", nil)
+	req := httptest.NewRequest("GET", "/health/live", http.NoBody)
 	resp, err := app.Test(req, -1)
 
 	if err != nil {
@@ -105,7 +106,7 @@ func TestHealthHandler_Readiness(t *testing.T) {
 
 	app.Get("/health/ready", healthHandler.Readiness)
 
-	req := httptest.NewRequest("GET", "/health/ready", nil)
+	req := httptest.NewRequest("GET", "/health/ready", http.NoBody)
 	resp, err := app.Test(req, -1)
 
 	if err != nil {
