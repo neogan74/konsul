@@ -101,6 +101,16 @@ linters:
         - hugeParam         # Allow large struct parameters
         - rangeValCopy      # Sometimes acceptable
         - commentedOutCode  # Sometimes useful during development
+        - ifElseChain       # Range comparisons can't be switch statements
+        - unnamedResult     # Naming return values is optional per Go style
+        - stringXbytes      # Minor optimization, mainly in generated code
+        - unnecessaryDefer  # Sometimes needed for clarity in short functions
+        - preferFprint      # Minor style preference
+        - nestingReduce     # Inverting conditions can reduce readability
+        - builtinShadow     # err variable name is idiomatic Go
+        - redundantSprint   # Minor style
+        - filepathJoin      # Path construction style preference
+        - dupBranchBody     # Sometimes intentional for clarity
 
     gosec:
       # Exclude specific rules

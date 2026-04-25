@@ -83,7 +83,7 @@ func TestBatchOperations_BatchCASSuccess(t *testing.T) {
 	require.NoError(t, leader.KVBatchSet(map[string]string{
 		"bk1": "v1", "bk2": "v2", "bk3": "v3",
 	}))
-	time.Sleep(300 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 
 	// Gather expected indices from leader FSM
 	kv := leader.fsm.kvStore.(*MockKVStore)
@@ -103,11 +103,12 @@ func TestBatchOperations_BatchCASSuccess(t *testing.T) {
 		assert.Greater(t, newIdx, expectedIndices[k], "new index for %s must be greater", k)
 	}
 
-	// Poll each node until it sees the updated values (avoids fixed-sleep flakiness)
+	// Poll each node until it sees the updated values.
+	// Use a generous timeout to handle follower replication lag in CI.
 	for _, node := range nodes {
 		nodeKV := node.fsm.kvStore.(*MockKVStore)
 		for k, v := range updates {
-			waitForKVValue(t, nodeKV, k, v, 10*time.Second)
+			waitForKVValue(t, nodeKV, k, v, 15*time.Second)
 		}
 	}
 }

@@ -378,7 +378,7 @@ func TestConsistency_MonotonicReads(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	// Perform multiple reads and track values
-	var values []string
+	values := make([]string, 0, 5)
 	kvStore := leader.fsm.kvStore.(*MockKVStore)
 
 	for i := 0; i < 5; i++ {
