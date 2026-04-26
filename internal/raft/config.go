@@ -81,6 +81,9 @@ type Config struct {
 
 	// TLS Configuration
 	TLS TLSConfig
+
+	// Discovery configures automatic cluster discovery.
+	Discovery DiscoveryConfig
 }
 
 // DefaultConfig returns a Config with sensible defaults.

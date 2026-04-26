@@ -239,6 +239,17 @@ func main() {
 	// Initialize Raft clustering if enabled
 	var raftNode *konsulraft.Node
 	if cfg.Raft.Enabled {
+		discoveryCfg := &cfg.Raft.Discovery
+		raftDiscovery := konsulraft.DiscoveryConfig{
+			Method:           konsulraft.DiscoveryMethod(discoveryCfg.Method),
+			Seeds:            discoveryCfg.Seeds,
+			DNSDomain:        discoveryCfg.DNSDomain,
+			DNSPort:          discoveryCfg.DNSPort,
+			RetryInterval:    discoveryCfg.RetryInterval,
+			RetryMaxInterval: discoveryCfg.RetryMaxInterval,
+			RetryMax:         discoveryCfg.RetryMax,
+		}
+
 		raftCfg := &konsulraft.Config{
 			NodeID:             cfg.Raft.NodeID,
 			BindAddr:           cfg.Raft.BindAddr,
@@ -255,6 +266,7 @@ func main() {
 			MaxAppendEntries:   cfg.Raft.MaxAppendEntries,
 			TrailingLogs:       cfg.Raft.TrailingLogs,
 			LogLevel:           cfg.Raft.LogLevel,
+			Discovery:          raftDiscovery,
 		}
 
 		raftNode, err = konsulraft.NewNode(raftCfg, kv, svcStore)
@@ -273,7 +285,20 @@ func main() {
 			logger.String("node_id", cfg.Raft.NodeID),
 			logger.String("bind_addr", cfg.Raft.BindAddr),
 			logger.String("advertise_addr", cfg.Raft.AdvertiseAddr),
-			logger.String("bootstrap", fmt.Sprintf("%t", cfg.Raft.Bootstrap)))
+			logger.String("bootstrap", fmt.Sprintf("%t", cfg.Raft.Bootstrap)),
+			logger.String("discovery_method", discoveryCfg.Method))
+
+		// Run auto-join if discovery is configured.
+		if raftDiscovery.Method != konsulraft.DiscoveryMethodNone {
+			discoverer, discovererErr := konsulraft.NewDiscoverer(&raftDiscovery)
+			if discovererErr != nil {
+				appLogger.Error("Failed to create cluster discoverer", logger.Error(discovererErr))
+			} else {
+				joinCtx, joinCancel := context.WithCancel(context.Background())
+				defer joinCancel()
+				go raftNode.RunAutoJoin(joinCtx, discoverer, &raftDiscovery)
+			}
+		}
 
 		// Wait for leader election (with timeout)
 		go func() {
