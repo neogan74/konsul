@@ -11,7 +11,15 @@ var (
 	ErrTokenExpired = errors.New("token has expired")
 	ErrTokenInvalid = errors.New("token is invalid")
 	ErrTokenMissing = errors.New("token is missing")
+	ErrNotJoinToken = errors.New("token is not a join token")
 )
+
+// JoinClaims are embedded in short-lived join tokens issued by the leader.
+// They authorise exactly one new node to join the cluster within the TTL.
+type JoinClaims struct {
+	Purpose string `json:"purpose"` // always "join"
+	jwt.RegisteredClaims
+}
 
 type Claims struct {
 	UserID   string   `json:"user_id"`
@@ -169,4 +177,49 @@ func (j *JWTService) RefreshToken(refreshTokenString string) (string, string, er
 	}
 
 	return newToken, newRefreshToken, nil
+}
+
+// GenerateJoinToken creates a short-lived JWT authorising a node to join the cluster.
+// ttl must be positive; if zero, defaults to 1 hour.
+func (j *JWTService) GenerateJoinToken(ttl time.Duration) (string, error) {
+	if ttl <= 0 {
+		ttl = time.Hour
+	}
+	claims := JoinClaims{
+		Purpose: "join",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+			Issuer:    j.issuer,
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(j.secretKey)
+}
+
+// ValidateJoinToken parses and validates a join token.
+// Returns ErrNotJoinToken when the purpose claim is not "join".
+func (j *JWTService) ValidateJoinToken(tokenString string) error {
+	token, err := jwt.ParseWithClaims(tokenString, &JoinClaims{}, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, ErrTokenInvalid
+		}
+		return j.secretKey, nil
+	})
+	if err != nil {
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			return ErrTokenExpired
+		}
+		return ErrTokenInvalid
+	}
+
+	claims, ok := token.Claims.(*JoinClaims)
+	if !ok || !token.Valid {
+		return ErrTokenInvalid
+	}
+	if claims.Purpose != "join" {
+		return ErrNotJoinToken
+	}
+	return nil
 }

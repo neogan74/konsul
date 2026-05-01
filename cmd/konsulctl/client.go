@@ -1558,3 +1558,88 @@ type ACLPoliciesResponse struct {
 	Policies []string `json:"policies"`
 	Count    int      `json:"count"`
 }
+
+// ClusterTransferLeadershipRequest is the body for POST /cluster/transfer.
+type ClusterTransferLeadershipRequest struct {
+	ToNodeID string `json:"to_node_id,omitempty"`
+	ToAddr   string `json:"to_addr,omitempty"`
+}
+
+// ClusterTransferLeadership requests a leadership transfer.
+// toNodeID and toAddr are optional; when empty the leader picks the best follower.
+func (c *KonsulClient) ClusterTransferLeadership(toNodeID, toAddr string) (*ClusterActionResponse, error) {
+	reqBody := ClusterTransferLeadershipRequest{ToNodeID: toNodeID, ToAddr: toAddr}
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	reqURL := fmt.Sprintf("%s/cluster/transfer", c.BaseURL)
+	req, err := http.NewRequest("POST", reqURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer closeResponseBody(resp.Body)
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result ClusterActionResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return &result, nil
+}
+
+// ClusterGenerateTokenResponse is the response from POST /cluster/token.
+type ClusterGenerateTokenResponse struct {
+	Token     string `json:"token"`
+	ExpiresIn string `json:"expires_in"`
+}
+
+// ClusterGenerateToken requests a join token with the given TTL (e.g. "24h").
+func (c *KonsulClient) ClusterGenerateToken(ttl string) (*ClusterGenerateTokenResponse, error) {
+	reqBody := map[string]string{"ttl": ttl}
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	reqURL := fmt.Sprintf("%s/cluster/token", c.BaseURL)
+	req, err := http.NewRequest("POST", reqURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer closeResponseBody(resp.Body)
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result ClusterGenerateTokenResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return &result, nil
+}

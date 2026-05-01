@@ -664,6 +664,9 @@ func main() {
 	if raftAutopilot != nil {
 		clusterHandler.SetAutopilot(raftAutopilot)
 	}
+	if jwtService != nil {
+		clusterHandler.SetJWTService(jwtService)
+	}
 	clusterHandler.RegisterRoutes(app)
 	if cfg.Raft.Enabled {
 		appLogger.Info("Cluster management endpoints registered at /cluster/*")

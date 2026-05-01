@@ -591,6 +591,35 @@ func (n *Node) Snapshot() error {
 	return future.Error()
 }
 
+// TransferLeadership transfers Raft leadership to another node.
+// Must be called on the current leader.
+// If toNodeID and toAddr are empty, the Raft library picks the best follower.
+func (n *Node) TransferLeadership(toNodeID, toAddr string) error {
+	if n.raft.State() != raft.Leader {
+		return ErrNotLeader
+	}
+
+	var future raft.Future
+	if toNodeID != "" && toAddr != "" {
+		n.logger.Info("transferring leadership to specific node",
+			"to_node_id", toNodeID, "to_addr", toAddr)
+		future = n.raft.LeadershipTransferToServer(
+			raft.ServerID(toNodeID),
+			raft.ServerAddress(toAddr),
+		)
+	} else {
+		n.logger.Info("transferring leadership to best available follower")
+		future = n.raft.LeadershipTransfer()
+	}
+
+	if err := future.Error(); err != nil {
+		return fmt.Errorf("leadership transfer failed: %w", err)
+	}
+
+	n.logger.Info("leadership transfer initiated successfully")
+	return nil
+}
+
 // =============================================================================
 // Cluster Info
 // =============================================================================
