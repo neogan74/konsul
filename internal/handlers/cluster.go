@@ -7,7 +7,8 @@ import (
 
 // ClusterHandler handles cluster management endpoints.
 type ClusterHandler struct {
-	raftNode *konsulraft.Node
+	raftNode  *konsulraft.Node
+	autopilot *konsulraft.Autopilot
 }
 
 // NewClusterHandler creates a new cluster handler.
@@ -16,6 +17,11 @@ func NewClusterHandler(raftNode *konsulraft.Node) *ClusterHandler {
 	return &ClusterHandler{
 		raftNode: raftNode,
 	}
+}
+
+// SetAutopilot attaches an autopilot instance so its health can be reported.
+func (h *ClusterHandler) SetAutopilot(ap *konsulraft.Autopilot) {
+	h.autopilot = ap
 }
 
 // RegisterRoutes registers cluster routes.
@@ -28,6 +34,7 @@ func (h *ClusterHandler) RegisterRoutes(app *fiber.App) {
 	cluster.Post("/join", h.Join)
 	cluster.Delete("/leave/:id", h.Leave)
 	cluster.Post("/snapshot", h.Snapshot)
+	cluster.Get("/autopilot", h.AutopilotHealth)
 }
 
 // checkRaftEnabled returns error response if Raft is not enabled.
@@ -212,5 +219,25 @@ func (h *ClusterHandler) Snapshot(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"status":  "ok",
 		"message": "Snapshot created successfully",
+	})
+}
+
+// AutopilotHealth returns the current autopilot health report.
+// GET /cluster/autopilot
+func (h *ClusterHandler) AutopilotHealth(c *fiber.Ctx) error {
+	if !h.checkRaftEnabled(c) {
+		return nil
+	}
+
+	if h.autopilot == nil {
+		return c.JSON(fiber.Map{
+			"enabled": false,
+			"message": "Autopilot is not configured on this node.",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"enabled": true,
+		"servers": h.autopilot.HealthReport(),
 	})
 }

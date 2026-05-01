@@ -238,6 +238,7 @@ func main() {
 
 	// Initialize Raft clustering if enabled
 	var raftNode *konsulraft.Node
+	var raftAutopilot *konsulraft.Autopilot
 	if cfg.Raft.Enabled {
 		discoveryCfg := &cfg.Raft.Discovery
 		raftDiscovery := konsulraft.DiscoveryConfig{
@@ -298,6 +299,27 @@ func main() {
 				defer joinCancel()
 				go raftNode.RunAutoJoin(joinCtx, discoverer, &raftDiscovery)
 			}
+		}
+
+		// Start autopilot if enabled.
+		apCfg := &cfg.Raft.Autopilot
+		if apCfg.Enabled {
+			raftAutopilot = konsulraft.NewAutopilot(raftNode, &konsulraft.AutopilotConfig{
+				Enabled:                 apCfg.Enabled,
+				CleanupDeadServers:      apCfg.CleanupDeadServers,
+				LastContactThreshold:    apCfg.LastContactThreshold,
+				MaxFailures:             apCfg.MaxFailures,
+				ServerStabilizationTime: apCfg.ServerStabilizationTime,
+				CleanupInterval:         apCfg.CleanupInterval,
+			})
+			apCtx, apCancel := context.WithCancel(context.Background())
+			defer apCancel()
+			raftAutopilot.Start(apCtx)
+			defer raftAutopilot.Stop()
+			appLogger.Info("Raft autopilot enabled",
+				logger.String("cleanup_interval", apCfg.CleanupInterval.String()),
+				logger.String("last_contact_threshold", apCfg.LastContactThreshold.String()),
+			)
 		}
 
 		// Wait for leader election (with timeout)
@@ -639,6 +661,9 @@ func main() {
 
 	// Cluster management endpoints (Raft)
 	clusterHandler := handlers.NewClusterHandler(raftNode)
+	if raftAutopilot != nil {
+		clusterHandler.SetAutopilot(raftAutopilot)
+	}
 	clusterHandler.RegisterRoutes(app)
 	if cfg.Raft.Enabled {
 		appLogger.Info("Cluster management endpoints registered at /cluster/*")

@@ -84,6 +84,9 @@ type Config struct {
 
 	// Discovery configures automatic cluster discovery.
 	Discovery DiscoveryConfig
+
+	// Autopilot configures automatic dead server cleanup.
+	Autopilot AutopilotConfig
 }
 
 // DefaultConfig returns a Config with sensible defaults.

@@ -139,6 +139,16 @@ type AuditConfig struct {
 	DropPolicy    string // "block" or "drop"
 }
 
+// RaftAutopilotConfig contains autopilot dead-server cleanup configuration.
+type RaftAutopilotConfig struct {
+	Enabled                 bool
+	CleanupDeadServers      bool
+	LastContactThreshold    time.Duration
+	MaxFailures             int
+	ServerStabilizationTime time.Duration
+	CleanupInterval         time.Duration
+}
+
 // RaftDiscoveryConfig contains cluster auto-discovery configuration.
 type RaftDiscoveryConfig struct {
 	// Method: "none", "static", or "dns"
@@ -177,6 +187,7 @@ type RaftConfig struct {
 	TrailingLogs       uint64
 	LogLevel           string
 	Discovery          RaftDiscoveryConfig
+	Autopilot          RaftAutopilotConfig
 }
 
 // RaftPeer represents a bootstrap peer (id@host:port)
@@ -299,6 +310,14 @@ func Load() (*Config, error) {
 				RetryInterval:    getEnvDuration("KONSUL_RAFT_DISCOVERY_RETRY_INTERVAL", 5*time.Second),
 				RetryMaxInterval: getEnvDuration("KONSUL_RAFT_DISCOVERY_RETRY_MAX_INTERVAL", 60*time.Second),
 				RetryMax:         getEnvInt("KONSUL_RAFT_DISCOVERY_RETRY_MAX", 0),
+			},
+			Autopilot: RaftAutopilotConfig{
+				Enabled:                 getEnvBool("KONSUL_RAFT_AUTOPILOT_ENABLED", false),
+				CleanupDeadServers:      getEnvBool("KONSUL_RAFT_AUTOPILOT_CLEANUP_DEAD_SERVERS", true),
+				LastContactThreshold:    getEnvDuration("KONSUL_RAFT_AUTOPILOT_LAST_CONTACT_THRESHOLD", 10*time.Second),
+				MaxFailures:             getEnvInt("KONSUL_RAFT_AUTOPILOT_MAX_FAILURES", 3),
+				ServerStabilizationTime: getEnvDuration("KONSUL_RAFT_AUTOPILOT_STABILIZATION_TIME", 10*time.Second),
+				CleanupInterval:         getEnvDuration("KONSUL_RAFT_AUTOPILOT_CLEANUP_INTERVAL", 10*time.Second),
 			},
 		},
 	}
