@@ -1,13 +1,18 @@
 package handlers
 
 import (
+	"time"
+
 	"github.com/gofiber/fiber/v2"
+	"github.com/neogan74/konsul/internal/auth"
 	konsulraft "github.com/neogan74/konsul/internal/raft"
 )
 
 // ClusterHandler handles cluster management endpoints.
 type ClusterHandler struct {
-	raftNode *konsulraft.Node
+	raftNode   *konsulraft.Node
+	autopilot  *konsulraft.Autopilot
+	jwtService *auth.JWTService // optional; enables join token generation and verification
 }
 
 // NewClusterHandler creates a new cluster handler.
@@ -16,6 +21,16 @@ func NewClusterHandler(raftNode *konsulraft.Node) *ClusterHandler {
 	return &ClusterHandler{
 		raftNode: raftNode,
 	}
+}
+
+// SetAutopilot attaches an autopilot instance so its health can be reported.
+func (h *ClusterHandler) SetAutopilot(ap *konsulraft.Autopilot) {
+	h.autopilot = ap
+}
+
+// SetJWTService attaches a JWT service for join token generation and verification.
+func (h *ClusterHandler) SetJWTService(svc *auth.JWTService) {
+	h.jwtService = svc
 }
 
 // RegisterRoutes registers cluster routes.
@@ -28,6 +43,9 @@ func (h *ClusterHandler) RegisterRoutes(app *fiber.App) {
 	cluster.Post("/join", h.Join)
 	cluster.Delete("/leave/:id", h.Leave)
 	cluster.Post("/snapshot", h.Snapshot)
+	cluster.Get("/autopilot", h.AutopilotHealth)
+	cluster.Post("/transfer", h.TransferLeadership)
+	cluster.Post("/token", h.GenerateJoinToken)
 }
 
 // checkRaftEnabled returns error response if Raft is not enabled.
@@ -112,9 +130,22 @@ type JoinRequest struct {
 // Join adds a new node to the cluster.
 // POST /cluster/join
 // Body: {"node_id": "node2", "address": "10.0.0.2:7000"}
+// When a JWT service is configured, the request may carry an X-Join-Token header
+// with a token obtained from POST /cluster/token. Invalid tokens are rejected.
 func (h *ClusterHandler) Join(c *fiber.Ctx) error {
 	if !h.checkRaftEnabled(c) {
 		return nil
+	}
+
+	// Verify join token when one is presented and the JWT service is available.
+	if h.jwtService != nil {
+		if tokenStr := c.Get("X-Join-Token"); tokenStr != "" {
+			if err := h.jwtService.ValidateJoinToken(tokenStr); err != nil {
+				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+					"error": "invalid join token: " + err.Error(),
+				})
+			}
+		}
 	}
 
 	// Only leader can add nodes
@@ -212,5 +243,110 @@ func (h *ClusterHandler) Snapshot(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"status":  "ok",
 		"message": "Snapshot created successfully",
+	})
+}
+
+// AutopilotHealth returns the current autopilot health report.
+// GET /cluster/autopilot
+func (h *ClusterHandler) AutopilotHealth(c *fiber.Ctx) error {
+	if !h.checkRaftEnabled(c) {
+		return nil
+	}
+
+	if h.autopilot == nil {
+		return c.JSON(fiber.Map{
+			"enabled": false,
+			"message": "Autopilot is not configured on this node.",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"enabled": true,
+		"servers": h.autopilot.HealthReport(),
+	})
+}
+
+// TransferLeadershipRequest is the body for POST /cluster/transfer.
+type TransferLeadershipRequest struct {
+	ToNodeID string `json:"to_node_id"` // optional; empty means best follower
+	ToAddr   string `json:"to_addr"`    // optional; required when to_node_id is set
+}
+
+// TransferLeadership transfers Raft leadership to another node.
+// POST /cluster/transfer
+// Body: {"to_node_id": "node3", "to_addr": "10.0.0.3:7000"}  (both optional)
+func (h *ClusterHandler) TransferLeadership(c *fiber.Ctx) error {
+	if !h.checkRaftEnabled(c) {
+		return nil
+	}
+
+	var req TransferLeadershipRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid request body",
+		})
+	}
+
+	if err := h.raftNode.TransferLeadership(req.ToNodeID, req.ToAddr); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	msg := "leadership transfer initiated"
+	if req.ToNodeID != "" {
+		msg = "leadership transfer initiated to " + req.ToNodeID
+	}
+	return c.JSON(fiber.Map{
+		"status":  "ok",
+		"message": msg,
+	})
+}
+
+// GenerateJoinTokenRequest is the body for POST /cluster/token.
+type GenerateJoinTokenRequest struct {
+	TTL string `json:"ttl"` // e.g. "24h", "30m"; defaults to "1h"
+}
+
+// GenerateJoinToken issues a short-lived JWT that authorises a new node to join.
+// POST /cluster/token
+// Body: {"ttl": "24h"}
+func (h *ClusterHandler) GenerateJoinToken(c *fiber.Ctx) error {
+	if !h.checkRaftEnabled(c) {
+		return nil
+	}
+
+	if h.jwtService == nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+			"error":   "auth not configured",
+			"message": "Set KONSUL_JWT_SECRET to enable join token generation.",
+		})
+	}
+
+	var req GenerateJoinTokenRequest
+	// BodyParser failure is non-fatal; we fall back to the default TTL.
+	_ = c.BodyParser(&req)
+
+	ttl := time.Hour
+	if req.TTL != "" {
+		d, err := time.ParseDuration(req.TTL)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "invalid ttl: " + err.Error(),
+			})
+		}
+		ttl = d
+	}
+
+	token, err := h.jwtService.GenerateJoinToken(ttl)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"token":      token,
+		"expires_in": ttl.String(),
 	})
 }

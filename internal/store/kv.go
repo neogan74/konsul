@@ -410,12 +410,12 @@ func (kv *KVStore) ListEntries() map[string]KVEntry {
 
 // BatchGet retrieves multiple keys at once
 // Returns a map of key to value, and a slice of keys that were not found
-func (kv *KVStore) BatchGet(keys []string) (found map[string]string, notFound []string) {
+func (kv *KVStore) BatchGet(keys []string) (map[string]string, []string) {
 	kv.Mutex.RLock()
 	defer kv.Mutex.RUnlock()
 
-	found = make(map[string]string)
-	notFound = make([]string, 0)
+	found := make(map[string]string)
+	notFound := make([]string, 0)
 
 	for _, key := range keys {
 		if entry, ok := kv.Data[key]; ok {
@@ -429,12 +429,12 @@ func (kv *KVStore) BatchGet(keys []string) (found map[string]string, notFound []
 }
 
 // BatchGetEntries retrieves multiple entries with their metadata
-func (kv *KVStore) BatchGetEntries(keys []string) (found map[string]KVEntry, notFound []string) {
+func (kv *KVStore) BatchGetEntries(keys []string) (map[string]KVEntry, []string) {
 	kv.Mutex.RLock()
 	defer kv.Mutex.RUnlock()
 
-	found = make(map[string]KVEntry)
-	notFound = make([]string, 0)
+	found := make(map[string]KVEntry)
+	notFound := make([]string, 0)
 
 	for _, key := range keys {
 		if entry, ok := kv.Data[key]; ok {

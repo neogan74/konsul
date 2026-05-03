@@ -19,7 +19,7 @@ func NewClusterCommands(cli *CLI) *ClusterCommands {
 func (cc *ClusterCommands) Handle(args []string) {
 	if len(args) == 0 {
 		cc.cli.Errorln("Cluster subcommand required")
-		cc.cli.Errorln("Usage: konsulctl cluster <status|leader|peers|join|leave|snapshot> [options]")
+		cc.cli.Errorln("Usage: konsulctl cluster <status|leader|peers|join|leave|snapshot|transfer-leadership|generate-token> [options]")
 		cc.cli.Exit(1)
 		return
 	}
@@ -40,9 +40,13 @@ func (cc *ClusterCommands) Handle(args []string) {
 		cc.Leave(subArgs)
 	case "snapshot":
 		cc.Snapshot(subArgs)
+	case "transfer-leadership":
+		cc.TransferLeadership(subArgs)
+	case "generate-token":
+		cc.GenerateToken(subArgs)
 	default:
 		cc.cli.Errorf("Unknown cluster subcommand: %s\n", subcommand)
-		cc.cli.Errorln("Available: status, leader, peers, join, leave, snapshot")
+		cc.cli.Errorln("Available: status, leader, peers, join, leave, snapshot, transfer-leadership, generate-token")
 		cc.cli.Exit(1)
 	}
 }
@@ -197,4 +201,62 @@ func (cc *ClusterCommands) Snapshot(args []string) {
 		msg = fmt.Sprintf("status=%s", result.Status)
 	}
 	cc.cli.Printf("Snapshot triggered: %s\n", msg)
+}
+
+// TransferLeadership initiates a Raft leadership transfer.
+// Usage: konsulctl cluster transfer-leadership [node-id addr]
+// When node-id and addr are omitted the leader picks the best follower.
+func (cc *ClusterCommands) TransferLeadership(args []string) {
+	config, remaining, err := cc.cli.ParseGlobalFlags(args, "transfer-leadership")
+	if err == flag.ErrHelp {
+		cc.cli.Println("Usage: konsulctl cluster transfer-leadership [node-id addr] [options]")
+		cc.cli.Println("  node-id  Node ID of the desired new leader (optional)")
+		cc.cli.Println("  addr     Raft address of the desired new leader (required with node-id)")
+		return
+	}
+	cc.cli.HandleError(err, "parsing flags")
+
+	var toNodeID, toAddr string
+	switch len(remaining) {
+	case 0:
+		// auto-select best follower
+	case 2:
+		toNodeID = remaining[0]
+		toAddr = remaining[1]
+	default:
+		cc.cli.Errorln("Usage: konsulctl cluster transfer-leadership [node-id addr]")
+		cc.cli.Exit(1)
+	}
+
+	client := cc.cli.CreateClient(config)
+	result, err := client.ClusterTransferLeadership(toNodeID, toAddr)
+	cc.cli.HandleError(err, "transferring leadership")
+	cc.cli.Printf("OK: %s\n", result.Message)
+}
+
+// GenerateToken generates a short-lived join token.
+// Usage: konsulctl cluster generate-token [ttl]
+// ttl defaults to "1h" when omitted (e.g. "24h", "30m").
+func (cc *ClusterCommands) GenerateToken(args []string) {
+	config, remaining, err := cc.cli.ParseGlobalFlags(args, "generate-token")
+	if err == flag.ErrHelp {
+		cc.cli.Println("Usage: konsulctl cluster generate-token [ttl] [options]")
+		cc.cli.Println("  ttl  Token validity duration (default: 1h, e.g. 24h, 30m)")
+		return
+	}
+	cc.cli.HandleError(err, "parsing flags")
+
+	ttl := "1h"
+	if len(remaining) == 1 {
+		ttl = remaining[0]
+	} else if len(remaining) > 1 {
+		cc.cli.Errorln("Usage: konsulctl cluster generate-token [ttl]")
+		cc.cli.Exit(1)
+	}
+
+	client := cc.cli.CreateClient(config)
+	result, err := client.ClusterGenerateToken(ttl)
+	cc.cli.HandleError(err, "generating join token")
+	cc.cli.Printf("Token:      %s\n", result.Token)
+	cc.cli.Printf("Expires in: %s\n", result.ExpiresIn)
 }

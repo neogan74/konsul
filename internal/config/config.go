@@ -139,6 +139,34 @@ type AuditConfig struct {
 	DropPolicy    string // "block" or "drop"
 }
 
+// RaftAutopilotConfig contains autopilot dead-server cleanup configuration.
+type RaftAutopilotConfig struct {
+	Enabled                 bool
+	CleanupDeadServers      bool
+	LastContactThreshold    time.Duration
+	MaxFailures             int
+	ServerStabilizationTime time.Duration
+	CleanupInterval         time.Duration
+}
+
+// RaftDiscoveryConfig contains cluster auto-discovery configuration.
+type RaftDiscoveryConfig struct {
+	// Method: "none", "static", or "dns"
+	Method string
+	// Seeds is a comma-separated list of peer HTTP addresses for static discovery.
+	Seeds []string
+	// DNSDomain is the DNS domain for SRV-based discovery.
+	DNSDomain string
+	// DNSPort is the fallback HTTP port when SRV record omits it (default 8888).
+	DNSPort int
+	// RetryInterval is the initial backoff between join attempts (default 5s).
+	RetryInterval time.Duration
+	// RetryMaxInterval caps the exponential backoff (default 60s).
+	RetryMaxInterval time.Duration
+	// RetryMax is the max number of join attempts; 0 = unlimited.
+	RetryMax int
+}
+
 // RaftConfig contains Raft clustering configuration
 type RaftConfig struct {
 	Enabled            bool
@@ -158,6 +186,8 @@ type RaftConfig struct {
 	MaxAppendEntries   int
 	TrailingLogs       uint64
 	LogLevel           string
+	Discovery          RaftDiscoveryConfig
+	Autopilot          RaftAutopilotConfig
 }
 
 // RaftPeer represents a bootstrap peer (id@host:port)
@@ -272,6 +302,23 @@ func Load() (*Config, error) {
 			MaxAppendEntries:   getEnvInt("KONSUL_RAFT_MAX_APPEND_ENTRIES", 64),
 			TrailingLogs:       getEnvUint64("KONSUL_RAFT_TRAILING_LOGS", 10240),
 			LogLevel:           getEnvString("KONSUL_RAFT_LOG_LEVEL", "info"),
+			Discovery: RaftDiscoveryConfig{
+				Method:           getEnvString("KONSUL_RAFT_DISCOVERY_METHOD", "none"),
+				Seeds:            splitAndTrim(getEnvString("KONSUL_RAFT_DISCOVERY_SEEDS", ""), ","),
+				DNSDomain:        getEnvString("KONSUL_RAFT_DISCOVERY_DNS_DOMAIN", ""),
+				DNSPort:          getEnvInt("KONSUL_RAFT_DISCOVERY_DNS_PORT", 8888),
+				RetryInterval:    getEnvDuration("KONSUL_RAFT_DISCOVERY_RETRY_INTERVAL", 5*time.Second),
+				RetryMaxInterval: getEnvDuration("KONSUL_RAFT_DISCOVERY_RETRY_MAX_INTERVAL", 60*time.Second),
+				RetryMax:         getEnvInt("KONSUL_RAFT_DISCOVERY_RETRY_MAX", 0),
+			},
+			Autopilot: RaftAutopilotConfig{
+				Enabled:                 getEnvBool("KONSUL_RAFT_AUTOPILOT_ENABLED", false),
+				CleanupDeadServers:      getEnvBool("KONSUL_RAFT_AUTOPILOT_CLEANUP_DEAD_SERVERS", true),
+				LastContactThreshold:    getEnvDuration("KONSUL_RAFT_AUTOPILOT_LAST_CONTACT_THRESHOLD", 10*time.Second),
+				MaxFailures:             getEnvInt("KONSUL_RAFT_AUTOPILOT_MAX_FAILURES", 3),
+				ServerStabilizationTime: getEnvDuration("KONSUL_RAFT_AUTOPILOT_STABILIZATION_TIME", 10*time.Second),
+				CleanupInterval:         getEnvDuration("KONSUL_RAFT_AUTOPILOT_CLEANUP_INTERVAL", 10*time.Second),
+			},
 		},
 	}
 
