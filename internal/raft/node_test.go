@@ -2,6 +2,7 @@ package raft
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -112,8 +113,13 @@ func (m *MockKVStore) DeleteLocal(key string) {
 func (m *MockKVStore) BatchSetLocal(items map[string]string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	for k, v := range items {
-		m.setLocked(k, v)
+	keys := make([]string, 0, len(items))
+	for k := range items {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		m.setLocked(k, items[k])
 	}
 	return nil
 }
@@ -157,8 +163,14 @@ func (m *MockKVStore) DeleteCASLocal(key string, expectedIndex uint64) error {
 func (m *MockKVStore) BatchSetCASLocal(items map[string]string, expectedIndices map[string]uint64) (map[string]uint64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	// Validate all keys first (atomicity guarantee)
+	// Sort keys for deterministic nextIndex assignment across all nodes.
+	keys := make([]string, 0, len(items))
 	for k := range items {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	// Validate all keys first (atomicity guarantee)
+	for _, k := range keys {
 		expected := expectedIndices[k]
 		entry, ok := m.data[k]
 		if expected == 0 {
@@ -173,8 +185,8 @@ func (m *MockKVStore) BatchSetCASLocal(items map[string]string, expectedIndices 
 	}
 	// Apply all (no validation errors means proceed)
 	results := make(map[string]uint64, len(items))
-	for k, v := range items {
-		results[k] = m.setLocked(k, v)
+	for _, k := range keys {
+		results[k] = m.setLocked(k, items[k])
 	}
 	return results, nil
 }
