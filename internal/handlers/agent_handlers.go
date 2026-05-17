@@ -194,17 +194,10 @@ func (h *AgentHandlers) HandleAgentSync(c *fiber.Ctx) error {
 		HealthUpdates:  []agent.HealthUpdate{},
 	}
 
-	// For full sync or if last index is 0, return all data
-	if req.FullSync || req.LastSyncIndex == 0 {
-		resp.ServiceUpdates = h.getAllServiceUpdates()
-		resp.KVUpdates = h.getAllKVUpdates(req.WatchedPrefixes)
-	} else {
-		// For delta sync, return only changes since last index
-		// In a real implementation, you'd track changes and return only deltas
-		// For now, we'll return all data
-		resp.ServiceUpdates = h.getAllServiceUpdates()
-		resp.KVUpdates = h.getAllKVUpdates(req.WatchedPrefixes)
-	}
+	// For full sync or delta sync, return all data.
+	// In a real implementation, delta sync would return only changes since last index.
+	resp.ServiceUpdates = h.getAllServiceUpdates()
+	resp.KVUpdates = h.getAllKVUpdates(req.WatchedPrefixes)
 
 	// Update agent's sync index
 	h.registry.UpdateSyncIndex(req.AgentID, resp.CurrentIndex)

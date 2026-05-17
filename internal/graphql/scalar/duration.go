@@ -12,7 +12,7 @@ type Duration time.Duration
 // MarshalGQL implements the graphql.Marshaler interface
 func (d Duration) MarshalGQL(w io.Writer) {
 	duration := time.Duration(d).String()
-	_, _ = io.WriteString(w, fmt.Sprintf(`"%s"`, duration))
+	_, _ = fmt.Fprintf(w, `"%s"`, duration)
 }
 
 // UnmarshalGQL implements the graphql.Unmarshaler interface

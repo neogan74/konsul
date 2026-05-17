@@ -35,7 +35,7 @@ func (h *BackupHandler) CreateBackup(c *fiber.Ctx) error {
 
 	// Generate backup filename with timestamp
 	timestamp := time.Now().Format("20060102-150405")
-	backupPath := filepath.Join("./backups", fmt.Sprintf("konsul-backup-%s.db", timestamp))
+	backupPath := filepath.Join(".", "backups", fmt.Sprintf("konsul-backup-%s.db", timestamp))
 
 	if err := h.engine.Backup(backupPath); err != nil {
 		log.Error("Failed to create backup", logger.Error(err))

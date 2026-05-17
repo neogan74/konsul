@@ -513,7 +513,7 @@ func (c *KonsulClient) DeregisterService(name string) error {
 func (c *KonsulClient) ServiceHeartbeat(name string) error {
 	url := fmt.Sprintf("%s/heartbeat/%s", c.BaseURL, name)
 
-	req, err := http.NewRequest("PUT", url, nil)
+	req, err := http.NewRequest(\1, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -543,7 +543,7 @@ func (c *KonsulClient) ServiceHeartbeat(name string) error {
 func (c *KonsulClient) CreateBackup() (string, error) {
 	url := fmt.Sprintf("%s/backup", c.BaseURL)
 
-	req, err := http.NewRequest("POST", url, nil)
+	req, err := http.NewRequest(\1, http.NoBody)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -792,7 +792,7 @@ func (c *KonsulClient) GetRateLimitClientStatus(identifier string) (*RateLimitCl
 func (c *KonsulClient) ResetRateLimitIP(ip string) error {
 	url := fmt.Sprintf("%s/admin/ratelimit/reset/ip/%s", c.BaseURL, ip)
 
-	req, err := http.NewRequest("POST", url, nil)
+	req, err := http.NewRequest(\1, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -818,7 +818,7 @@ func (c *KonsulClient) ResetRateLimitIP(ip string) error {
 func (c *KonsulClient) ResetRateLimitAPIKey(keyID string) error {
 	url := fmt.Sprintf("%s/admin/ratelimit/reset/apikey/%s", c.BaseURL, keyID)
 
-	req, err := http.NewRequest("POST", url, nil)
+	req, err := http.NewRequest(\1, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -844,7 +844,7 @@ func (c *KonsulClient) ResetRateLimitAPIKey(keyID string) error {
 func (c *KonsulClient) ResetRateLimitAll(limiterType string) error {
 	url := fmt.Sprintf("%s/admin/ratelimit/reset/all?type=%s", c.BaseURL, limiterType)
 
-	req, err := http.NewRequest("POST", url, nil)
+	req, err := http.NewRequest(\1, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -1023,7 +1023,7 @@ func (c *KonsulClient) AddToWhitelist(identifier, clientType, reason, duration s
 func (c *KonsulClient) RemoveFromWhitelist(identifier string) (*RateLimitGenericResponse, error) {
 	url := fmt.Sprintf("%s/admin/ratelimit/whitelist/%s", c.BaseURL, identifier)
 
-	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	req, err := http.NewRequest(\1, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -1115,7 +1115,7 @@ func (c *KonsulClient) AddToBlacklist(identifier, clientType, reason, duration s
 func (c *KonsulClient) RemoveFromBlacklist(identifier string) (*RateLimitGenericResponse, error) {
 	url := fmt.Sprintf("%s/admin/ratelimit/blacklist/%s", c.BaseURL, identifier)
 
-	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	req, err := http.NewRequest(\1, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -1259,7 +1259,7 @@ func (c *KonsulClient) UpdateACLPolicy(name string, policy map[string]interface{
 func (c *KonsulClient) DeleteACLPolicy(name string) (map[string]interface{}, error) {
 	url := fmt.Sprintf("%s/acl/policies/%s", c.BaseURL, name)
 
-	req, err := http.NewRequest("DELETE", url, nil)
+	req, err := http.NewRequest(\1, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -1386,7 +1386,7 @@ type ClusterActionResponse struct {
 // ClusterStatus fetches the current cluster status.
 func (c *KonsulClient) ClusterStatus() (*ClusterStatusResponse, error) {
 	reqURL := fmt.Sprintf("%s/cluster/status", c.BaseURL)
-	req, err := http.NewRequest("GET", reqURL, nil)
+	req, err := http.NewRequest(\1, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -1413,7 +1413,7 @@ func (c *KonsulClient) ClusterStatus() (*ClusterStatusResponse, error) {
 // ClusterLeader fetches the current cluster leader.
 func (c *KonsulClient) ClusterLeader() (*ClusterLeaderResponse, error) {
 	reqURL := fmt.Sprintf("%s/cluster/leader", c.BaseURL)
-	req, err := http.NewRequest("GET", reqURL, nil)
+	req, err := http.NewRequest(\1, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -1440,7 +1440,7 @@ func (c *KonsulClient) ClusterLeader() (*ClusterLeaderResponse, error) {
 // ClusterPeers fetches the list of cluster peers.
 func (c *KonsulClient) ClusterPeers() (*ClusterPeersResponse, error) {
 	reqURL := fmt.Sprintf("%s/cluster/peers", c.BaseURL)
-	req, err := http.NewRequest("GET", reqURL, nil)
+	req, err := http.NewRequest(\1, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -1500,7 +1500,7 @@ func (c *KonsulClient) ClusterJoin(nodeID, address string) (*ClusterActionRespon
 // ClusterLeave removes a node from the cluster.
 func (c *KonsulClient) ClusterLeave(nodeID string) (*ClusterActionResponse, error) {
 	reqURL := fmt.Sprintf("%s/cluster/leave/%s", c.BaseURL, url.PathEscape(nodeID))
-	req, err := http.NewRequest("DELETE", reqURL, nil)
+	req, err := http.NewRequest(\1, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -1527,7 +1527,7 @@ func (c *KonsulClient) ClusterLeave(nodeID string) (*ClusterActionResponse, erro
 // ClusterSnapshot triggers a Raft snapshot on the leader.
 func (c *KonsulClient) ClusterSnapshot() (*ClusterActionResponse, error) {
 	reqURL := fmt.Sprintf("%s/cluster/snapshot", c.BaseURL)
-	req, err := http.NewRequest("POST", reqURL, nil)
+	req, err := http.NewRequest(\1, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

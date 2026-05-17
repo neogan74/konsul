@@ -94,7 +94,7 @@ func HashRequestBody(body []byte) string {
 
 // BuildEvent creates a new audit event from HTTP context.
 // It automatically populates timestamp, actor, source IP, and HTTP metadata.
-func BuildEvent(c *fiber.Ctx, action string, resourceType string) *Event {
+func BuildEvent(c *fiber.Ctx, action, resourceType string) *Event {
 	event := &Event{
 		Timestamp:  c.Context().Time(),
 		Action:     action,
@@ -135,7 +135,7 @@ func BuildEvent(c *fiber.Ctx, action string, resourceType string) *Event {
 
 // RecordHTTPEvent is a convenience function that builds and records an audit event.
 // It handles the full lifecycle: build event, set result based on status, and record.
-func RecordHTTPEvent(ctx context.Context, mgr *Manager, c *fiber.Ctx, action string, resourceType string, statusCode int) error {
+func RecordHTTPEvent(ctx context.Context, mgr *Manager, c *fiber.Ctx, action, resourceType string, statusCode int) error {
 	if mgr == nil || !mgr.Enabled() {
 		return nil
 	}
@@ -144,13 +144,14 @@ func RecordHTTPEvent(ctx context.Context, mgr *Manager, c *fiber.Ctx, action str
 	event.HTTPStatus = statusCode
 
 	// Set result based on HTTP status code
-	if statusCode >= 200 && statusCode < 300 {
+	switch {
+	case statusCode >= 200 && statusCode < 300:
 		event.Result = "success"
-	} else if statusCode >= 400 && statusCode < 500 {
+	case statusCode >= 400 && statusCode < 500:
 		event.Result = "denied"
-	} else if statusCode >= 500 {
+	case statusCode >= 500:
 		event.Result = "error"
-	} else {
+	default:
 		event.Result = "unknown"
 	}
 

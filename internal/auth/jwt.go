@@ -160,7 +160,7 @@ func (j *JWTService) ValidateRefreshToken(tokenString string) (*RefreshClaims, e
 }
 
 // RefreshToken refreshes an access and refresh token pair from refresh token claims.
-func (j *JWTService) RefreshToken(refreshTokenString string) (string, string, error) {
+func (j *JWTService) RefreshToken(refreshTokenString string) (accessToken string, refreshToken string, err error) {
 	claims, err := j.ValidateRefreshToken(refreshTokenString)
 	if err != nil {
 		return "", "", err

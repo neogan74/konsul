@@ -193,26 +193,27 @@ func (a *APIKeyService) GetAPIKey(keyID string) (*APIKey, error) {
 	return nil, ErrAPIKeyNotFound
 }
 
-func (a *APIKeyService) UpdateAPIKey(keyID string, name string, permissions []string, metadata map[string]string, enabled *bool) error {
+func (a *APIKeyService) UpdateAPIKey(keyID, name string, permissions []string, metadata map[string]string, enabled *bool) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
 	for _, apiKey := range a.keys {
-		if apiKey.ID == keyID {
-			if name != "" {
-				apiKey.Name = name
-			}
-			if permissions != nil {
-				apiKey.Permissions = permissions
-			}
-			if metadata != nil {
-				apiKey.Metadata = metadata
-			}
-			if enabled != nil {
-				apiKey.Enabled = *enabled
-			}
-			return nil
+		if apiKey.ID != keyID {
+			continue
 		}
+		if name != "" {
+			apiKey.Name = name
+		}
+		if permissions != nil {
+			apiKey.Permissions = permissions
+		}
+		if metadata != nil {
+			apiKey.Metadata = metadata
+		}
+		if enabled != nil {
+			apiKey.Enabled = *enabled
+		}
+		return nil
 	}
 
 	return ErrAPIKeyNotFound

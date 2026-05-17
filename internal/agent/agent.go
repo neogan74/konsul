@@ -192,8 +192,8 @@ func (a *Agent) RegisterService(svc store.Service) error {
 	entry := &store.ServiceEntry{
 		Service:     svc,
 		ExpiresAt:   time.Now().Add(a.config.Cache.ServiceTTL),
-		ModifyIndex: uint64(time.Now().UnixNano()),
-		CreateIndex: uint64(time.Now().UnixNano()),
+		ModifyIndex: uint64(time.Now().UnixNano()), //nolint:gosec // G115: UnixNano is always positive
+		CreateIndex: uint64(time.Now().UnixNano()), //nolint:gosec // G115: UnixNano is always positive
 	}
 
 	a.localServices[serviceID] = entry
@@ -364,7 +364,7 @@ func (a *Agent) Stats() AgentStats {
 		CacheEntries:    a.cache.Len(),
 		LocalServices:   localServiceCount,
 		LastSyncTime:    a.syncEngine.GetLastSyncTime(),
-		SyncErrorsTotal: int64(a.syncEngine.GetSyncErrors()),
+		SyncErrorsTotal: int64(a.syncEngine.GetSyncErrors()), //nolint:gosec // G115: sync error count is bounded
 		Uptime:          time.Since(a.startTime).String(),
 	}
 }
