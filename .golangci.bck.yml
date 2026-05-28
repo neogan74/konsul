@@ -1,0 +1,174 @@
+# golangci-lint configuration (v1 format, compatible with v1.64.x)
+# See: https://golangci-lint.run/usage/configuration/
+
+run:
+  timeout: 5m
+  tests: true
+  go: "1.24"
+
+output:
+  formats:
+    - format: colored-line-number
+
+linters-settings:
+  errcheck:
+    check-type-assertions: false
+    check-blank: false
+    exclude-functions:
+      - (io.Closer).Close
+      - (*os.File).Close
+      - (net.Conn).Close
+      - (*bufio.Writer).Flush
+      - fmt.Fprintf
+      - fmt.Fprint
+      - fmt.Fprintln
+      - (github.com/gofiber/fiber/v2.Ctx).JSON
+      - (github.com/gofiber/fiber/v2.Ctx).SendStatus
+      - (*testing.T).Run
+      - (*testing.B).Run
+
+  govet:
+    enable-all: true
+    disable:
+      - shadow
+      - fieldalignment
+
+  staticcheck:
+    checks:
+      - all
+      - "-SA1029"
+
+  revive:
+    severity: warning
+    confidence: 0.8
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+        disabled: true
+      - name: increment-decrement
+      - name: indent-error-flow
+      - name: package-comments
+        disabled: true
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: var-declaration
+      - name: var-naming
+
+  gofmt:
+    simplify: true
+
+  goimports:
+    local-prefixes: github.com/neogan74/konsul
+
+  misspell:
+    locale: US
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+    disabled-checks:
+      - hugeParam
+      - rangeValCopy
+      - commentedOutCode
+
+  gosec:
+    excludes:
+      - G104
+      - G304
+      - G404
+
+  prealloc:
+    for-loops: true
+    range-loops: true
+    simple: true
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - revive
+    - misspell
+    - gocritic
+    - gosec
+    - prealloc
+    - gofmt
+    - goimports
+
+  disable:
+    - exhaustive
+    - exhaustruct
+    - gochecknoglobals
+    - gochecknoinits
+    - godot
+    - godox
+    - lll
+    - nlreturn
+    - wsl
+    - wrapcheck
+    - varnamelen
+    - testpackage
+    - paralleltest
+    - tparallel
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  new: false
+
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+        - revive
+
+    - path: _test\.go
+      text: "Error return value"
+      linters:
+        - errcheck
+
+    - linters:
+        - staticcheck
+      text: "SA9003"
+
+    - path: benchmark
+      linters:
+        - errcheck
+
+    - path: _test\.go
+      linters:
+        - govet
+      text: "shadow"
+
+    - text: "Error return value of `fmt.Sscanf`"
+      linters:
+        - errcheck
+
+    - text: "Error return value of .*.Close"
+      linters:
+        - errcheck
+
+    - path: _test\.go
+      text: "Error return value of `json.NewDecoder"
+      linters:
+        - errcheck
+
+    - source: "defer "
+      linters:
+        - errcheck
+
+  exclude-use-default: true
+  fix: false

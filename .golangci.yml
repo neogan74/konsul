@@ -1,112 +1,18 @@
-# golangci-lint configuration (v1 format, compatible with v1.64.x)
-# See: https://golangci-lint.run/usage/configuration/
-
+version: "2"
 run:
-  timeout: 5m
-  tests: true
   go: "1.24"
-
+  tests: true
 output:
   formats:
-    - format: colored-line-number
-
-linters-settings:
-  errcheck:
-    check-type-assertions: false
-    check-blank: false
-    exclude-functions:
-      - (io.Closer).Close
-      - (*os.File).Close
-      - (net.Conn).Close
-      - (*bufio.Writer).Flush
-      - fmt.Fprintf
-      - fmt.Fprint
-      - fmt.Fprintln
-      - (github.com/gofiber/fiber/v2.Ctx).JSON
-      - (github.com/gofiber/fiber/v2.Ctx).SendStatus
-      - (*testing.T).Run
-      - (*testing.B).Run
-
-  govet:
-    enable-all: true
-    disable:
-      - shadow
-      - fieldalignment
-
-  staticcheck:
-    checks:
-      - all
-      - "-SA1029"
-
-  revive:
-    severity: warning
-    confidence: 0.8
-    rules:
-      - name: blank-imports
-      - name: context-as-argument
-      - name: context-keys-type
-      - name: dot-imports
-      - name: error-return
-      - name: error-strings
-      - name: error-naming
-      - name: exported
-        disabled: true
-      - name: increment-decrement
-      - name: indent-error-flow
-      - name: package-comments
-        disabled: true
-      - name: range
-      - name: receiver-naming
-      - name: time-naming
-      - name: unexported-return
-      - name: var-declaration
-      - name: var-naming
-
-  gofmt:
-    simplify: true
-
-  goimports:
-    local-prefixes: github.com/neogan74/konsul
-
-  misspell:
-    locale: US
-
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - style
-      - performance
-    disabled-checks:
-      - hugeParam
-      - rangeValCopy
-      - commentedOutCode
-
-  gosec:
-    excludes:
-      - G104
-      - G304
-      - G404
-
-  prealloc:
-    for-loops: true
-    range-loops: true
-    simple: true
-
+    text:
+      path: stdout
 linters:
   enable:
-    - errcheck
-    - govet
-    - ineffassign
-    - staticcheck
-    - unused
-    - revive
-    - misspell
     - gocritic
     - gosec
+    - misspell
     - prealloc
-    - gofmt
-    - goimports
-
+    - revive
   disable:
     - exhaustive
     - exhaustruct
@@ -116,59 +22,142 @@ linters:
     - godox
     - lll
     - nlreturn
-    - wsl
-    - wrapcheck
-    - varnamelen
-    - testpackage
     - paralleltest
+    - testpackage
     - tparallel
-
+    - varnamelen
+    - wrapcheck
+    - wsl
+  settings:
+    errcheck:
+      check-type-assertions: false
+      check-blank: false
+      exclude-functions:
+        - (io.Closer).Close
+        - (*os.File).Close
+        - (net.Conn).Close
+        - (*bufio.Writer).Flush
+        - fmt.Fprintf
+        - fmt.Fprint
+        - fmt.Fprintln
+        - (github.com/gofiber/fiber/v2.Ctx).JSON
+        - (github.com/gofiber/fiber/v2.Ctx).SendStatus
+        - (*testing.T).Run
+        - (*testing.B).Run
+    gocritic:
+      disabled-checks:
+        - hugeParam
+        - rangeValCopy
+        - commentedOutCode
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+    gosec:
+      excludes:
+        - G104
+        - G304
+        - G404
+    govet:
+      disable:
+        - shadow
+        - fieldalignment
+      enable-all: true
+    misspell:
+      locale: US
+    prealloc:
+      simple: true
+      range-loops: true
+      for-loops: true
+    revive:
+      confidence: 0.8
+      severity: warning
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+          disabled: true
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: package-comments
+          disabled: true
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: var-declaration
+        - name: var-naming
+    staticcheck:
+      checks:
+        - all
+        - -SA1029
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - errcheck
+          - gosec
+          - revive
+        path: _test\.go
+      - linters:
+          - errcheck
+        path: _test\.go
+        text: Error return value
+      - linters:
+          - staticcheck
+        text: SA9003
+      - linters:
+          - errcheck
+        path: benchmark
+      - linters:
+          - govet
+        path: _test\.go
+        text: shadow
+      - linters:
+          - errcheck
+        text: Error return value of `fmt.Sscanf`
+      - linters:
+          - errcheck
+        text: Error return value of .*.Close
+      - linters:
+          - errcheck
+        path: _test\.go
+        text: Error return value of `json.NewDecoder
+      - linters:
+          - errcheck
+        source: 'defer '
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
   new: false
-
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
-        - gosec
-        - revive
-
-    - path: _test\.go
-      text: "Error return value"
-      linters:
-        - errcheck
-
-    - linters:
-        - staticcheck
-      text: "SA9003"
-
-    - path: benchmark
-      linters:
-        - errcheck
-
-    - path: _test\.go
-      linters:
-        - govet
-      text: "shadow"
-
-    - text: "Error return value of `fmt.Sscanf`"
-      linters:
-        - errcheck
-
-    - text: "Error return value of .*.Close"
-      linters:
-        - errcheck
-
-    - path: _test\.go
-      text: "Error return value of `json.NewDecoder"
-      linters:
-        - errcheck
-
-    - source: "defer "
-      linters:
-        - errcheck
-
-  exclude-use-default: true
   fix: false
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - github.com/neogan74/konsul
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
