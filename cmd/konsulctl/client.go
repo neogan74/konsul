@@ -332,7 +332,7 @@ func (c *KonsulClient) DeleteKV(key string) error {
 }
 
 func (c *KonsulClient) ListKV() ([]string, error) {
-	url := fmt.Sprintf("%s/kv/", c.BaseURL)
+\treqURL := fmt.Sprintf("%s/kv/", c.BaseURL)
 
 	resp, err := c.HTTPClient.Get(url)
 	if err != nil {
@@ -362,7 +362,7 @@ func (c *KonsulClient) ListKV() ([]string, error) {
 }
 
 func (c *KonsulClient) RegisterService(name, address, port string) error {
-	url := fmt.Sprintf("%s/register", c.BaseURL)
+\treqURL := fmt.Sprintf("%s/register", c.BaseURL)
 
 	// Convert port to int
 	portInt := 0
@@ -406,7 +406,7 @@ func (c *KonsulClient) RegisterService(name, address, port string) error {
 }
 
 func (c *KonsulClient) RegisterServiceWithChecks(name, address, port string, checks []*CheckDefinition) error {
-	url := fmt.Sprintf("%s/register", c.BaseURL)
+\treqURL := fmt.Sprintf("%s/register", c.BaseURL)
 
 	// Convert port to int
 	portInt := 0
@@ -451,7 +451,7 @@ func (c *KonsulClient) RegisterServiceWithChecks(name, address, port string, che
 }
 
 func (c *KonsulClient) ListServices() ([]Service, error) {
-	url := fmt.Sprintf("%s/services/", c.BaseURL)
+\treqURL := fmt.Sprintf("%s/services/", c.BaseURL)
 
 	resp, err := c.HTTPClient.Get(url)
 	if err != nil {
@@ -481,7 +481,7 @@ func (c *KonsulClient) ListServices() ([]Service, error) {
 }
 
 func (c *KonsulClient) DeregisterService(name string) error {
-	url := fmt.Sprintf("%s/deregister/%s", c.BaseURL, name)
+\treqURL := fmt.Sprintf("%s/deregister/%s", c.BaseURL, name)
 
 	req, err := http.NewRequest("DELETE", url, http.NoBody)
 	if err != nil {
@@ -511,7 +511,7 @@ func (c *KonsulClient) DeregisterService(name string) error {
 }
 
 func (c *KonsulClient) ServiceHeartbeat(name string) error {
-	url := fmt.Sprintf("%s/heartbeat/%s", c.BaseURL, name)
+\treqURL := fmt.Sprintf("%s/heartbeat/%s", c.BaseURL, name)
 
 	req, err := http.NewRequest(http.MethodPut, url, http.NoBody)
 	if err != nil {
@@ -541,7 +541,7 @@ func (c *KonsulClient) ServiceHeartbeat(name string) error {
 }
 
 func (c *KonsulClient) CreateBackup() (string, error) {
-	url := fmt.Sprintf("%s/backup", c.BaseURL)
+\treqURL := fmt.Sprintf("%s/backup", c.BaseURL)
 
 	req, err := http.NewRequest(http.MethodPost, url, http.NoBody)
 	if err != nil {
@@ -576,7 +576,7 @@ func (c *KonsulClient) CreateBackup() (string, error) {
 }
 
 func (c *KonsulClient) RestoreBackup(backupPath string) error {
-	url := fmt.Sprintf("%s/restore", c.BaseURL)
+\treqURL := fmt.Sprintf("%s/restore", c.BaseURL)
 
 	reqBody := RestoreRequest{BackupPath: backupPath}
 	jsonData, err := json.Marshal(reqBody)
@@ -609,7 +609,7 @@ func (c *KonsulClient) RestoreBackup(backupPath string) error {
 }
 
 func (c *KonsulClient) ListBackups() ([]string, error) {
-	url := fmt.Sprintf("%s/backups", c.BaseURL)
+\treqURL := fmt.Sprintf("%s/backups", c.BaseURL)
 
 	resp, err := c.HTTPClient.Get(url)
 	if err != nil {
@@ -639,7 +639,7 @@ func (c *KonsulClient) ListBackups() ([]string, error) {
 }
 
 func (c *KonsulClient) ExportData() (string, error) {
-	url := fmt.Sprintf("%s/export", c.BaseURL)
+\treqURL := fmt.Sprintf("%s/export", c.BaseURL)
 
 	resp, err := c.HTTPClient.Get(url)
 	if err != nil {
@@ -666,7 +666,7 @@ func (c *KonsulClient) ExportData() (string, error) {
 // Rate limit admin methods
 
 func (c *KonsulClient) GetRateLimitStats() (*RateLimitStats, error) {
-	url := fmt.Sprintf("%s/admin/ratelimit/stats", c.BaseURL)
+\treqURL := fmt.Sprintf("%s/admin/ratelimit/stats", c.BaseURL)
 
 	resp, err := c.HTTPClient.Get(url)
 	if err != nil {
@@ -696,7 +696,7 @@ func (c *KonsulClient) GetRateLimitStats() (*RateLimitStats, error) {
 }
 
 func (c *KonsulClient) GetRateLimitConfig() (*RateLimitConfig, error) {
-	url := fmt.Sprintf("%s/admin/ratelimit/config", c.BaseURL)
+\treqURL := fmt.Sprintf("%s/admin/ratelimit/config", c.BaseURL)
 
 	resp, err := c.HTTPClient.Get(url)
 	if err != nil {
@@ -726,7 +726,7 @@ func (c *KonsulClient) GetRateLimitConfig() (*RateLimitConfig, error) {
 }
 
 func (c *KonsulClient) GetRateLimitClients(limiterType string) (*RateLimitClientsResponse, error) {
-	url := fmt.Sprintf("%s/admin/ratelimit/clients?type=%s", c.BaseURL, limiterType)
+\treqURL := fmt.Sprintf("%s/admin/ratelimit/clients?type=%s", c.BaseURL, limiterType)
 
 	resp, err := c.HTTPClient.Get(url)
 	if err != nil {
@@ -756,7 +756,7 @@ func (c *KonsulClient) GetRateLimitClients(limiterType string) (*RateLimitClient
 }
 
 func (c *KonsulClient) GetRateLimitClientStatus(identifier string) (*RateLimitClient, error) {
-	url := fmt.Sprintf("%s/admin/ratelimit/client/%s", c.BaseURL, identifier)
+\treqURL := fmt.Sprintf("%s/admin/ratelimit/client/%s", c.BaseURL, identifier)
 
 	resp, err := c.HTTPClient.Get(url)
 	if err != nil {
@@ -790,7 +790,7 @@ func (c *KonsulClient) GetRateLimitClientStatus(identifier string) (*RateLimitCl
 }
 
 func (c *KonsulClient) ResetRateLimitIP(ip string) error {
-	url := fmt.Sprintf("%s/admin/ratelimit/reset/ip/%s", c.BaseURL, ip)
+\treqURL := fmt.Sprintf("%s/admin/ratelimit/reset/ip/%s", c.BaseURL, ip)
 
 	req, err := http.NewRequest(http.MethodPost, url, http.NoBody)
 	if err != nil {
@@ -816,7 +816,7 @@ func (c *KonsulClient) ResetRateLimitIP(ip string) error {
 }
 
 func (c *KonsulClient) ResetRateLimitAPIKey(keyID string) error {
-	url := fmt.Sprintf("%s/admin/ratelimit/reset/apikey/%s", c.BaseURL, keyID)
+\treqURL := fmt.Sprintf("%s/admin/ratelimit/reset/apikey/%s", c.BaseURL, keyID)
 
 	req, err := http.NewRequest(http.MethodPost, url, http.NoBody)
 	if err != nil {
@@ -842,7 +842,7 @@ func (c *KonsulClient) ResetRateLimitAPIKey(keyID string) error {
 }
 
 func (c *KonsulClient) ResetRateLimitAll(limiterType string) error {
-	url := fmt.Sprintf("%s/admin/ratelimit/reset/all?type=%s", c.BaseURL, limiterType)
+\treqURL := fmt.Sprintf("%s/admin/ratelimit/reset/all?type=%s", c.BaseURL, limiterType)
 
 	req, err := http.NewRequest(http.MethodPost, url, http.NoBody)
 	if err != nil {
@@ -868,7 +868,7 @@ func (c *KonsulClient) ResetRateLimitAll(limiterType string) error {
 }
 
 func (c *KonsulClient) UpdateRateLimitConfig(requestsPerSec *float64, burst *int) (*RateLimitConfigUpdateResponse, error) {
-	url := fmt.Sprintf("%s/admin/ratelimit/config", c.BaseURL)
+\treqURL := fmt.Sprintf("%s/admin/ratelimit/config", c.BaseURL)
 
 	update := RateLimitConfigUpdate{
 		RequestsPerSec: requestsPerSec,
@@ -915,7 +915,7 @@ func (c *KonsulClient) UpdateRateLimitConfig(requestsPerSec *float64, burst *int
 
 // AdjustClientLimit temporarily adjusts rate limit for a specific client
 func (c *KonsulClient) AdjustClientLimit(clientType, identifier string, rate float64, burst int, duration string) (*RateLimitAdjustResponse, error) {
-	url := fmt.Sprintf("%s/admin/ratelimit/client/%s/%s", c.BaseURL, clientType, identifier)
+\treqURL := fmt.Sprintf("%s/admin/ratelimit/client/%s/%s", c.BaseURL, clientType, identifier)
 
 	adjust := map[string]interface{}{
 		"rate":     rate,
@@ -955,7 +955,7 @@ func (c *KonsulClient) AdjustClientLimit(clientType, identifier string, rate flo
 
 // GetWhitelist returns all whitelisted entries
 func (c *KonsulClient) GetWhitelist() (*RateLimitWhitelistResponse, error) {
-	url := fmt.Sprintf("%s/admin/ratelimit/whitelist", c.BaseURL)
+\treqURL := fmt.Sprintf("%s/admin/ratelimit/whitelist", c.BaseURL)
 
 	resp, err := c.HTTPClient.Get(url)
 	if err != nil {
@@ -978,7 +978,7 @@ func (c *KonsulClient) GetWhitelist() (*RateLimitWhitelistResponse, error) {
 
 // AddToWhitelist adds an identifier to the whitelist
 func (c *KonsulClient) AddToWhitelist(identifier, clientType, reason, duration string) (*RateLimitGenericResponse, error) {
-	url := fmt.Sprintf("%s/admin/ratelimit/whitelist", c.BaseURL)
+\treqURL := fmt.Sprintf("%s/admin/ratelimit/whitelist", c.BaseURL)
 
 	req := map[string]interface{}{
 		"identifier": identifier,
@@ -1021,7 +1021,7 @@ func (c *KonsulClient) AddToWhitelist(identifier, clientType, reason, duration s
 
 // RemoveFromWhitelist removes an identifier from the whitelist
 func (c *KonsulClient) RemoveFromWhitelist(identifier string) (*RateLimitGenericResponse, error) {
-	url := fmt.Sprintf("%s/admin/ratelimit/whitelist/%s", c.BaseURL, identifier)
+\treqURL := fmt.Sprintf("%s/admin/ratelimit/whitelist/%s", c.BaseURL, identifier)
 
 	req, err := http.NewRequest(http.MethodDelete, url, http.NoBody)
 	if err != nil {
@@ -1049,7 +1049,7 @@ func (c *KonsulClient) RemoveFromWhitelist(identifier string) (*RateLimitGeneric
 
 // GetBlacklist returns all blacklisted entries
 func (c *KonsulClient) GetBlacklist() (*RateLimitBlacklistResponse, error) {
-	url := fmt.Sprintf("%s/admin/ratelimit/blacklist", c.BaseURL)
+\treqURL := fmt.Sprintf("%s/admin/ratelimit/blacklist", c.BaseURL)
 
 	resp, err := c.HTTPClient.Get(url)
 	if err != nil {
@@ -1072,7 +1072,7 @@ func (c *KonsulClient) GetBlacklist() (*RateLimitBlacklistResponse, error) {
 
 // AddToBlacklist adds an identifier to the blacklist
 func (c *KonsulClient) AddToBlacklist(identifier, clientType, reason, duration string) (*RateLimitGenericResponse, error) {
-	url := fmt.Sprintf("%s/admin/ratelimit/blacklist", c.BaseURL)
+\treqURL := fmt.Sprintf("%s/admin/ratelimit/blacklist", c.BaseURL)
 
 	req := map[string]interface{}{
 		"identifier": identifier,
@@ -1113,7 +1113,7 @@ func (c *KonsulClient) AddToBlacklist(identifier, clientType, reason, duration s
 
 // RemoveFromBlacklist removes an identifier from the blacklist
 func (c *KonsulClient) RemoveFromBlacklist(identifier string) (*RateLimitGenericResponse, error) {
-	url := fmt.Sprintf("%s/admin/ratelimit/blacklist/%s", c.BaseURL, identifier)
+\treqURL := fmt.Sprintf("%s/admin/ratelimit/blacklist/%s", c.BaseURL, identifier)
 
 	req, err := http.NewRequest(http.MethodDelete, url, http.NoBody)
 	if err != nil {
@@ -1143,7 +1143,7 @@ func (c *KonsulClient) RemoveFromBlacklist(identifier string) (*RateLimitGeneric
 
 // ListACLPolicies lists all ACL policies
 func (c *KonsulClient) ListACLPolicies() (*ACLPoliciesResponse, error) {
-	url := fmt.Sprintf("%s/acl/policies", c.BaseURL)
+\treqURL := fmt.Sprintf("%s/acl/policies", c.BaseURL)
 
 	resp, err := c.HTTPClient.Get(url)
 	if err != nil {
@@ -1166,7 +1166,7 @@ func (c *KonsulClient) ListACLPolicies() (*ACLPoliciesResponse, error) {
 
 // GetACLPolicy retrieves a specific ACL policy
 func (c *KonsulClient) GetACLPolicy(name string) (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/acl/policies/%s", c.BaseURL, name)
+\treqURL := fmt.Sprintf("%s/acl/policies/%s", c.BaseURL, name)
 
 	resp, err := c.HTTPClient.Get(url)
 	if err != nil {
@@ -1189,7 +1189,7 @@ func (c *KonsulClient) GetACLPolicy(name string) (map[string]interface{}, error)
 
 // CreateACLPolicy creates a new ACL policy
 func (c *KonsulClient) CreateACLPolicy(policy map[string]interface{}) (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/acl/policies", c.BaseURL)
+\treqURL := fmt.Sprintf("%s/acl/policies", c.BaseURL)
 
 	jsonData, err := json.Marshal(policy)
 	if err != nil {
@@ -1223,7 +1223,7 @@ func (c *KonsulClient) CreateACLPolicy(policy map[string]interface{}) (map[strin
 
 // UpdateACLPolicy updates an existing ACL policy
 func (c *KonsulClient) UpdateACLPolicy(name string, policy map[string]interface{}) (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/acl/policies/%s", c.BaseURL, name)
+\treqURL := fmt.Sprintf("%s/acl/policies/%s", c.BaseURL, name)
 
 	jsonData, err := json.Marshal(policy)
 	if err != nil {
@@ -1257,7 +1257,7 @@ func (c *KonsulClient) UpdateACLPolicy(name string, policy map[string]interface{
 
 // DeleteACLPolicy deletes an ACL policy
 func (c *KonsulClient) DeleteACLPolicy(name string) (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/acl/policies/%s", c.BaseURL, name)
+\treqURL := fmt.Sprintf("%s/acl/policies/%s", c.BaseURL, name)
 
 	req, err := http.NewRequest(http.MethodDelete, url, http.NoBody)
 	if err != nil {
@@ -1285,7 +1285,7 @@ func (c *KonsulClient) DeleteACLPolicy(name string) (map[string]interface{}, err
 
 // TestACLPolicy tests ACL permissions
 func (c *KonsulClient) TestACLPolicy(policies []string, resource, path, capability string) (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/acl/test", c.BaseURL)
+\treqURL := fmt.Sprintf("%s/acl/test", c.BaseURL)
 
 	request := map[string]interface{}{
 		"policies":   policies,

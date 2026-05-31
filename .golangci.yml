@@ -58,6 +58,8 @@ linters:
         - G104
         - G304
         - G404
+        - G704  # SSRF false-positive: CLI client controls the server URL
+        - G117  # Secret-pattern false-positive: intentional JSON field names on config/request DTOs
     govet:
       disable:
         - shadow
