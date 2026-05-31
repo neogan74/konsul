@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/neogan74/konsul/internal/store"
 	"github.com/stretchr/testify/require"
+
+	"github.com/neogan74/konsul/internal/store"
 )
 
 // TestReplication_KVWriteToLeader verifies KV writes replicate to followers.

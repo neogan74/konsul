@@ -15,7 +15,7 @@ var (
 )
 
 // JoinClaims are embedded in short-lived join tokens issued by the leader.
-// They authorise exactly one new node to join the cluster within the TTL.
+// They authorize exactly one new node to join the cluster within the TTL.
 type JoinClaims struct {
 	Purpose string `json:"purpose"` // always "join"
 	jwt.RegisteredClaims
@@ -179,7 +179,7 @@ func (j *JWTService) RefreshToken(refreshTokenString string) (accessToken string
 	return newToken, newRefreshToken, nil
 }
 
-// GenerateJoinToken creates a short-lived JWT authorising a node to join the cluster.
+// GenerateJoinToken creates a short-lived JWT authorizing a node to join the cluster.
 // ttl must be positive; if zero, defaults to 1 hour.
 func (j *JWTService) GenerateJoinToken(ttl time.Duration) (string, error) {
 	if ttl <= 0 {

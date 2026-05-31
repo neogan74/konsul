@@ -2,11 +2,13 @@ package middleware
 
 import (
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/ratelimit"
 )
 
@@ -28,7 +30,7 @@ func TestRateLimitMiddleware_IPBased_Allowed(t *testing.T) {
 	})
 
 	// First request should be allowed
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -68,7 +70,7 @@ func TestRateLimitMiddleware_IPBased_Exceeded(t *testing.T) {
 	})
 
 	// First request should be allowed
-	req1 := httptest.NewRequest("GET", "/test", nil)
+	req1 := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp1, err := app.Test(req1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -79,7 +81,7 @@ func TestRateLimitMiddleware_IPBased_Exceeded(t *testing.T) {
 	}
 
 	// Second request should be rate limited
-	req2 := httptest.NewRequest("GET", "/test", nil)
+	req2 := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp2, err := app.Test(req2)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -135,7 +137,7 @@ func TestRateLimitMiddleware_APIKeyBased_Allowed(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -169,7 +171,7 @@ func TestRateLimitMiddleware_APIKeyBased_Exceeded(t *testing.T) {
 	})
 
 	// First request should be allowed
-	req1 := httptest.NewRequest("GET", "/test", nil)
+	req1 := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp1, err := app.Test(req1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -180,7 +182,7 @@ func TestRateLimitMiddleware_APIKeyBased_Exceeded(t *testing.T) {
 	}
 
 	// Second request should be rate limited
-	req2 := httptest.NewRequest("GET", "/test", nil)
+	req2 := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp2, err := app.Test(req2)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -220,7 +222,7 @@ func TestRateLimitMiddleware_APIKeyPreferredOverIP(t *testing.T) {
 	})
 
 	// First request with API key
-	req1 := httptest.NewRequest("GET", "/test", nil)
+	req1 := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp1, err := app.Test(req1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -231,7 +233,7 @@ func TestRateLimitMiddleware_APIKeyPreferredOverIP(t *testing.T) {
 	}
 
 	// Second request should be rate limited by API key, not IP
-	req2 := httptest.NewRequest("GET", "/test", nil)
+	req2 := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp2, err := app.Test(req2)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -267,7 +269,7 @@ func TestRateLimitMiddleware_FallbackToIP(t *testing.T) {
 	})
 
 	// First request should be allowed
-	req1 := httptest.NewRequest("GET", "/test", nil)
+	req1 := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp1, err := app.Test(req1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -278,7 +280,7 @@ func TestRateLimitMiddleware_FallbackToIP(t *testing.T) {
 	}
 
 	// Second request should be rate limited by IP
-	req2 := httptest.NewRequest("GET", "/test", nil)
+	req2 := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp2, err := app.Test(req2)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -325,7 +327,7 @@ func TestRateLimitMiddleware_DifferentIPsSeparateLimits(t *testing.T) {
 	})
 
 	// Verify that IP-based limiting works (without API key)
-	req1 := httptest.NewRequest("GET", "/test", nil)
+	req1 := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp1, err := app.Test(req1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -342,7 +344,7 @@ func TestRateLimitWithConfig_IPBased_Allowed(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -364,7 +366,7 @@ func TestRateLimitWithConfig_Exceeded(t *testing.T) {
 	})
 
 	// First request should be allowed
-	req1 := httptest.NewRequest("GET", "/test", nil)
+	req1 := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp1, err := app.Test(req1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -375,7 +377,7 @@ func TestRateLimitWithConfig_Exceeded(t *testing.T) {
 	}
 
 	// Second request should be rate limited
-	req2 := httptest.NewRequest("GET", "/test", nil)
+	req2 := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp2, err := app.Test(req2)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -402,7 +404,7 @@ func TestRateLimitWithConfig_APIKeyBased(t *testing.T) {
 	})
 
 	// First request should be allowed
-	req1 := httptest.NewRequest("GET", "/test", nil)
+	req1 := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp1, err := app.Test(req1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -413,7 +415,7 @@ func TestRateLimitWithConfig_APIKeyBased(t *testing.T) {
 	}
 
 	// Second request should be rate limited
-	req2 := httptest.NewRequest("GET", "/test", nil)
+	req2 := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp2, err := app.Test(req2)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -434,7 +436,7 @@ func TestRateLimitWithConfig_CustomLimits(t *testing.T) {
 
 	// Multiple requests should all succeed
 	for i := 0; i < 10; i++ {
-		req := httptest.NewRequest("GET", "/test", nil)
+		req := httptest.NewRequest("GET", "/test", http.NoBody)
 		resp, err := app.Test(req)
 		if err != nil {
 			t.Fatalf("request %d failed: %v", i, err)
@@ -456,7 +458,7 @@ func TestRateLimitWithConfig_BurstAllowance(t *testing.T) {
 
 	// First 3 requests should succeed (burst)
 	for i := 0; i < 3; i++ {
-		req := httptest.NewRequest("GET", "/test", nil)
+		req := httptest.NewRequest("GET", "/test", http.NoBody)
 		resp, err := app.Test(req)
 		if err != nil {
 			t.Fatalf("request %d failed: %v", i, err)
@@ -468,7 +470,7 @@ func TestRateLimitWithConfig_BurstAllowance(t *testing.T) {
 	}
 
 	// 4th request should be rate limited
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)

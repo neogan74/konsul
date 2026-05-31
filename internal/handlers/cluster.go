@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/auth"
 	konsulraft "github.com/neogan74/konsul/internal/raft"
 )
@@ -308,7 +309,7 @@ type GenerateJoinTokenRequest struct {
 	TTL string `json:"ttl"` // e.g. "24h", "30m"; defaults to "1h"
 }
 
-// GenerateJoinToken issues a short-lived JWT that authorises a new node to join.
+// GenerateJoinToken issues a short-lived JWT that authorizes a new node to join.
 // POST /cluster/token
 // Body: {"ttl": "24h"}
 func (h *ClusterHandler) GenerateJoinToken(c *fiber.Ctx) error {

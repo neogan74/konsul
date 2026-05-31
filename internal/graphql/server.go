@@ -7,6 +7,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
+
 	"github.com/neogan74/konsul/internal/graphql/generated"
 	"github.com/neogan74/konsul/internal/graphql/middleware"
 	"github.com/neogan74/konsul/internal/graphql/resolver"

@@ -12,7 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-// AutopilotConfig configures the autopilot dead-server cleanup behaviour.
+// AutopilotConfig configures the autopilot dead-server cleanup behavior.
 type AutopilotConfig struct {
 	// Enabled turns autopilot on or off.
 	Enabled bool
@@ -135,7 +135,7 @@ func NewAutopilot(node *Node, cfg *AutopilotConfig) *Autopilot {
 }
 
 // Start launches the autopilot loop. It is a no-op if autopilot is disabled.
-// The loop stops when ctx is cancelled or Stop is called.
+// The loop stops when ctx is canceled or Stop is called.
 func (ap *Autopilot) Start(ctx context.Context) {
 	if !ap.cfg.Enabled {
 		close(ap.stopped)
@@ -162,7 +162,7 @@ func (ap *Autopilot) Start(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
-				ap.node.logger.Info("autopilot stopped (context cancelled)")
+				ap.node.logger.Info("autopilot stopped (context canceled)")
 				return
 			case <-ap.stopCh:
 				ap.node.logger.Info("autopilot stopped")

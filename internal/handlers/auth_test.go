@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/auth"
 )
 
@@ -387,7 +388,7 @@ func TestAuthHandler_ListAPIKeys(t *testing.T) {
 	}
 
 	// List all keys
-	req := httptest.NewRequest(http.MethodGet, "/auth/api-keys", nil)
+	req := httptest.NewRequest(http.MethodGet, "/auth/api-keys", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("ListAPIKeys request failed: %v", err)
@@ -424,7 +425,7 @@ func TestAuthHandler_GetAPIKey_Success(t *testing.T) {
 		t.Fatalf("decode response: %v", err)
 	}
 	// Get the API key
-	req := httptest.NewRequest(http.MethodGet, "/auth/api-keys/"+createResult.APIKey.ID, nil)
+	req := httptest.NewRequest(http.MethodGet, "/auth/api-keys/"+createResult.APIKey.ID, http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("GetAPIKey request failed: %v", err)
@@ -438,7 +439,7 @@ func TestAuthHandler_GetAPIKey_Success(t *testing.T) {
 func TestAuthHandler_GetAPIKey_NotFound(t *testing.T) {
 	_, app := setupAuthHandler()
 
-	req := httptest.NewRequest(http.MethodGet, "/auth/api-keys/nonexistent-id", nil)
+	req := httptest.NewRequest(http.MethodGet, "/auth/api-keys/nonexistent-id", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("GetAPIKey request failed: %v", err)
@@ -508,7 +509,7 @@ func TestAuthHandler_RevokeAPIKey_Success(t *testing.T) {
 		t.Fatalf("decode response: %v", err)
 	}
 	// Revoke the API key
-	req := httptest.NewRequest(http.MethodPost, "/auth/api-keys/"+createResult.APIKey.ID+"/revoke", nil)
+	req := httptest.NewRequest(http.MethodPost, "/auth/api-keys/"+createResult.APIKey.ID+"/revoke", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("RevokeAPIKey request failed: %v", err)
@@ -522,7 +523,7 @@ func TestAuthHandler_RevokeAPIKey_Success(t *testing.T) {
 func TestAuthHandler_RevokeAPIKey_NotFound(t *testing.T) {
 	_, app := setupAuthHandler()
 
-	req := httptest.NewRequest(http.MethodPost, "/auth/api-keys/nonexistent-id/revoke", nil)
+	req := httptest.NewRequest(http.MethodPost, "/auth/api-keys/nonexistent-id/revoke", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("RevokeAPIKey request failed: %v", err)
@@ -547,7 +548,7 @@ func TestAuthHandler_DeleteAPIKey_Success(t *testing.T) {
 		t.Fatalf("decode response: %v", err)
 	}
 	// Delete the API key
-	req := httptest.NewRequest(http.MethodDelete, "/auth/api-keys/"+createResult.APIKey.ID, nil)
+	req := httptest.NewRequest(http.MethodDelete, "/auth/api-keys/"+createResult.APIKey.ID, http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("DeleteAPIKey request failed: %v", err)
@@ -558,7 +559,7 @@ func TestAuthHandler_DeleteAPIKey_Success(t *testing.T) {
 	}
 
 	// Verify it's deleted
-	getReq := httptest.NewRequest(http.MethodGet, "/auth/api-keys/"+createResult.APIKey.ID, nil)
+	getReq := httptest.NewRequest(http.MethodGet, "/auth/api-keys/"+createResult.APIKey.ID, http.NoBody)
 	getResp, _ := app.Test(getReq)
 	if getResp.StatusCode != http.StatusNotFound {
 		t.Errorf("expected key to be deleted, got status %d", getResp.StatusCode)
@@ -568,7 +569,7 @@ func TestAuthHandler_DeleteAPIKey_Success(t *testing.T) {
 func TestAuthHandler_DeleteAPIKey_NotFound(t *testing.T) {
 	_, app := setupAuthHandler()
 
-	req := httptest.NewRequest(http.MethodDelete, "/auth/api-keys/nonexistent-id", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/auth/api-keys/nonexistent-id", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("DeleteAPIKey request failed: %v", err)

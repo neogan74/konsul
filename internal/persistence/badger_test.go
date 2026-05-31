@@ -1,6 +1,7 @@
 package persistence
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -36,7 +37,7 @@ func TestBadgerEngine_Basic(t *testing.T) {
 		t.Fatalf("Failed to get key: %v", err)
 	}
 
-	if string(retrievedValue) != string(value) {
+	if !bytes.Equal(retrievedValue, value) {
 		t.Errorf("Expected %s, got %s", value, retrievedValue)
 	}
 
@@ -89,7 +90,7 @@ func TestBadgerEngine_Services(t *testing.T) {
 		t.Fatalf("Failed to get service: %v", err)
 	}
 
-	if string(retrievedData) != string(serviceData) {
+	if !bytes.Equal(retrievedData, serviceData) {
 		t.Errorf("Expected %s, got %s", serviceData, retrievedData)
 	}
 
@@ -151,7 +152,7 @@ func TestBadgerEngine_BatchOperations(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get key %s: %v", key, err)
 		}
-		if string(value) != string(expectedValue) {
+		if !bytes.Equal(value, expectedValue) {
 			t.Errorf("Key %s: expected %s, got %s", key, expectedValue, value)
 		}
 	}
@@ -236,7 +237,7 @@ func TestBadgerEngine_BackupRestore(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get restored key %s: %v", key, err)
 		}
-		if string(value) != string(expectedValue) {
+		if !bytes.Equal(value, expectedValue) {
 			t.Errorf("Restored key %s: expected %s, got %s", key, expectedValue, value)
 		}
 	}

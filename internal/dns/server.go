@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/miekg/dns"
+
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/store"
 )
@@ -159,7 +160,7 @@ func (s *Server) handleSRVQuery(msg *dns.Msg, question dns.Question) {
 			},
 			Priority: 1,
 			Weight:   uint16(100 / (i + 1)), //nolint:gosec // G115: value is always in range 1-100
-			Port:     uint16(service.Port), //nolint:gosec // G115: port is always in valid range
+			Port:     uint16(service.Port),  //nolint:gosec // G115: port is always in valid range
 			Target:   target,
 		}
 		msg.Answer = append(msg.Answer, srv)

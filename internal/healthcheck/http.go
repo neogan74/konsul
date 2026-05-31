@@ -38,7 +38,7 @@ func (h *HTTPChecker) Check(ctx context.Context, check *Check) (Status, string, 
 		method = "GET"
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, check.HTTP, nil)
+	req, err := http.NewRequestWithContext(ctx, method, check.HTTP, http.NoBody)
 	if err != nil {
 		return StatusCritical, fmt.Sprintf("Failed to create request: %v", err), err
 	}

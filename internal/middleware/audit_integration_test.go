@@ -7,12 +7,13 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"sync"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/audit"
 	"github.com/neogan74/konsul/internal/logger"
 )
@@ -121,7 +122,7 @@ func TestAuditIntegration_KVOperations(t *testing.T) {
 				req = httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
 				req.Header.Set("Content-Type", "application/json")
 			} else {
-				req = httptest.NewRequest(tt.method, tt.path, nil)
+				req = httptest.NewRequest(tt.method, tt.path, http.NoBody)
 			}
 
 			resp, err := app.Test(req)
@@ -253,7 +254,7 @@ func TestAuditIntegration_ServiceOperations(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(tt.method, tt.path, nil)
+			req := httptest.NewRequest(tt.method, tt.path, http.NoBody)
 			resp, err := app.Test(req)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
@@ -357,7 +358,7 @@ func TestAuditIntegration_ACLOperations(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(tt.method, tt.path, nil)
+			req := httptest.NewRequest(tt.method, tt.path, http.NoBody)
 			resp, err := app.Test(req)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
@@ -456,7 +457,7 @@ func TestAuditIntegration_BackupOperations(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(tt.method, tt.path, nil)
+			req := httptest.NewRequest(tt.method, tt.path, http.NoBody)
 			resp, err := app.Test(req)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)

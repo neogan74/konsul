@@ -2,6 +2,7 @@ package agent
 
 import (
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/healthcheck"
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/store"

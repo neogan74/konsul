@@ -54,7 +54,7 @@ type DiscoveryConfig struct {
 	RetryMaxInterval time.Duration
 
 	// RetryMax is the maximum number of join attempts before giving up.
-	// 0 means retry indefinitely until the context is cancelled.
+	// 0 means retry indefinitely until the context is canceled.
 	RetryMax int
 }
 
@@ -240,7 +240,7 @@ func hasExistingRaftState(dataDir string) bool {
 //   - the node is configured to bootstrap (it creates the cluster)
 //   - the node has existing Raft state (it will rejoin automatically)
 //
-// Otherwise it retries with exponential backoff until ctx is cancelled,
+// Otherwise it retries with exponential backoff until ctx is canceled,
 // a join succeeds, or RetryMax attempts are exhausted.
 // This method blocks; callers typically run it in a goroutine.
 func (n *Node) RunAutoJoin(ctx context.Context, discoverer Discoverer, cfg *DiscoveryConfig) {
@@ -283,7 +283,7 @@ func (n *Node) RunAutoJoin(ctx context.Context, discoverer Discoverer, cfg *Disc
 	attempt := 0
 	for {
 		if err := ctx.Err(); err != nil {
-			n.logger.Info("auto-join cancelled", "reason", err)
+			n.logger.Info("auto-join canceled", "reason", err)
 			return
 		}
 
@@ -309,7 +309,7 @@ func (n *Node) RunAutoJoin(ctx context.Context, discoverer Discoverer, cfg *Disc
 
 		select {
 		case <-ctx.Done():
-			n.logger.Info("auto-join cancelled", "reason", ctx.Err())
+			n.logger.Info("auto-join canceled", "reason", ctx.Err())
 			return
 		case <-time.After(retryInterval):
 		}
