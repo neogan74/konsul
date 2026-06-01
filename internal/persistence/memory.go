@@ -151,7 +151,7 @@ func (m *MemoryEngine) Backup(path string) error {
 		return err
 	}
 
-	return os.WriteFile(path, jsonData, 0644)
+	return os.WriteFile(path, jsonData, 0o600)
 }
 
 func (m *MemoryEngine) Restore(path string) error {

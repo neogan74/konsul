@@ -59,8 +59,8 @@ func (r *AgentRegistry) UpdateLastSeen(agentID string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if agent, ok := r.agents[agentID]; ok {
-		agent.LastSeen = time.Now()
+	if reg, ok := r.agents[agentID]; ok {
+		reg.LastSeen = time.Now()
 	}
 }
 
@@ -69,8 +69,8 @@ func (r *AgentRegistry) UpdateSyncIndex(agentID string, index int64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if agent, ok := r.agents[agentID]; ok {
-		agent.LastSyncIndex = index
+	if reg, ok := r.agents[agentID]; ok {
+		reg.LastSyncIndex = index
 	}
 }
 
@@ -79,8 +79,8 @@ func (r *AgentRegistry) GetAgent(agentID string) (*RegisteredAgent, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	agent, ok := r.agents[agentID]
-	return agent, ok
+	reg, ok := r.agents[agentID]
+	return reg, ok
 }
 
 // ListAgents returns all registered agents
@@ -296,14 +296,14 @@ func (h *AgentHandlers) HandleGetAgent(c *fiber.Ctx) error {
 		})
 	}
 
-	agent, ok := h.registry.GetAgent(agentID)
+	reg, ok := h.registry.GetAgent(agentID)
 	if !ok {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "agent not found",
 		})
 	}
 
-	return c.JSON(agent)
+	return c.JSON(reg)
 }
 
 // Helper methods

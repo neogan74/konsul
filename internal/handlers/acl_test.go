@@ -623,8 +623,8 @@ func TestACLHandler_LoadPolicies(t *testing.T) {
 	// Save policies to files
 	data1, _ := json.MarshalIndent(policy1, "", "  ")
 	data2, _ := json.MarshalIndent(policy2, "", "  ")
-	_ = os.WriteFile(filepath.Join(tmpDir, "policy1.json"), data1, 0644)
-	_ = os.WriteFile(filepath.Join(tmpDir, "policy2.json"), data2, 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, "policy1.json"), data1, 0o644)
+	_ = os.WriteFile(filepath.Join(tmpDir, "policy2.json"), data2, 0o644)
 
 	// Load policies
 	err := handler.LoadPolicies()
@@ -660,7 +660,7 @@ func TestACLHandler_LoadPolicies_InvalidJSON(t *testing.T) {
 	handler, _ := setupACLHandler(tmpDir)
 
 	// Create an invalid policy file
-	_ = os.WriteFile(filepath.Join(tmpDir, "invalid.json"), []byte("invalid json"), 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, "invalid.json"), []byte("invalid json"), 0o644)
 
 	// Load policies - should not fail, just log error
 	err := handler.LoadPolicies()

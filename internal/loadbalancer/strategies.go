@@ -119,7 +119,7 @@ func (b *Balancer) selectIPHash(instances []store.Service, clientIP string) stor
 	hashValue := hash.Sum64()
 
 	// Select instance using modulo
-	idx := int(hashValue % uint64(len(instances)))
+	idx := int(hashValue % uint64(len(instances))) //nolint:gosec // G115: result is bounded by len(instances), safe to convert
 	return instances[idx]
 }
 

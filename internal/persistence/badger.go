@@ -28,7 +28,7 @@ type BadgerEngine struct {
 // NewBadgerEngine creates a new BadgerDB persistence engine
 func NewBadgerEngine(dataDir string, syncWrites bool, log logger.Logger) (*BadgerEngine, error) {
 	// Create directory if it doesn't exist
-	if err := os.MkdirAll(dataDir, 0755); err != nil {
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create data directory: %w", err)
 	}
 
@@ -146,7 +146,7 @@ func (b *BadgerEngine) GetService(name string) ([]byte, error) {
 		}
 
 		// Check if expired
-		if item.ExpiresAt() != 0 && time.Now().Unix() > int64(item.ExpiresAt()) {
+		if item.ExpiresAt() != 0 && time.Now().Unix() > int64(item.ExpiresAt()) { //nolint:gosec // G115: BadgerDB Unix timestamps fit in int64
 			return errors.New("service expired")
 		}
 
@@ -186,7 +186,7 @@ func (b *BadgerEngine) ListServices() ([]string, error) {
 		for it.Seek(prefixBytes); it.ValidForPrefix(prefixBytes); it.Next() {
 			item := it.Item()
 			// Skip expired items
-			if item.ExpiresAt() != 0 && now > int64(item.ExpiresAt()) {
+			if item.ExpiresAt() != 0 && now > int64(item.ExpiresAt()) { //nolint:gosec // G115: BadgerDB Unix timestamps fit in int64
 				continue
 			}
 			key := string(item.Key())
@@ -226,7 +226,7 @@ func (b *BadgerEngine) Close() error {
 func (b *BadgerEngine) Backup(path string) error {
 	// Ensure backup directory exists
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create backup directory: %w", err)
 	}
 

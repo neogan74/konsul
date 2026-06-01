@@ -60,7 +60,7 @@ func (m *MockKVStore) SetWithFlags(key, value string, flags uint64) error {
 	return nil
 }
 
-func (m *MockKVStore) Get(key string) (string, bool, error) {
+func (m *MockKVStore) Get(key string) (value string, exists bool, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	entry, ok := m.data[key]
@@ -259,7 +259,7 @@ func (m *MockServiceStore) Deregister(name string) error {
 	return nil
 }
 
-func (m *MockServiceStore) Get(name string) (interface{}, bool, error) {
+func (m *MockServiceStore) Get(name string) (svc interface{}, exists bool, err error) {
 	svc, ok := m.services[name]
 	return svc, ok, nil
 }

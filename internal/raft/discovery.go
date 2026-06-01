@@ -137,7 +137,7 @@ func (d *dnsDiscoverer) Discover(ctx context.Context) ([]Peer, error) {
 	for _, addr := range addrs {
 		host := addr.Target
 		// Strip trailing dot from DNS names
-		if len(host) > 0 && host[len(host)-1] == '.' {
+		if host != "" && host[len(host)-1] == '.' {
 			host = host[:len(host)-1]
 		}
 		port := int(addr.Port)
@@ -288,11 +288,12 @@ func (n *Node) RunAutoJoin(ctx context.Context, discoverer Discoverer, cfg *Disc
 		}
 
 		peers, err := discoverer.Discover(ctx)
-		if err != nil {
+		switch {
+		case err != nil:
 			n.logger.Warn("discovery failed", "error", err, "attempt", attempt+1)
-		} else if len(peers) == 0 {
+		case len(peers) == 0:
 			n.logger.Warn("no peers discovered", "attempt", attempt+1)
-		} else {
+		default:
 			if joinErr := tryJoinPeers(ctx, peers, selfNodeID, selfRaftAddr, httpClient); joinErr == nil {
 				n.logger.Info("auto-join successful", "attempts", attempt+1)
 				return

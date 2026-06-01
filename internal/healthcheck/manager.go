@@ -48,14 +48,15 @@ func (m *Manager) AddCheck(def *CheckDefinition) (*Check, error) {
 	}
 
 	// Determine check type
-	checkType := CheckTypeTTL
-	if def.HTTP != "" {
+	var checkType CheckType
+	switch {
+	case def.HTTP != "":
 		checkType = CheckTypeHTTP
-	} else if def.TCP != "" {
+	case def.TCP != "":
 		checkType = CheckTypeTCP
-	} else if def.GRPC != "" {
+	case def.GRPC != "":
 		checkType = CheckTypeGRPC
-	} else if def.TTL != "" {
+	default:
 		checkType = CheckTypeTTL
 	}
 

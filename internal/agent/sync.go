@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -124,7 +125,7 @@ func (s *SyncEngine) performSync(ctx context.Context, client *ServerClient, cach
 	duration := time.Since(startTime)
 	s.log.Debug("Sync completed",
 		logger.String("duration", duration.String()),
-		logger.String("index", string(rune(resp.CurrentIndex))),
+		logger.String("index", strconv.FormatInt(resp.CurrentIndex, 10)),
 		logger.Int("service_updates", len(resp.ServiceUpdates)),
 		logger.Int("kv_updates", len(resp.KVUpdates)),
 		logger.Int("health_updates", len(resp.HealthUpdates)))

@@ -129,6 +129,10 @@ func env(key string) string {
 // file reads a file and returns its contents
 // Usage: {{ file "/etc/hostname" }}
 func file(path string) (string, error) {
+	if strings.Contains(path, "..") {
+		return "", fmt.Errorf("path traversal not allowed: %s", path)
+	}
+
 	// Resolve path
 	absPath, err := filepath.Abs(path)
 	if err != nil {
@@ -136,7 +140,7 @@ func file(path string) (string, error) {
 	}
 
 	// Read file
-	content, err := os.ReadFile(absPath)
+	content, err := os.ReadFile(absPath) //nolint:gosec // G703: traversal sequences rejected above
 	if err != nil {
 		return "", fmt.Errorf("failed to read file %s: %w", absPath, err)
 	}
