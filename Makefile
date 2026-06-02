@@ -16,7 +16,7 @@ test:
 	go test -v ./...
 
 bench:
-	go test -bench=. -benchmem -benchtime=1s ./internal/store/ ./internal/agent/ 2>&1 | grep -E "^(Benchmark|goos|goarch|pkg|cpu|ok|FAIL)"
+	go test -bench=. -benchmem -benchtime=1s ./internal/store/ ./internal/agent/ ./internal/raft/ -timeout 10m 2>&1 | grep -E "^(Benchmark|goos|goarch|pkg|cpu|ok|FAIL)"
 
 clean:
 	rm -f $(APP_NAME) $(CLI_NAME)
