@@ -320,7 +320,7 @@ func (h *AgentHandlers) getAllServiceUpdates() []agent.ServiceUpdate {
 	h.serviceStore.Mutex.RLock()
 	defer h.serviceStore.Mutex.RUnlock()
 
-	updates := make([]agent.ServiceUpdate, 0)
+	updates := make([]agent.ServiceUpdate, 0, len(h.serviceStore.Data))
 	for name, entry := range h.serviceStore.Data {
 		updates = append(updates, agent.ServiceUpdate{
 			Type:        agent.UpdateTypeAdd,

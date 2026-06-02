@@ -593,7 +593,7 @@ func getEnvStringSlice(key string, defaultValue []string) []string {
 
 // splitAndTrim splits a string by delimiter and trims spaces from each element
 func splitAndTrim(s, delimiter string) []string {
-	parts := []string{}
+	parts := make([]string, 0, len(splitString(s, delimiter)))
 	for _, part := range splitString(s, delimiter) {
 		trimmed := trimSpace(part)
 		parts = append(parts, trimmed)

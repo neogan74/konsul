@@ -108,7 +108,13 @@ func TestValidateTags(t *testing.T) {
 }
 
 func TestValidateMetadata(t *testing.T) {
-	tests := []struct {
+	tests := make([]struct {
+		name    string
+		meta    map[string]string
+		wantErr bool
+		errMsg  string
+	}, 0, 14)
+	tests = append(tests, []struct {
 		name    string
 		meta    map[string]string
 		wantErr bool
