@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/acl"
 	"github.com/neogan74/konsul/internal/logger"
 )
@@ -158,7 +159,7 @@ func TestACLHandler_GetPolicy(t *testing.T) {
 		t.Fatalf("add policy: %v", err)
 	}
 	// Get the policy
-	req := httptest.NewRequest(http.MethodGet, "/acl/policies/test-policy", nil)
+	req := httptest.NewRequest(http.MethodGet, "/acl/policies/test-policy", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -180,7 +181,7 @@ func TestACLHandler_GetPolicy(t *testing.T) {
 func TestACLHandler_GetPolicy_NotFound(t *testing.T) {
 	_, app := setupACLHandler("")
 
-	req := httptest.NewRequest(http.MethodGet, "/acl/policies/nonexistent", nil)
+	req := httptest.NewRequest(http.MethodGet, "/acl/policies/nonexistent", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -203,7 +204,7 @@ func TestACLHandler_ListPolicies(t *testing.T) {
 	if err := handler.evaluator.AddPolicy(policy2); err != nil {
 		t.Fatalf("add policy: %v", err)
 	}
-	req := httptest.NewRequest(http.MethodGet, "/acl/policies", nil)
+	req := httptest.NewRequest(http.MethodGet, "/acl/policies", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -232,7 +233,7 @@ func TestACLHandler_ListPolicies(t *testing.T) {
 func TestACLHandler_ListPolicies_Empty(t *testing.T) {
 	_, app := setupACLHandler("")
 
-	req := httptest.NewRequest(http.MethodGet, "/acl/policies", nil)
+	req := httptest.NewRequest(http.MethodGet, "/acl/policies", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -364,7 +365,7 @@ func TestACLHandler_DeletePolicy(t *testing.T) {
 	}
 
 	// Delete the policy
-	req := httptest.NewRequest(http.MethodDelete, "/acl/policies/test-policy", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/acl/policies/test-policy", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -389,7 +390,7 @@ func TestACLHandler_DeletePolicy(t *testing.T) {
 func TestACLHandler_DeletePolicy_NotFound(t *testing.T) {
 	_, app := setupACLHandler("")
 
-	req := httptest.NewRequest(http.MethodDelete, "/acl/policies/nonexistent", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/acl/policies/nonexistent", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -622,8 +623,8 @@ func TestACLHandler_LoadPolicies(t *testing.T) {
 	// Save policies to files
 	data1, _ := json.MarshalIndent(policy1, "", "  ")
 	data2, _ := json.MarshalIndent(policy2, "", "  ")
-	_ = os.WriteFile(filepath.Join(tmpDir, "policy1.json"), data1, 0644)
-	_ = os.WriteFile(filepath.Join(tmpDir, "policy2.json"), data2, 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, "policy1.json"), data1, 0o644)
+	_ = os.WriteFile(filepath.Join(tmpDir, "policy2.json"), data2, 0o644)
 
 	// Load policies
 	err := handler.LoadPolicies()
@@ -659,7 +660,7 @@ func TestACLHandler_LoadPolicies_InvalidJSON(t *testing.T) {
 	handler, _ := setupACLHandler(tmpDir)
 
 	// Create an invalid policy file
-	_ = os.WriteFile(filepath.Join(tmpDir, "invalid.json"), []byte("invalid json"), 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, "invalid.json"), []byte("invalid json"), 0o644)
 
 	// Load policies - should not fail, just log error
 	err := handler.LoadPolicies()

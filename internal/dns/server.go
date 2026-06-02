@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/miekg/dns"
+
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/store"
 )
@@ -158,8 +159,8 @@ func (s *Server) handleSRVQuery(msg *dns.Msg, question dns.Question) {
 				Ttl:    30,
 			},
 			Priority: 1,
-			Weight:   uint16(100 / (i + 1)), // Simple weight distribution
-			Port:     uint16(service.Port),
+			Weight:   uint16(100 / (i + 1)), //nolint:gosec // G115: value is always in range 1-100
+			Port:     uint16(service.Port),  //nolint:gosec // G115: port is always in valid range
 			Target:   target,
 		}
 		msg.Answer = append(msg.Answer, srv)
@@ -194,12 +195,13 @@ func (s *Server) handleAQuery(msg *dns.Msg, question dns.Question) {
 	var serviceName string
 
 	// Check if it's a node query (service.node.consul)
-	if len(parts) >= 3 && parts[1] == "node" {
+	switch {
+	case len(parts) >= 3 && parts[1] == "node":
 		serviceName = parts[0]
-	} else if len(parts) >= 3 && parts[1] == "service" {
+	case len(parts) >= 3 && parts[1] == "service":
 		// service-name.service.consul format
 		serviceName = parts[0]
-	} else {
+	default:
 		return
 	}
 

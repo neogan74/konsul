@@ -1,7 +1,18 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(go build *)",
+      "Bash(echo \"=== exit: $? ===\")",
+      "Bash(go vet *)",
+      "Bash(golangci-lint --version)",
+      "Bash(timeout 120 golangci-lint run ./internal/... ./cmd/konsul/...)",
+      "Bash(timeout 240 go test ./internal/...)",
+      "Bash(go test *)",
+      "Bash(echo \"BUILD_EXIT=$?\")",
+      "Bash(echo \"exit=$?\")",
+      "Bash(golangci-lint run *)",
+      "Bash(echo \"VET_EXIT=$?\")"
     ]
   }
 }

@@ -1,5 +1,5 @@
 // Package tls provides TLS certificate generation for development
-package tls
+package tls //nolint:revive // package name matches stdlib; renaming would break all callers
 
 import (
 	"crypto/ecdsa"

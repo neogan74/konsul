@@ -25,7 +25,7 @@ import (
 
 // KvSet is the resolver for the kvSet field.
 func (r *mutationResolver) KvSet(ctx context.Context, key string, value string) (*model.KVPair, error) {
-	if err := r.authorizeMutation(ctx, acl.NewKVResource(key), acl.CapabilityWrite); err != nil {
+	if err := r.authorize(ctx, acl.NewKVResource(key), acl.CapabilityWrite); err != nil {
 		return nil, err
 	}
 
@@ -58,7 +58,7 @@ func (r *mutationResolver) KvSet(ctx context.Context, key string, value string) 
 
 // KvDelete is the resolver for the kvDelete field.
 func (r *mutationResolver) KvDelete(ctx context.Context, key string) (bool, error) {
-	if err := r.authorizeMutation(ctx, acl.NewKVResource(key), acl.CapabilityDelete); err != nil {
+	if err := r.authorize(ctx, acl.NewKVResource(key), acl.CapabilityDelete); err != nil {
 		return false, err
 	}
 
@@ -94,7 +94,7 @@ func (r *mutationResolver) KvDelete(ctx context.Context, key string) (bool, erro
 
 // KvCas is the resolver for the kvCAS field.
 func (r *mutationResolver) KvCas(ctx context.Context, key string, value string, index int) (*model.KVPair, error) {
-	if err := r.authorizeMutation(ctx, acl.NewKVResource(key), acl.CapabilityWrite); err != nil {
+	if err := r.authorize(ctx, acl.NewKVResource(key), acl.CapabilityWrite); err != nil {
 		return nil, err
 	}
 
@@ -144,7 +144,7 @@ func (r *mutationResolver) KvCas(ctx context.Context, key string, value string, 
 
 // RegisterService is the resolver for the registerService field.
 func (r *mutationResolver) RegisterService(ctx context.Context, input model.RegisterServiceInput) (*model.Service, error) {
-	if err := r.authorizeMutation(ctx, acl.NewServiceResource(input.Name), acl.CapabilityRegister); err != nil {
+	if err := r.authorize(ctx, acl.NewServiceResource(input.Name), acl.CapabilityRegister); err != nil {
 		return nil, err
 	}
 
@@ -210,7 +210,7 @@ func (r *mutationResolver) RegisterService(ctx context.Context, input model.Regi
 
 // DeregisterService is the resolver for the deregisterService field.
 func (r *mutationResolver) DeregisterService(ctx context.Context, name string) (bool, error) {
-	if err := r.authorizeMutation(ctx, acl.NewServiceResource(name), acl.CapabilityDeregister); err != nil {
+	if err := r.authorize(ctx, acl.NewServiceResource(name), acl.CapabilityDeregister); err != nil {
 		return false, err
 	}
 
@@ -246,7 +246,7 @@ func (r *mutationResolver) DeregisterService(ctx context.Context, name string) (
 
 // UpdateHeartbeat is the resolver for the updateHeartbeat field.
 func (r *mutationResolver) UpdateHeartbeat(ctx context.Context, name string) (*model.Service, error) {
-	if err := r.authorizeMutation(ctx, acl.NewServiceResource(name), acl.CapabilityWrite); err != nil {
+	if err := r.authorize(ctx, acl.NewServiceResource(name), acl.CapabilityWrite); err != nil {
 		return nil, err
 	}
 
@@ -333,11 +333,9 @@ func (r *queryResolver) Health(ctx context.Context) (*model.SystemHealth, error)
 
 // Kv is the resolver for the kv field.
 func (r *queryResolver) Kv(ctx context.Context, key string) (*model.KVPair, error) {
-	// Check authentication if required
-	// TODO: Add authentication check when auth middleware is implemented
-
-	// Check ACL permissions if enabled
-	// TODO: Add ACL check when ACL middleware is implemented
+	if err := r.authorize(ctx, acl.NewKVResource(key), acl.CapabilityRead); err != nil {
+		return nil, err
+	}
 
 	// Fetch from store
 	value, exists := r.kvStore.Get(key)
@@ -353,8 +351,13 @@ func (r *queryResolver) Kv(ctx context.Context, key string) (*model.KVPair, erro
 
 // KvList is the resolver for the kvList field.
 func (r *queryResolver) KvList(ctx context.Context, prefix *string, limit *int, offset *int) (*model.KVListResponse, error) {
-	// Check authentication
-	// TODO: Add authentication check when auth middleware is implemented
+	kvPrefix := "*"
+	if prefix != nil && *prefix != "" {
+		kvPrefix = *prefix
+	}
+	if err := r.authorize(ctx, acl.NewKVResource(kvPrefix), acl.CapabilityList); err != nil {
+		return nil, err
+	}
 
 	// Get all keys
 	allKeys := r.kvStore.List()
@@ -396,7 +399,6 @@ func (r *queryResolver) KvList(ctx context.Context, prefix *string, limit *int, 
 	items := make([]*model.KVPair, 0, len(paginatedKeys))
 	for _, key := range paginatedKeys {
 		if value, exists := r.kvStore.Get(key); exists {
-			// TODO: Check ACL for each key if enabled
 			items = append(items, model.MapKVPairFromStore(key, value))
 		}
 	}
@@ -415,11 +417,9 @@ func (r *queryResolver) KvList(ctx context.Context, prefix *string, limit *int, 
 
 // Service is the resolver for the service field.
 func (r *queryResolver) Service(ctx context.Context, name string) (*model.Service, error) {
-	// Check authentication
-	// TODO: Add authentication check when auth middleware is implemented
-
-	// Check ACL
-	// TODO: Add ACL check when ACL middleware is implemented
+	if err := r.authorize(ctx, acl.NewServiceResource(name), acl.CapabilityRead); err != nil {
+		return nil, err
+	}
 
 	// Get all entries to find the one with expiration info
 	entries := r.serviceStore.ListAll()
@@ -443,8 +443,9 @@ func (r *queryResolver) Service(ctx context.Context, name string) (*model.Servic
 
 // Services is the resolver for the services field.
 func (r *queryResolver) Services(ctx context.Context, limit *int, offset *int) ([]*model.Service, error) {
-	// Check authentication
-	// TODO: Add authentication check when auth middleware is implemented
+	if err := r.authorize(ctx, acl.NewServiceResource("*"), acl.CapabilityList); err != nil {
+		return nil, err
+	}
 
 	// Get all services
 	entries := r.serviceStore.ListAll()
@@ -471,7 +472,6 @@ func (r *queryResolver) Services(ctx context.Context, limit *int, offset *int) (
 	// Map to GraphQL models
 	services := make([]*model.Service, 0, len(paginatedEntries))
 	for _, entry := range paginatedEntries {
-		// TODO: Check ACL for each service
 		services = append(services, model.MapServiceFromStore(entry.Service, entry))
 	}
 
@@ -484,8 +484,9 @@ func (r *queryResolver) Services(ctx context.Context, limit *int, offset *int) (
 
 // ServicesCount is the resolver for the servicesCount field.
 func (r *queryResolver) ServicesCount(ctx context.Context) (int, error) {
-	// Check authentication
-	// TODO: Add authentication check when auth middleware is implemented
+	if err := r.authorize(ctx, acl.NewServiceResource("*"), acl.CapabilityList); err != nil {
+		return 0, err
+	}
 
 	services := r.serviceStore.List()
 	return len(services), nil
@@ -496,8 +497,9 @@ func (r *queryResolver) ServicesByTags(ctx context.Context, tags []string) ([]*m
 	startTime := time.Now()
 	queryName := "servicesByTags"
 
-	// Check authentication
-	// TODO: Add authentication check when auth middleware is implemented
+	if err := r.authorize(ctx, acl.NewServiceResource("*"), acl.CapabilityList); err != nil {
+		return nil, err
+	}
 
 	r.logger.Info("GraphQL: querying services by tags",
 		logger.Int("tag_count", len(tags)))
@@ -543,8 +545,9 @@ func (r *queryResolver) ServicesByMetadata(ctx context.Context, filters []*model
 	startTime := time.Now()
 	queryName := "servicesByMetadata"
 
-	// Check authentication
-	// TODO: Add authentication check when auth middleware is implemented
+	if err := r.authorize(ctx, acl.NewServiceResource("*"), acl.CapabilityList); err != nil {
+		return nil, err
+	}
 
 	// Convert GraphQL filters to map
 	metaMap := make(map[string]string, len(filters))
@@ -596,8 +599,9 @@ func (r *queryResolver) ServicesByQuery(ctx context.Context, tags []string, meta
 	startTime := time.Now()
 	queryName := "servicesByQuery"
 
-	// Check authentication
-	// TODO: Add authentication check when auth middleware is implemented
+	if err := r.authorize(ctx, acl.NewServiceResource("*"), acl.CapabilityList); err != nil {
+		return nil, err
+	}
 
 	// Handle nil tags parameter
 	if tags == nil {
@@ -653,8 +657,23 @@ func (r *queryResolver) ServicesByQuery(ctx context.Context, tags []string, meta
 
 // KvChanged is the resolver for the kvChanged field.
 func (r *subscriptionResolver) KvChanged(ctx context.Context, key *string, prefix *string) (<-chan *model.KVChangeEvent, error) {
-	// Check authentication if required
-	// TODO: Add authentication check when auth middleware is implemented
+	watchKey := "*"
+	if key != nil && *key != "" {
+		watchKey = *key
+	} else if prefix != nil && *prefix != "" {
+		watchKey = *prefix
+	}
+	claims, _ := r.claimsFromGraphQLContext(ctx)
+	if err := r.authorize(ctx, acl.NewKVResource(watchKey), acl.CapabilityRead); err != nil {
+		return nil, err
+	}
+
+	var policies []string
+	var userID string
+	if claims != nil {
+		policies = claims.Policies
+		userID = claims.Subject
+	}
 
 	// Determine watch pattern
 	pattern := ""
@@ -668,9 +687,7 @@ func (r *subscriptionResolver) KvChanged(ctx context.Context, key *string, prefi
 		pattern = "**"
 	}
 
-	// Create watcher through watch manager
-	// TODO: Get ACL policies from context when ACL is implemented
-	watcher, err := r.watchManager.AddWatcher(pattern, []string{}, "graphql", "")
+	watcher, err := r.watchManager.AddWatcher(pattern, policies, "graphql", userID)
 	if err != nil {
 		r.logger.Error("GraphQL: Failed to create KV watcher",
 			logger.String("pattern", pattern),

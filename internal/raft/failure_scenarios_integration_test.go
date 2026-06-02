@@ -174,13 +174,3 @@ func TestFailure_ByzantineFault(t *testing.T) {
 	// 5. Verify cluster remains consistent
 	// 6. Consider removing Byzantine node
 }
-
-// Helper functions for failure scenario tests
-
-// simulateNodeKill simulates a node crash.
-func simulateNodeKill(t *testing.T, node *Node) {
-	t.Helper()
-
-	// Shutdown node ungracefully without cleanup
-	_ = node.raft.Shutdown()
-}

@@ -2,11 +2,13 @@ package middleware
 
 import (
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/acl"
 	"github.com/neogan74/konsul/internal/auth"
 	"github.com/neogan74/konsul/internal/logger"
@@ -40,7 +42,7 @@ func TestACLMiddleware_NoClaims(t *testing.T) {
 		return c.SendString("success")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -69,7 +71,7 @@ func TestACLMiddleware_NoPolicies(t *testing.T) {
 
 	app := setupTestApp(jwtService, evaluator, acl.ResourceTypeKV, acl.CapabilityRead)
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -115,7 +117,7 @@ func TestACLMiddleware_Denied(t *testing.T) {
 	app := setupTestApp(jwtService, evaluator, acl.ResourceTypeKV, acl.CapabilityRead)
 
 	// Request to /test which doesn't match the policy
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -160,7 +162,7 @@ func TestACLMiddleware_Allowed(t *testing.T) {
 
 	app := setupTestApp(jwtService, evaluator, acl.ResourceTypeKV, acl.CapabilityRead)
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -210,7 +212,7 @@ func TestACLMiddleware_KVResource(t *testing.T) {
 	)
 
 	// Should succeed for matching path
-	req := httptest.NewRequest("GET", "/kv/mykey", nil)
+	req := httptest.NewRequest("GET", "/kv/mykey", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -260,7 +262,7 @@ func TestACLMiddleware_ServiceResource(t *testing.T) {
 	)
 
 	// Should succeed for matching service
-	req := httptest.NewRequest("GET", "/services/myservice", nil)
+	req := httptest.NewRequest("GET", "/services/myservice", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -298,7 +300,7 @@ func TestACLMiddleware_HealthResource(t *testing.T) {
 
 	app := setupTestApp(jwtService, evaluator, acl.ResourceTypeHealth, acl.CapabilityRead)
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -336,7 +338,7 @@ func TestACLMiddleware_BackupResource(t *testing.T) {
 
 	app := setupTestApp(jwtService, evaluator, acl.ResourceTypeBackup, acl.CapabilityCreate)
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -374,7 +376,7 @@ func TestACLMiddleware_AdminResource(t *testing.T) {
 
 	app := setupTestApp(jwtService, evaluator, acl.ResourceTypeAdmin, acl.CapabilityRead)
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -431,7 +433,7 @@ func TestACLMiddleware_ContextStorage(t *testing.T) {
 		return c.SendString("success")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -453,7 +455,7 @@ func TestDynamicACLMiddleware_NoClaims(t *testing.T) {
 		return c.SendString("success")
 	})
 
-	req := httptest.NewRequest("GET", "/kv/test", nil)
+	req := httptest.NewRequest("GET", "/kv/test", http.NoBody)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -481,7 +483,7 @@ func TestDynamicACLMiddleware_NoPolicies(t *testing.T) {
 		return c.SendString("success")
 	})
 
-	req := httptest.NewRequest("GET", "/kv/test", nil)
+	req := httptest.NewRequest("GET", "/kv/test", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -529,7 +531,7 @@ func TestDynamicACLMiddleware_Denied(t *testing.T) {
 	)
 
 	// Try to access a key that's not allowed
-	req := httptest.NewRequest("GET", "/kv/deniedkey", nil)
+	req := httptest.NewRequest("GET", "/kv/deniedkey", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -576,7 +578,7 @@ func TestDynamicACLMiddleware_Allowed(t *testing.T) {
 		},
 	)
 
-	req := httptest.NewRequest("GET", "/kv/testkey", nil)
+	req := httptest.NewRequest("GET", "/kv/testkey", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -672,7 +674,7 @@ func TestInferResourceAndCapability_KV(t *testing.T) {
 				return c.SendString("ok")
 			})
 
-			req := httptest.NewRequest(tt.method, tt.path, nil)
+			req := httptest.NewRequest(tt.method, tt.path, http.NoBody)
 			_, err := app.Test(req)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
@@ -755,7 +757,7 @@ func TestInferResourceAndCapability_Service(t *testing.T) {
 				return c.SendString("ok")
 			})
 
-			req := httptest.NewRequest(tt.method, tt.path, nil)
+			req := httptest.NewRequest(tt.method, tt.path, http.NoBody)
 			_, err := app.Test(req)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
@@ -809,7 +811,7 @@ func TestInferResourceAndCapability_Health(t *testing.T) {
 				return c.SendString("ok")
 			})
 
-			req := httptest.NewRequest(tt.method, tt.path, nil)
+			req := httptest.NewRequest(tt.method, tt.path, http.NoBody)
 			_, err := app.Test(req)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
@@ -870,7 +872,7 @@ func TestInferResourceAndCapability_Backup(t *testing.T) {
 				return c.SendString("ok")
 			})
 
-			req := httptest.NewRequest(tt.method, tt.path, nil)
+			req := httptest.NewRequest(tt.method, tt.path, http.NoBody)
 			_, err := app.Test(req)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
@@ -924,7 +926,7 @@ func TestInferResourceAndCapability_Admin(t *testing.T) {
 				return c.SendString("ok")
 			})
 
-			req := httptest.NewRequest(tt.method, tt.path, nil)
+			req := httptest.NewRequest(tt.method, tt.path, http.NoBody)
 			_, err := app.Test(req)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
@@ -946,7 +948,7 @@ func TestInferResourceAndCapability_Default(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/unknown/path", nil)
+	req := httptest.NewRequest("GET", "/unknown/path", http.NoBody)
 	_, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -963,7 +965,7 @@ func TestGetACLResource_NoContext(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	_, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -980,7 +982,7 @@ func TestGetACLCapability_NoContext(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	_, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)

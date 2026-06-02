@@ -38,7 +38,7 @@ func (h *HTTPChecker) Check(ctx context.Context, check *Check) (Status, string, 
 		method = "GET"
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, check.HTTP, nil)
+	req, err := http.NewRequestWithContext(ctx, method, check.HTTP, http.NoBody)
 	if err != nil {
 		return StatusCritical, fmt.Sprintf("Failed to create request: %v", err), err
 	}
@@ -80,11 +80,12 @@ func (h *HTTPChecker) Check(ctx context.Context, check *Check) (Status, string, 
 	// Check status code
 	output := fmt.Sprintf("HTTP %d %s (%.3fs)", resp.StatusCode, resp.Status, duration.Seconds())
 
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+	switch {
+	case resp.StatusCode >= 200 && resp.StatusCode < 300:
 		return StatusPassing, output, nil
-	} else if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+	case resp.StatusCode >= 300 && resp.StatusCode < 400:
 		return StatusWarning, output, nil
-	} else {
+	default:
 		return StatusCritical, output, fmt.Errorf("HTTP check failed with status %d", resp.StatusCode)
 	}
 }

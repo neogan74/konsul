@@ -118,16 +118,16 @@ func (r *KVRule) Compile() {
 		pattern = "^" + pattern
 	}
 	if !strings.HasSuffix(pattern, "$") {
-		pattern = pattern + "$"
+		pattern += "$"
 	}
 
 	r.compiled = regexp.MustCompile(pattern)
 }
 
 // HasCapability checks if the rule has a specific capability
-func (r *KVRule) HasCapability(cap Capability) bool {
+func (r *KVRule) HasCapability(capability Capability) bool {
 	for _, c := range r.Capabilities {
-		if c == cap {
+		if c == capability {
 			return true
 		}
 	}
@@ -165,16 +165,16 @@ func (r *ServiceRule) Compile() {
 		pattern = "^" + pattern
 	}
 	if !strings.HasSuffix(pattern, "$") {
-		pattern = pattern + "$"
+		pattern += "$"
 	}
 
 	r.compiled = regexp.MustCompile(pattern)
 }
 
 // HasCapability checks if the rule has a specific capability
-func (r *ServiceRule) HasCapability(cap Capability) bool {
+func (r *ServiceRule) HasCapability(capability Capability) bool {
 	for _, c := range r.Capabilities {
-		if c == cap {
+		if c == capability {
 			return true
 		}
 	}
@@ -182,9 +182,9 @@ func (r *ServiceRule) HasCapability(cap Capability) bool {
 }
 
 // HasCapability checks if the rule has a specific capability
-func (r *HealthRule) HasCapability(cap Capability) bool {
+func (r *HealthRule) HasCapability(capability Capability) bool {
 	for _, c := range r.Capabilities {
-		if c == cap {
+		if c == capability {
 			return true
 		}
 	}
@@ -192,9 +192,9 @@ func (r *HealthRule) HasCapability(cap Capability) bool {
 }
 
 // HasCapability checks if the rule has a specific capability
-func (r *BackupRule) HasCapability(cap Capability) bool {
+func (r *BackupRule) HasCapability(capability Capability) bool {
 	for _, c := range r.Capabilities {
-		if c == cap {
+		if c == capability {
 			return true
 		}
 	}
@@ -202,9 +202,9 @@ func (r *BackupRule) HasCapability(cap Capability) bool {
 }
 
 // HasCapability checks if the rule has a specific capability
-func (r *AdminRule) HasCapability(cap Capability) bool {
+func (r *AdminRule) HasCapability(capability Capability) bool {
 	for _, c := range r.Capabilities {
-		if c == cap {
+		if c == capability {
 			return true
 		}
 	}

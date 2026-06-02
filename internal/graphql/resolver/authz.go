@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/99designs/gqlgen/graphql"
+
 	"github.com/neogan74/konsul/internal/acl"
 	"github.com/neogan74/konsul/internal/auth"
 )
@@ -39,8 +40,8 @@ func (r *Resolver) claimsFromGraphQLContext(ctx context.Context) (*auth.Claims, 
 	return claims, nil
 }
 
-// authorizeMutation enforces auth and ACL checks for GraphQL mutation operations.
-func (r *Resolver) authorizeMutation(ctx context.Context, resource acl.Resource, capability acl.Capability) error {
+// authorize enforces auth and ACL checks for any GraphQL operation.
+func (r *Resolver) authorize(ctx context.Context, resource acl.Resource, capability acl.Capability) error {
 	claims, err := r.claimsFromGraphQLContext(ctx)
 	if err != nil {
 		return err

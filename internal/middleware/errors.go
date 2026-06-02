@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/logger"
 )
 
@@ -47,9 +48,9 @@ func InternalError(c *fiber.Ctx, message string) error {
 }
 
 // errorResponse creates a structured error response
-func errorResponse(c *fiber.Ctx, status int, error string, message string) error {
+func errorResponse(c *fiber.Ctx, status int, errMsg, message string) error {
 	response := ErrorResponse{
-		Error:     error,
+		Error:     errMsg,
 		Message:   message,
 		RequestID: GetRequestID(c),
 		Timestamp: time.Now(),
@@ -59,7 +60,7 @@ func errorResponse(c *fiber.Ctx, status int, error string, message string) error
 	// Log the error with context
 	log := GetLogger(c)
 	log.Error("HTTP error response",
-		logger.String("error", error),
+		logger.String("error", errMsg),
 		logger.String("message", message),
 		logger.String("method", c.Method()),
 		logger.String("path", c.Path()),

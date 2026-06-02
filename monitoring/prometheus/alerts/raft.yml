@@ -1,0 +1,110 @@
+groups:
+  - name: raft.cluster
+    interval: 30s
+    rules:
+
+      # No leader elected for 30 seconds — cluster is unavailable for writes.
+      - alert: RaftNoLeader
+        expr: sum(konsul_raft_is_leader) == 0
+        for: 30s
+        labels:
+          severity: critical
+          component: raft
+        annotations:
+          summary: "Raft cluster has no leader"
+          description: >
+            No Raft node is reporting as leader. The cluster cannot accept
+            write operations. Check node connectivity and logs immediately.
+
+      # Leader changed more than 3 times in 5 minutes — likely a network partition
+      # or resource contention causing repeated elections.
+      - alert: RaftFrequentElections
+        expr: increase(konsul_raft_leader_changes_total[5m]) > 3
+        for: 0s
+        labels:
+          severity: warning
+          component: raft
+        annotations:
+          summary: "Raft leader elections are occurring too frequently"
+          description: >
+            Node {{ $labels.node_id }} has seen {{ $value | printf "%.0f" }} leader
+            changes in the last 5 minutes. Frequent elections indicate network
+            instability or overloaded nodes. Investigate heartbeat timeouts.
+
+      # A follower's applied index is far behind the leader — it may be unhealthy
+      # or unable to keep up with the write load.
+      - alert: RaftHighReplicationLag
+        expr: konsul_raft_replication_lag > 1000
+        for: 1m
+        labels:
+          severity: warning
+          component: raft
+        annotations:
+          summary: "Raft replication lag is high on {{ $labels.node_id }}"
+          description: >
+            Node {{ $labels.node_id }} is {{ $value | printf "%.0f" }} log entries
+            behind the leader. Sustained lag may indicate a slow disk, network
+            issues, or an overloaded follower. Consider inspecting the node.
+
+      # Apply error rate is non-zero — commands are being rejected by the FSM.
+      - alert: RaftApplyErrors
+        expr: increase(konsul_raft_apply_errors_total[5m]) > 0
+        for: 0s
+        labels:
+          severity: warning
+          component: raft
+        annotations:
+          summary: "Raft apply errors detected on {{ $labels.node_id }}"
+          description: >
+            {{ $value | printf "%.0f" }} Raft apply errors in the last 5 minutes
+            on node {{ $labels.node_id }} for command type {{ $labels.command_type }}.
+            These indicate FSM failures that may cause data inconsistency.
+
+      # Apply p99 latency above 100ms — writes are slow.
+      - alert: RaftHighApplyLatency
+        expr: >
+          histogram_quantile(0.99,
+            sum(rate(konsul_raft_apply_duration_seconds_bucket[5m])) by (le)
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: raft
+        annotations:
+          summary: "Raft apply p99 latency is above 100ms"
+          description: >
+            Raft apply p99 latency is {{ $value | humanizeDuration }}. Clients
+            may experience increased write latency. Check disk I/O and CPU load
+            on the leader node.
+
+  - name: raft.autopilot
+    interval: 30s
+    rules:
+
+      # Autopilot detected and removed a dead server.
+      - alert: RaftAutopilotServerRemoved
+        expr: increase(konsul_raft_autopilot_removals_total[5m]) > 0
+        for: 0s
+        labels:
+          severity: warning
+          component: raft-autopilot
+        annotations:
+          summary: "Autopilot removed a dead Raft server"
+          description: >
+            Autopilot removed {{ $value | printf "%.0f" }} server(s) from the
+            cluster in the last 5 minutes due to failed health probes. Investigate
+            why the server(s) became unreachable and restore them if needed.
+
+      # There are currently dead servers detected by autopilot.
+      - alert: RaftDeadServers
+        expr: konsul_raft_autopilot_dead_servers > 0
+        for: 1m
+        labels:
+          severity: warning
+          component: raft-autopilot
+        annotations:
+          summary: "{{ $value | printf \"%.0f\" }} dead server(s) in Raft cluster"
+          description: >
+            Autopilot is tracking {{ $value | printf "%.0f" }} server(s) that have
+            failed consecutive health probes. If the cluster drops below quorum,
+            writes will be unavailable.

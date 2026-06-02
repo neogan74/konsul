@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/metrics"
 )
@@ -154,7 +155,7 @@ func (m *Manager) Record(ctx context.Context, event *Event) (string, error) {
 		case m.events <- event:
 			return event.ID, nil
 		case <-ctx.Done():
-			metrics.AuditEventsDroppedTotal.WithLabelValues(m.cfg.Sink, "context_cancelled").Inc()
+			metrics.AuditEventsDroppedTotal.WithLabelValues(m.cfg.Sink, "context_canceled").Inc()
 			return "", ctx.Err()
 		}
 	}

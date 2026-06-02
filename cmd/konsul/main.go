@@ -238,7 +238,19 @@ func main() {
 
 	// Initialize Raft clustering if enabled
 	var raftNode *konsulraft.Node
+	var raftAutopilot *konsulraft.Autopilot
 	if cfg.Raft.Enabled {
+		discoveryCfg := &cfg.Raft.Discovery
+		raftDiscovery := konsulraft.DiscoveryConfig{
+			Method:           konsulraft.DiscoveryMethod(discoveryCfg.Method),
+			Seeds:            discoveryCfg.Seeds,
+			DNSDomain:        discoveryCfg.DNSDomain,
+			DNSPort:          discoveryCfg.DNSPort,
+			RetryInterval:    discoveryCfg.RetryInterval,
+			RetryMaxInterval: discoveryCfg.RetryMaxInterval,
+			RetryMax:         discoveryCfg.RetryMax,
+		}
+
 		raftCfg := &konsulraft.Config{
 			NodeID:             cfg.Raft.NodeID,
 			BindAddr:           cfg.Raft.BindAddr,
@@ -255,6 +267,7 @@ func main() {
 			MaxAppendEntries:   cfg.Raft.MaxAppendEntries,
 			TrailingLogs:       cfg.Raft.TrailingLogs,
 			LogLevel:           cfg.Raft.LogLevel,
+			Discovery:          raftDiscovery,
 		}
 
 		raftNode, err = konsulraft.NewNode(raftCfg, kv, svcStore)
@@ -273,7 +286,41 @@ func main() {
 			logger.String("node_id", cfg.Raft.NodeID),
 			logger.String("bind_addr", cfg.Raft.BindAddr),
 			logger.String("advertise_addr", cfg.Raft.AdvertiseAddr),
-			logger.String("bootstrap", fmt.Sprintf("%t", cfg.Raft.Bootstrap)))
+			logger.String("bootstrap", fmt.Sprintf("%t", cfg.Raft.Bootstrap)),
+			logger.String("discovery_method", discoveryCfg.Method))
+
+		// Run auto-join if discovery is configured.
+		if raftDiscovery.Method != konsulraft.DiscoveryMethodNone {
+			discoverer, discovererErr := konsulraft.NewDiscoverer(&raftDiscovery)
+			if discovererErr != nil {
+				appLogger.Error("Failed to create cluster discoverer", logger.Error(discovererErr))
+			} else {
+				joinCtx, joinCancel := context.WithCancel(context.Background())
+				defer joinCancel()
+				go raftNode.RunAutoJoin(joinCtx, discoverer, &raftDiscovery)
+			}
+		}
+
+		// Start autopilot if enabled.
+		apCfg := &cfg.Raft.Autopilot
+		if apCfg.Enabled {
+			raftAutopilot = konsulraft.NewAutopilot(raftNode, &konsulraft.AutopilotConfig{
+				Enabled:                 apCfg.Enabled,
+				CleanupDeadServers:      apCfg.CleanupDeadServers,
+				LastContactThreshold:    apCfg.LastContactThreshold,
+				MaxFailures:             apCfg.MaxFailures,
+				ServerStabilizationTime: apCfg.ServerStabilizationTime,
+				CleanupInterval:         apCfg.CleanupInterval,
+			})
+			apCtx, apCancel := context.WithCancel(context.Background())
+			defer apCancel()
+			raftAutopilot.Start(apCtx)
+			defer raftAutopilot.Stop()
+			appLogger.Info("Raft autopilot enabled",
+				logger.String("cleanup_interval", apCfg.CleanupInterval.String()),
+				logger.String("last_contact_threshold", apCfg.LastContactThreshold.String()),
+			)
+		}
 
 		// Wait for leader election (with timeout)
 		go func() {
@@ -614,6 +661,12 @@ func main() {
 
 	// Cluster management endpoints (Raft)
 	clusterHandler := handlers.NewClusterHandler(raftNode)
+	if raftAutopilot != nil {
+		clusterHandler.SetAutopilot(raftAutopilot)
+	}
+	if jwtService != nil {
+		clusterHandler.SetJWTService(jwtService)
+	}
 	clusterHandler.RegisterRoutes(app)
 	if cfg.Raft.Enabled {
 		appLogger.Info("Cluster management endpoints registered at /cluster/*")

@@ -61,11 +61,12 @@ func TracingMiddleware(serviceName string) fiber.Handler {
 		}
 
 		// Set span status based on HTTP status code
-		if statusCode >= 500 {
+		switch {
+		case statusCode >= 500:
 			span.SetStatus(codes.Error, "Internal server error")
-		} else if statusCode >= 400 {
+		case statusCode >= 400:
 			span.SetStatus(codes.Error, "Client error")
-		} else {
+		default:
 			span.SetStatus(codes.Ok, "")
 		}
 

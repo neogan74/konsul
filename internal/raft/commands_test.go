@@ -3,9 +3,10 @@ package raft
 import (
 	"testing"
 
-	"github.com/neogan74/konsul/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/neogan74/konsul/internal/store"
 )
 
 func TestNewCommand(t *testing.T) {

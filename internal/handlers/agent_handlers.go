@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/agent"
 	"github.com/neogan74/konsul/internal/logger"
 	"github.com/neogan74/konsul/internal/store"
@@ -58,8 +59,8 @@ func (r *AgentRegistry) UpdateLastSeen(agentID string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if agent, ok := r.agents[agentID]; ok {
-		agent.LastSeen = time.Now()
+	if reg, ok := r.agents[agentID]; ok {
+		reg.LastSeen = time.Now()
 	}
 }
 
@@ -68,8 +69,8 @@ func (r *AgentRegistry) UpdateSyncIndex(agentID string, index int64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if agent, ok := r.agents[agentID]; ok {
-		agent.LastSyncIndex = index
+	if reg, ok := r.agents[agentID]; ok {
+		reg.LastSyncIndex = index
 	}
 }
 
@@ -78,8 +79,8 @@ func (r *AgentRegistry) GetAgent(agentID string) (*RegisteredAgent, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	agent, ok := r.agents[agentID]
-	return agent, ok
+	reg, ok := r.agents[agentID]
+	return reg, ok
 }
 
 // ListAgents returns all registered agents
@@ -194,17 +195,10 @@ func (h *AgentHandlers) HandleAgentSync(c *fiber.Ctx) error {
 		HealthUpdates:  []agent.HealthUpdate{},
 	}
 
-	// For full sync or if last index is 0, return all data
-	if req.FullSync || req.LastSyncIndex == 0 {
-		resp.ServiceUpdates = h.getAllServiceUpdates()
-		resp.KVUpdates = h.getAllKVUpdates(req.WatchedPrefixes)
-	} else {
-		// For delta sync, return only changes since last index
-		// In a real implementation, you'd track changes and return only deltas
-		// For now, we'll return all data
-		resp.ServiceUpdates = h.getAllServiceUpdates()
-		resp.KVUpdates = h.getAllKVUpdates(req.WatchedPrefixes)
-	}
+	// For full sync or delta sync, return all data.
+	// In a real implementation, delta sync would return only changes since last index.
+	resp.ServiceUpdates = h.getAllServiceUpdates()
+	resp.KVUpdates = h.getAllKVUpdates(req.WatchedPrefixes)
 
 	// Update agent's sync index
 	h.registry.UpdateSyncIndex(req.AgentID, resp.CurrentIndex)
@@ -302,14 +296,14 @@ func (h *AgentHandlers) HandleGetAgent(c *fiber.Ctx) error {
 		})
 	}
 
-	agent, ok := h.registry.GetAgent(agentID)
+	reg, ok := h.registry.GetAgent(agentID)
 	if !ok {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "agent not found",
 		})
 	}
 
-	return c.JSON(agent)
+	return c.JSON(reg)
 }
 
 // Helper methods
@@ -326,7 +320,7 @@ func (h *AgentHandlers) getAllServiceUpdates() []agent.ServiceUpdate {
 	h.serviceStore.Mutex.RLock()
 	defer h.serviceStore.Mutex.RUnlock()
 
-	updates := make([]agent.ServiceUpdate, 0)
+	updates := make([]agent.ServiceUpdate, 0, len(h.serviceStore.Data))
 	for name, entry := range h.serviceStore.Data {
 		updates = append(updates, agent.ServiceUpdate{
 			Type:        agent.UpdateTypeAdd,

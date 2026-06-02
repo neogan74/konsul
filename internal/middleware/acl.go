@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/neogan74/konsul/internal/acl"
 )
 
@@ -220,8 +221,8 @@ func GetACLResource(c *fiber.Ctx) *acl.Resource {
 
 // GetACLCapability returns the ACL capability from context
 func GetACLCapability(c *fiber.Ctx) acl.Capability {
-	if cap, ok := c.Locals("acl_capability").(acl.Capability); ok {
-		return cap
+	if capability, ok := c.Locals("acl_capability").(acl.Capability); ok {
+		return capability
 	}
 	return ""
 }

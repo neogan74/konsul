@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/99designs/gqlgen/graphql"
+
 	"github.com/neogan74/konsul/internal/acl"
 	"github.com/neogan74/konsul/internal/auth"
 	"github.com/neogan74/konsul/internal/logger"
@@ -94,11 +95,11 @@ func TestAuthorizeMutation_ACL(t *testing.T) {
 	}
 
 	allowCtx := gqlContextWithAuthHeader("Bearer " + token)
-	if err := r.authorizeMutation(allowCtx, acl.NewKVResource("config/app"), acl.CapabilityWrite); err != nil {
+	if err := r.authorize(allowCtx, acl.NewKVResource("config/app"), acl.CapabilityWrite); err != nil {
 		t.Fatalf("expected allow, got %v", err)
 	}
 
-	err = r.authorizeMutation(allowCtx, acl.NewKVResource("config/app"), acl.CapabilityDelete)
+	err = r.authorize(allowCtx, acl.NewKVResource("config/app"), acl.CapabilityDelete)
 	if err == nil || err.Error() != "forbidden: insufficient permissions" {
 		t.Fatalf("expected forbidden error, got %v", err)
 	}
@@ -119,7 +120,7 @@ func TestAuthorizeMutation_NoPolicies(t *testing.T) {
 	}
 	ctx := gqlContextWithAuthHeader("Bearer " + token)
 
-	err = r.authorizeMutation(ctx, acl.NewKVResource("config/app"), acl.CapabilityWrite)
+	err = r.authorize(ctx, acl.NewKVResource("config/app"), acl.CapabilityWrite)
 	if err == nil || err.Error() != "forbidden: no policies attached to token" {
 		t.Fatalf("expected missing policies error, got %v", err)
 	}

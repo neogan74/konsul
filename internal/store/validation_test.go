@@ -108,7 +108,7 @@ func TestValidateTags(t *testing.T) {
 }
 
 func TestValidateMetadata(t *testing.T) {
-	tests := []struct {
+	tests := []struct { //nolint:prealloc // composite literal; 2 elements appended after via dynamic construction
 		name    string
 		meta    map[string]string
 		wantErr bool
