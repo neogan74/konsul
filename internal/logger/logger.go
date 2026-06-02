@@ -117,7 +117,7 @@ func Error(err error) Field {
 }
 
 // Default logger instance
-var defaultLogger Logger = NewFromConfig("info", "text")
+var defaultLogger = NewFromConfig("info", "text")
 
 // SetDefault sets the default logger
 func SetDefault(l Logger) {

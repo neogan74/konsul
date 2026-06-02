@@ -294,12 +294,12 @@ func (n *Node) RunAutoJoin(ctx context.Context, discoverer Discoverer, cfg *Disc
 		case len(peers) == 0:
 			n.logger.Warn("no peers discovered", "attempt", attempt+1)
 		default:
-			if joinErr := tryJoinPeers(ctx, peers, selfNodeID, selfRaftAddr, httpClient); joinErr == nil {
+			joinErr := tryJoinPeers(ctx, peers, selfNodeID, selfRaftAddr, httpClient)
+			if joinErr == nil {
 				n.logger.Info("auto-join successful", "attempts", attempt+1)
 				return
-			} else {
-				n.logger.Warn("auto-join attempt failed", "error", joinErr, "attempt", attempt+1)
 			}
+			n.logger.Warn("auto-join attempt failed", "error", joinErr, "attempt", attempt+1)
 		}
 
 		attempt++
