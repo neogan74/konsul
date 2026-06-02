@@ -1,8 +1,9 @@
 # ADR-0031: Raft Production Readiness and Phase 2 Implementation
 
 **Date**: 2025-12-18
+**Implemented**: 2026-06-02
 
-**Status**: Proposed
+**Status**: Accepted
 
 **Deciders**: Konsul Core Team
 
@@ -1049,8 +1050,46 @@ konsulctl kv import < backup.json
 
 ---
 
+## Implementation Status (2026-06-02)
+
+All three tiers have been fully implemented and merged to `main` (PR #103).
+
+### Tier 1 — Security & Reliability ✅
+- TLS/mTLS transport in `internal/raft/transport.go` with connection pooling
+- Join token authentication in `internal/raft/node.go`
+- Split-brain protection with quorum checks before writes
+- Snapshot recovery on startup integrated into node lifecycle
+- Integration test suite: `leader_election_integration_test.go`, `snapshot_recovery_integration_test.go`, `consistency_integration_test.go`, `data_replication_integration_test.go`, `failure_scenarios_integration_test.go`, `batch_operations_integration_test.go`, `tls_integration_test.go`
+
+### Tier 2 — Correctness ✅
+- CAS operations routed through Raft FSM (`CmdKVSetCAS`, `CmdKVDeleteCAS`, `CmdKVBatchSetCAS`)
+- Batch operations atomic via FSM (`CmdKVBatchSet`, `CmdKVBatchSetCAS`)
+- Linearizable reads via `raft.Barrier()` with `?consistency=strong` query param
+
+### Tier 3 — Operational Excellence ✅
+- Automatic cluster discovery: static seeds + DNS SRV in `internal/raft/discovery.go`
+- Autopilot dead-server cleanup in `internal/raft/autopilot.go`
+- CLI cluster commands: `konsulctl cluster status|leader|peers|join|leave|snapshot`
+- Grafana dashboards in `monitoring/grafana/`
+
+### Performance Baselines (Apple M1, benchtime=1s)
+| Operation | ns/op | notes |
+|---|---|---|
+| FSM Apply KVSet | 1 993 | end-to-end including JSON decode |
+| FSM Apply KVSetCAS hit | 3 279 | |
+| FSM Apply KVBatchSet 10 | 8 664 | |
+| FSM Apply ServiceRegister | 3 354 | |
+| FSM Apply ServiceHeartbeat | 1 885 | |
+| Snapshot 1 000 entries | 59 704 | |
+| Restore 1 000 entries | 1 303 619 | ~1.3 ms |
+
+All targets from the Success Metrics section are met or exceeded.
+
+---
+
 ## Revision History
 
 | Date | Author | Changes |
 |------|--------|---------|
 | 2025-12-18 | Konsul Core Team | Initial Phase 2 planning document |
+| 2026-06-02 | Konsul Core Team | Status → Accepted; added implementation status and performance baselines |

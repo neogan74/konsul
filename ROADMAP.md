@@ -4,7 +4,7 @@
 
 ---
 
-## Current Focus: Raft Clustering (Q4 2025 - Q1 2026)
+## Current Focus: Enterprise Features (Q2 2026)
 
 ### ✅ Phase 1: Core Raft Implementation (COMPLETED)
 - Core Raft infrastructure (node, FSM, commands)
@@ -14,29 +14,29 @@
 - Snapshot support and Prometheus metrics
 - Unit tests for core components
 
-**Status**: Merged to `raft-1` branch
+**Status**: Merged to `main`
 **Documentation**: [ADR-0030: Raft Implementation Status](docs/adr/0030-raft-integration-implementation.md)
 
-### 🚧 Phase 2: Production Readiness (Q1 2026)
-**Tier 1 - Security & Reliability (Weeks 1-4)**:
-- TLS/mTLS for Raft transport
-- Join token authentication
-- Split-brain protection
-- Snapshot recovery on startup
-- Integration testing suite (50+ tests)
+### ✅ Phase 2: Production Readiness (COMPLETED — Q1 2026)
+**Tier 1 - Security & Reliability**:
+- TLS/mTLS for Raft transport ✅
+- Join token authentication ✅
+- Split-brain protection ✅
+- Snapshot recovery on startup ✅
+- Integration testing suite (50+ tests) ✅
 
-**Tier 2 - Correctness (Weeks 5-8)**:
-- CAS operations via Raft
-- Batch operations atomicity
-- Linearizable reads (ReadIndex)
+**Tier 2 - Correctness**:
+- CAS operations via Raft ✅
+- Batch operations atomicity ✅
+- Linearizable reads (ReadIndex) ✅
 
-**Tier 3 - Operations (Weeks 9-12)**:
-- Automatic cluster discovery
-- Autopilot (dead server cleanup)
-- CLI cluster commands
-- Grafana dashboards for Raft
+**Tier 3 - Operations**:
+- Automatic cluster discovery ✅
+- Autopilot (dead server cleanup) ✅
+- CLI cluster commands ✅
+- Grafana dashboards for Raft ✅
 
-**Status**: Planning complete
+**Status**: Merged to `main` (PR #103)
 **Documentation**: [ADR-0031: Raft Production Readiness](docs/adr/0031-raft-production-readiness.md)
 
 ---
@@ -45,13 +45,13 @@
 
 ### Q1 2026: Clustering & High Availability
 - [x] Raft Phase 1: Core implementation
-- [ ] Raft Phase 2: Production readiness
-- [ ] Multi-node testing and validation
+- [x] Raft Phase 2: Production readiness (all 3 tiers)
+- [x] Multi-node testing and validation (50+ integration tests)
 - [ ] Cross-region replication design
 
-**Goal**: Production-ready 3-node and 5-node clusters with automatic failover
+**Goal**: Production-ready 3-node and 5-node clusters with automatic failover ✅
 
-### Q2 2026: Enterprise Features
+### Q2 2026: Enterprise Features 🔥
 - [ ] Enhanced RBAC system
 - [ ] Multi-tenancy with namespaces
 - [ ] Secret management and encryption
@@ -84,7 +84,7 @@
 
 ### Core Infrastructure
 1. **Persistence Layer** - BadgerDB, backups, encryption (80% complete)
-2. **Clustering & Replication** - Raft consensus, multi-node (40% complete) 🔥
+2. **Clustering & Replication** - Raft consensus, multi-node (95% complete) ✅
 3. **Security** - Auth, TLS, ACL, rate limiting (70% complete)
 
 ### Discovery & Configuration
@@ -152,22 +152,24 @@
 - Batch operations
 - Rate limiting management
 
-### v0.5.0 - Clustering (IN PROGRESS) 🔥
-**Target**: Q1 2026
+### v0.5.0 - Clustering (RELEASED) ✅
+**Released**: Q1 2026
 - Raft consensus implementation
 - 3-node and 5-node cluster support
 - Automatic leader election
 - Data replication
 - Snapshot/restore
 
-**Status**: Phase 1 complete, Phase 2 in planning
+**Status**: Merged to `main`
 
-### v0.6.0 - Production Hardening
-**Target**: Q2 2026
-- TLS for Raft
+### v0.6.0 - Production Hardening (RELEASED) ✅
+**Released**: Q2 2026
+- TLS/mTLS for Raft transport
 - Split-brain protection
-- Integration tests
-- Performance benchmarks
+- 50+ integration tests (leader election, replication, chaos, TLS)
+- Performance benchmarks (store + FSM baselines established)
+- Automatic cluster discovery and autopilot
+- CLI cluster commands
 - Production deployment guides
 
 ### v1.0.0 - General Availability
@@ -197,10 +199,10 @@
 ## Strategic Priorities
 
 ### Immediate (Next 3 Months)
-1. **Complete Raft Phase 2** - Production-ready clustering
-2. **Integration testing** - Comprehensive test suite
-3. **Performance benchmarks** - Establish baselines
-4. **Documentation** - Clustering operations guide
+1. **Enhanced RBAC** - Enterprise-grade permissions and policy engine
+2. **Secret management** - Encrypted KV store with key rotation
+3. **Multi-tenancy** - Namespace isolation for teams and services
+4. **Advanced audit logging** - SIEM integration and structured events
 
 ### Near-term (3-6 Months)
 1. **Enhanced RBAC** - Enterprise-grade permissions
@@ -316,7 +318,7 @@
 
 ---
 
-**Last Updated**: 2025-12-18
+**Last Updated**: 2026-06-02
 **Maintained By**: Konsul Core Team
 **License**: MIT
 
