@@ -8,20 +8,70 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/neogan74/konsul/internal/logger"
+	"github.com/neogan74/konsul/internal/middleware"
 	"github.com/neogan74/konsul/internal/store"
 )
 
+var quietLogger = logger.New(zapcore.ErrorLevel, "json")
+
 func init() {
-	logger.SetDefault(logger.New(zapcore.ErrorLevel, "json"))
+	logger.SetDefault(quietLogger)
+}
+
+// quietMiddleware injects a silent logger into each request context so handler
+// log calls don't pollute benchmark output.
+func quietMiddleware(c *fiber.Ctx) error {
+	c.Locals(middleware.LoggerKey, quietLogger)
+	return c.Next()
+}
+
+// benchKVApp returns a KVHandler + Fiber app with quiet logging for benchmarks.
+func benchKVApp() (*KVHandler, *fiber.App) {
+	kvStore := store.NewKVStore()
+	handler := NewKVHandler(kvStore, nil)
+	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	app.Use(quietMiddleware)
+	app.Get("/kv/:key", handler.Get)
+	app.Put("/kv/:key", handler.Set)
+	app.Delete("/kv/:key", handler.Delete)
+	return handler, app
+}
+
+// benchServiceApp returns a ServiceHandler + Fiber app with quiet logging.
+func benchServiceApp() (*ServiceHandler, *fiber.App) {
+	svcStore := store.NewServiceStore()
+	handler := NewServiceHandler(svcStore, nil)
+	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	app.Use(quietMiddleware)
+	app.Put("/register", handler.Register)
+	app.Get("/services/", handler.List)
+	app.Get("/services/:name", handler.Get)
+	app.Delete("/deregister/:name", handler.Deregister)
+	app.Put("/heartbeat/:name", handler.Heartbeat)
+	return handler, app
+}
+
+// benchBatchApp returns a BatchHandler + Fiber app with quiet logging.
+func benchBatchApp() (*fiber.App, *BatchHandler) {
+	kvStore := store.NewKVStore()
+	svcStore := store.NewServiceStore()
+	handler := NewBatchHandler(kvStore, svcStore, nil)
+	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	app.Use(quietMiddleware)
+	app.Post("/batch/kv/get", handler.BatchKVGet)
+	app.Post("/batch/kv/set", handler.BatchKVSet)
+	app.Post("/batch/services/register", handler.BatchServiceRegister)
+	return app, handler
 }
 
 // ── KV Handler Benchmarks ────────────────────────────────────────────────────
 
 func BenchmarkKVHandler_Get_Hit(b *testing.B) {
-	_, app := setupKVHandler()
+	_, app := benchKVApp()
 	// pre-populate
 	putReq := httptest.NewRequest(http.MethodPut, "/kv/bench-key",
 		bytes.NewBufferString(`{"value":"bench-value"}`))
@@ -41,7 +91,7 @@ func BenchmarkKVHandler_Get_Hit(b *testing.B) {
 }
 
 func BenchmarkKVHandler_Get_Miss(b *testing.B) {
-	_, app := setupKVHandler()
+	_, app := benchKVApp()
 	req := httptest.NewRequest(http.MethodGet, "/kv/nonexistent", http.NoBody)
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -55,7 +105,7 @@ func BenchmarkKVHandler_Get_Miss(b *testing.B) {
 }
 
 func BenchmarkKVHandler_Set(b *testing.B) {
-	_, app := setupKVHandler()
+	_, app := benchKVApp()
 	body := []byte(`{"value":"bench-value"}`)
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -71,7 +121,7 @@ func BenchmarkKVHandler_Set(b *testing.B) {
 }
 
 func BenchmarkKVHandler_Delete(b *testing.B) {
-	_, app := setupKVHandler()
+	_, app := benchKVApp()
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -94,7 +144,7 @@ func BenchmarkKVHandler_Delete(b *testing.B) {
 // ── Service Handler Benchmarks ───────────────────────────────────────────────
 
 func BenchmarkServiceHandler_Register(b *testing.B) {
-	_, app := setupServiceHandler()
+	_, app := benchServiceApp()
 	svc := store.Service{Name: "bench-svc", Address: "127.0.0.1", Port: 8080}
 	body, _ := json.Marshal(svc)
 	b.ReportAllocs()
@@ -111,7 +161,7 @@ func BenchmarkServiceHandler_Register(b *testing.B) {
 }
 
 func BenchmarkServiceHandler_Get(b *testing.B) {
-	_, app := setupServiceHandler()
+	_, app := benchServiceApp()
 	svc := store.Service{Name: "bench-svc", Address: "127.0.0.1", Port: 8080}
 	body, _ := json.Marshal(svc)
 	reg := httptest.NewRequest(http.MethodPut, "/register", bytes.NewReader(body))
@@ -135,7 +185,7 @@ func BenchmarkServiceHandler_List100(b *testing.B)  { benchmarkServiceHandlerLis
 func BenchmarkServiceHandler_List1000(b *testing.B) { benchmarkServiceHandlerList(b, 1000) }
 
 func benchmarkServiceHandlerList(b *testing.B, n int) {
-	_, app := setupServiceHandler()
+	_, app := benchServiceApp()
 	for i := 0; i < n; i++ {
 		svc := store.Service{Name: fmt.Sprintf("svc-%d", i), Address: "127.0.0.1", Port: 8080 + i}
 		body, _ := json.Marshal(svc)
@@ -157,7 +207,7 @@ func benchmarkServiceHandlerList(b *testing.B, n int) {
 }
 
 func BenchmarkServiceHandler_Heartbeat(b *testing.B) {
-	_, app := setupServiceHandler()
+	_, app := benchServiceApp()
 	svc := store.Service{Name: "bench-svc", Address: "127.0.0.1", Port: 8080}
 	body, _ := json.Marshal(svc)
 	reg := httptest.NewRequest(http.MethodPut, "/register", bytes.NewReader(body))
@@ -177,7 +227,7 @@ func BenchmarkServiceHandler_Heartbeat(b *testing.B) {
 }
 
 func BenchmarkServiceHandler_Deregister(b *testing.B) {
-	_, app := setupServiceHandler()
+	_, app := benchServiceApp()
 	body, _ := json.Marshal(store.Service{Name: "bench-svc", Address: "127.0.0.1", Port: 8080})
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -204,8 +254,8 @@ func BenchmarkBatchKVSet100(b *testing.B)  { benchmarkBatchKVSet(b, 100) }
 func BenchmarkBatchKVSet1000(b *testing.B) { benchmarkBatchKVSet(b, 1000) }
 
 func benchmarkBatchKVSet(b *testing.B, size int) {
-	app, handler := setupBatchTestApp()
-	app.Post("/batch/kv/set", handler.BatchKVSet)
+	app, handler := benchBatchApp()
+	_ = handler
 
 	type batchSetRequest struct {
 		Items map[string]string `json:"items"`
@@ -234,8 +284,7 @@ func BenchmarkBatchKVGet100(b *testing.B)  { benchmarkBatchKVGet(b, 100) }
 func BenchmarkBatchKVGet1000(b *testing.B) { benchmarkBatchKVGet(b, 1000) }
 
 func benchmarkBatchKVGet(b *testing.B, size int) {
-	app, handler := setupBatchTestApp()
-	app.Post("/batch/kv/get", handler.BatchKVGet)
+	app, handler := benchBatchApp()
 
 	// pre-populate
 	keys := make([]string, size)
@@ -267,8 +316,8 @@ func BenchmarkBatchServiceRegister10(b *testing.B)  { benchmarkBatchServiceRegis
 func BenchmarkBatchServiceRegister100(b *testing.B) { benchmarkBatchServiceRegister(b, 100) }
 
 func benchmarkBatchServiceRegister(b *testing.B, size int) {
-	app, handler := setupBatchTestApp()
-	app.Post("/batch/services/register", handler.BatchServiceRegister)
+	app, handler := benchBatchApp()
+	_ = handler
 
 	type batchServiceRequest struct {
 		Services []store.Service `json:"services"`
