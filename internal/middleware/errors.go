@@ -48,7 +48,7 @@ func InternalError(c *fiber.Ctx, message string) error {
 }
 
 // errorResponse creates a structured error response
-func errorResponse(c *fiber.Ctx, status int, errMsg string, message string) error {
+func errorResponse(c *fiber.Ctx, status int, errMsg, message string) error {
 	response := ErrorResponse{
 		Error:     errMsg,
 		Message:   message,

@@ -263,7 +263,6 @@ func TestAgentStats(t *testing.T) {
 		CacheHitRate:    0.95,
 		CacheEntries:    1000,
 		LocalServices:   5,
-		LastSyncTime:    time.Now(),
 		SyncErrorsTotal: 2,
 		Uptime:          "1h30m",
 	}
