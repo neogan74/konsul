@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/neogan74/konsul/internal/logger"
@@ -16,10 +17,22 @@ import (
 	"github.com/neogan74/konsul/internal/store"
 )
 
-var quietLogger = logger.New(zapcore.ErrorLevel, "json")
+// nopLogger discards every log record — keeps benchmark output clean.
+type nopLogger struct{}
+
+func (nopLogger) Debug(_ string, _ ...logger.Field)          {}
+func (nopLogger) Info(_ string, _ ...logger.Field)           {}
+func (nopLogger) Warn(_ string, _ ...logger.Field)           {}
+func (nopLogger) Error(_ string, _ ...logger.Field)          {}
+func (nopLogger) WithRequest(_ string) logger.Logger         { return nopLogger{} }
+func (nopLogger) WithFields(_ ...logger.Field) logger.Logger { return nopLogger{} }
+
+var quietLogger logger.Logger = nopLogger{}
 
 func init() {
-	logger.SetDefault(quietLogger)
+	// Suppress the global default (used by store internals that call logger.Info directly).
+	logger.SetDefault(logger.New(zapcore.ErrorLevel, "json"))
+	_ = zap.NewNop() // ensure zap is linked
 }
 
 // quietMiddleware injects a silent logger into each request context so handler
@@ -343,4 +356,187 @@ func benchmarkBatchServiceRegister(b *testing.B, size int) {
 		}
 		resp.Body.Close()
 	}
+}
+
+// ── Concurrent Handler Benchmarks ────────────────────────────────────────────
+//
+// These measure throughput under parallel load using b.RunParallel.
+// Each goroutine issues independent requests; the shared Fiber app and store
+// serialize access internally (RWMutex in store, single-listener in app.Test).
+
+func BenchmarkKVHandler_Concurrent_Get(b *testing.B) {
+	_, app := benchKVApp()
+	// Pre-populate 100 keys so reads always hit.
+	for i := 0; i < 100; i++ {
+		body := []byte(fmt.Sprintf(`{"value":"v%d"}`, i))
+		req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/kv/key-%d", i), bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		app.Test(req) //nolint:errcheck // setup call, error irrelevant to benchmark
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/kv/key-%d", i%100), http.NoBody)
+			resp, err := app.Test(req)
+			if err != nil {
+				b.Error(err)
+				return
+			}
+			resp.Body.Close()
+			i++
+		}
+	})
+}
+
+func BenchmarkKVHandler_Concurrent_Set(b *testing.B) {
+	_, app := benchKVApp()
+	body := []byte(`{"value":"bench-value"}`)
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/kv/key-%d", i%100), bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := app.Test(req)
+			if err != nil {
+				b.Error(err)
+				return
+			}
+			resp.Body.Close()
+			i++
+		}
+	})
+}
+
+// Mixed: 70% GET reads, 20% PUT writes, 10% DELETE — realistic KV workload.
+func BenchmarkKVHandler_Concurrent_Mixed(b *testing.B) {
+	_, app := benchKVApp()
+	setBody := []byte(`{"value":"v"}`)
+	for i := 0; i < 100; i++ {
+		req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/kv/key-%d", i), bytes.NewReader(setBody))
+		req.Header.Set("Content-Type", "application/json")
+		app.Test(req) //nolint:errcheck // setup call, error irrelevant to benchmark
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			key := fmt.Sprintf("/kv/key-%d", i%100)
+			var req *http.Request
+			switch i % 10 {
+			case 0, 1: // 20% write
+				req = httptest.NewRequest(http.MethodPut, key, bytes.NewReader(setBody))
+				req.Header.Set("Content-Type", "application/json")
+			case 2: // 10% delete
+				req = httptest.NewRequest(http.MethodDelete, key, http.NoBody)
+			default: // 70% read
+				req = httptest.NewRequest(http.MethodGet, key, http.NoBody)
+			}
+			resp, err := app.Test(req)
+			if err != nil {
+				b.Error(err)
+				return
+			}
+			resp.Body.Close()
+			i++
+		}
+	})
+}
+
+func BenchmarkServiceHandler_Concurrent_Get(b *testing.B) {
+	_, app := benchServiceApp()
+	for i := 0; i < 50; i++ {
+		svc := store.Service{Name: fmt.Sprintf("svc-%d", i), Address: "127.0.0.1", Port: 8080 + i}
+		body, _ := json.Marshal(svc)
+		req := httptest.NewRequest(http.MethodPut, "/register", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		app.Test(req) //nolint:errcheck // setup call, error irrelevant to benchmark
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			req := httptest.NewRequest(http.MethodGet,
+				fmt.Sprintf("/services/svc-%d", i%50), http.NoBody)
+			resp, err := app.Test(req)
+			if err != nil {
+				b.Error(err)
+				return
+			}
+			resp.Body.Close()
+			i++
+		}
+	})
+}
+
+func BenchmarkServiceHandler_Concurrent_Register(b *testing.B) {
+	_, app := benchServiceApp()
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			svc := store.Service{
+				Name:    fmt.Sprintf("svc-%d", i%50),
+				Address: "127.0.0.1",
+				Port:    8080 + i%50,
+			}
+			body, _ := json.Marshal(svc)
+			req := httptest.NewRequest(http.MethodPut, "/register", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := app.Test(req)
+			if err != nil {
+				b.Error(err)
+				return
+			}
+			resp.Body.Close()
+			i++
+		}
+	})
+}
+
+// Mixed service workload: 60% Get, 30% Register, 10% Heartbeat.
+func BenchmarkServiceHandler_Concurrent_Mixed(b *testing.B) {
+	_, app := benchServiceApp()
+	for i := 0; i < 50; i++ {
+		svc := store.Service{Name: fmt.Sprintf("svc-%d", i), Address: "127.0.0.1", Port: 8080 + i}
+		body, _ := json.Marshal(svc)
+		req := httptest.NewRequest(http.MethodPut, "/register", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		app.Test(req) //nolint:errcheck // setup call, error irrelevant to benchmark
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			name := fmt.Sprintf("svc-%d", i%50)
+			var req *http.Request
+			switch i % 10 {
+			case 0, 1, 2: // 30% register
+				svc := store.Service{Name: name, Address: "127.0.0.1", Port: 8080}
+				body, _ := json.Marshal(svc)
+				req = httptest.NewRequest(http.MethodPut, "/register", bytes.NewReader(body))
+				req.Header.Set("Content-Type", "application/json")
+			case 3: // 10% heartbeat
+				req = httptest.NewRequest(http.MethodPut,
+					fmt.Sprintf("/heartbeat/%s", name), http.NoBody)
+			default: // 60% get
+				req = httptest.NewRequest(http.MethodGet,
+					fmt.Sprintf("/services/%s", name), http.NoBody)
+			}
+			resp, err := app.Test(req)
+			if err != nil {
+				b.Error(err)
+				return
+			}
+			resp.Body.Close()
+			i++
+		}
+	})
 }
