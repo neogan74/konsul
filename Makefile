@@ -1,7 +1,7 @@
 APP_NAME=konsul
 CLI_NAME=konsulctl
 
-.PHONY: build run test clean docker-build docker-run build-cli dashboard dashboard-validate
+.PHONY: build run test bench clean docker-build docker-run build-cli dashboard dashboard-validate
 
 build:
 	go build -o ./bin/$(APP_NAME) cmd/konsul/main.go
@@ -14,6 +14,9 @@ run:
 
 test:
 	go test -v ./...
+
+bench:
+	go test -bench=. -benchmem -benchtime=1s ./internal/store/ ./internal/agent/ ./internal/raft/ ./internal/handlers/ -timeout 15m 2>&1 | grep -E "^(Benchmark|goos|goarch|pkg|cpu|ok|FAIL)"
 
 clean:
 	rm -f $(APP_NAME) $(CLI_NAME)
