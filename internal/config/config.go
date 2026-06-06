@@ -19,6 +19,7 @@ type Config struct {
 	Auth        AuthConfig
 	Tracing     TracingConfig
 	ACL         ACLConfig
+	RBAC        RBACConfig
 	GraphQL     GraphQLConfig
 	AdminUI     AdminUIConfig
 	Watch       WatchConfig
@@ -108,6 +109,13 @@ type ACLConfig struct {
 	Enabled       bool
 	DefaultPolicy string // "allow" or "deny"
 	PolicyDir     string // Directory containing policy JSON files
+}
+
+// RBACConfig contains Role-Based Access Control configuration
+type RBACConfig struct {
+	Enabled                 bool
+	CacheTTL                time.Duration
+	ExpirationCheckInterval time.Duration
 }
 
 // GraphQLConfig contains GraphQL API configuration
@@ -262,6 +270,11 @@ func Load() (*Config, error) {
 			Enabled:       getEnvBool("KONSUL_ACL_ENABLED", false),
 			DefaultPolicy: getEnvString("KONSUL_ACL_DEFAULT_POLICY", "deny"),
 			PolicyDir:     getEnvString("KONSUL_ACL_POLICY_DIR", "./policies"),
+		},
+		RBAC: RBACConfig{
+			Enabled:                 getEnvBool("KONSUL_RBAC_ENABLED", false),
+			CacheTTL:                getEnvDuration("KONSUL_RBAC_CACHE_TTL", 5*time.Minute),
+			ExpirationCheckInterval: getEnvDuration("KONSUL_RBAC_EXPIRATION_CHECK_INTERVAL", time.Minute),
 		},
 		GraphQL: GraphQLConfig{
 			Enabled:           getEnvBool("KONSUL_GRAPHQL_ENABLED", false),
@@ -481,6 +494,10 @@ func (c *Config) Validate() error {
 		if !c.Auth.Enabled {
 			return fmt.Errorf("ACL requires authentication to be enabled")
 		}
+	}
+
+	if c.RBAC.Enabled && !c.Auth.Enabled {
+		return fmt.Errorf("RBAC requires Auth to be enabled")
 	}
 
 	// Validate audit logging configuration if enabled
