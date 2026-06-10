@@ -1,4 +1,4 @@
-package template
+package template //nolint:revive // package name matches stdlib; renaming would break all callers
 
 import (
 	"os"

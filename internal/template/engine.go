@@ -1,5 +1,5 @@
 // Package template provides the template engine for rendering templates
-package template
+package template //nolint:revive // package name matches stdlib; renaming would break all callers
 
 import (
 	"context"
