@@ -6,6 +6,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/neogan74/konsul/internal/acl"
+	"github.com/neogan74/konsul/internal/logger"
+	"github.com/neogan74/konsul/internal/rbac"
 )
 
 // ACLMiddleware creates a middleware that enforces ACL policies

@@ -210,7 +210,7 @@ func (m *Manager) resolveInheritance(roleName string, visited map[string]bool, d
 // It merges subjectID's effective policies with any directly provided policies,
 // then checks for a matching policy string: "<capability>:<resource>" or "*".
 // Authorization duration is recorded as a Prometheus metric.
-func (m *Manager) Authorize(subjectID string, directPolicies []string, resource string, capability string) bool {
+func (m *Manager) Authorize(subjectID string, directPolicies []string, resource, capability string) bool {
 	start := time.Now()
 
 	effective, err := m.GetEffectivePolicies(subjectID)
