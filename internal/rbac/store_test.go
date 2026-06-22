@@ -4,10 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/neogan74/konsul/internal/logger"
-	"github.com/neogan74/konsul/internal/persistence"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/neogan74/konsul/internal/logger"
+	"github.com/neogan74/konsul/internal/persistence"
 )
 
 // ---------- MemoryRoleStore ----------

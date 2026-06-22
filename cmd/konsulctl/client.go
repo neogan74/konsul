@@ -1643,3 +1643,351 @@ func (c *KonsulClient) ClusterGenerateToken(ttl string) (*ClusterGenerateTokenRe
 	}
 	return &result, nil
 }
+
+// RBAC types and methods
+
+// RBACRole mirrors internal/rbac.Role for CLI request/response use.
+type RBACRole struct {
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Policies    []string  `json:"policies"`
+	ParentRoles []string  `json:"parent_roles"`
+	CreatedAt   time.Time `json:"created_at,omitempty"`
+	UpdatedAt   time.Time `json:"updated_at,omitempty"`
+}
+
+// RBACAssignment mirrors internal/rbac.RoleAssignment for CLI request/response use.
+type RBACAssignment struct {
+	SubjectID string     `json:"subject_id"`
+	RoleNames []string   `json:"role_names"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+}
+
+// RBACRolesResponse is the response from GET /rbac/roles.
+type RBACRolesResponse struct {
+	Roles []RBACRole `json:"roles"`
+	Count int        `json:"count"`
+}
+
+// RBACAssignmentsResponse is the response from GET /rbac/assignments.
+type RBACAssignmentsResponse struct {
+	Assignments []RBACAssignment `json:"assignments"`
+	Count       int              `json:"count"`
+}
+
+// RBACEffectivePoliciesResponse is the response from GET /rbac/subjects/:subject_id/policies.
+type RBACEffectivePoliciesResponse struct {
+	SubjectID string   `json:"subject_id"`
+	Policies  []string `json:"policies"`
+	Count     int      `json:"count"`
+}
+
+// rbacErrorFromBody extracts a readable error message from a non-2xx RBAC response body.
+func rbacErrorFromBody(statusCode int, body []byte) error {
+	var errResp ErrorResponse
+	if err := json.Unmarshal(body, &errResp); err == nil && errResp.Message != "" {
+		return fmt.Errorf("server error: %s", errResp.Message)
+	}
+	return fmt.Errorf("server returned %d: %s", statusCode, string(body))
+}
+
+// CreateRBACRole creates a new RBAC role.
+func (c *KonsulClient) CreateRBACRole(role *RBACRole) (*RBACRole, error) {
+	reqURL := fmt.Sprintf("%s/rbac/roles", c.BaseURL)
+
+	jsonData, err := json.Marshal(role)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, reqURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer closeResponseBody(resp.Body)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusCreated {
+		return nil, rbacErrorFromBody(resp.StatusCode, body)
+	}
+
+	var result struct {
+		Role RBACRole `json:"role"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return &result.Role, nil
+}
+
+// ListRBACRoles lists all RBAC roles.
+func (c *KonsulClient) ListRBACRoles() (*RBACRolesResponse, error) {
+	reqURL := fmt.Sprintf("%s/rbac/roles", c.BaseURL)
+
+	resp, err := c.HTTPClient.Get(reqURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer closeResponseBody(resp.Body)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, rbacErrorFromBody(resp.StatusCode, body)
+	}
+
+	var result RBACRolesResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return &result, nil
+}
+
+// GetRBACRole retrieves a single RBAC role by name.
+func (c *KonsulClient) GetRBACRole(name string) (*RBACRole, error) {
+	reqURL := fmt.Sprintf("%s/rbac/roles/%s", c.BaseURL, url.PathEscape(name))
+
+	resp, err := c.HTTPClient.Get(reqURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer closeResponseBody(resp.Body)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("role not found: %s", name)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, rbacErrorFromBody(resp.StatusCode, body)
+	}
+
+	var result RBACRole
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return &result, nil
+}
+
+// UpdateRBACRole replaces an existing RBAC role's definition.
+func (c *KonsulClient) UpdateRBACRole(name string, role *RBACRole) (*RBACRole, error) {
+	reqURL := fmt.Sprintf("%s/rbac/roles/%s", c.BaseURL, url.PathEscape(name))
+
+	jsonData, err := json.Marshal(role)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPut, reqURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer closeResponseBody(resp.Body)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("role not found: %s", name)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, rbacErrorFromBody(resp.StatusCode, body)
+	}
+
+	var result struct {
+		Role RBACRole `json:"role"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return &result.Role, nil
+}
+
+// DeleteRBACRole deletes an RBAC role by name.
+func (c *KonsulClient) DeleteRBACRole(name string) error {
+	reqURL := fmt.Sprintf("%s/rbac/roles/%s", c.BaseURL, url.PathEscape(name))
+
+	req, err := http.NewRequest(http.MethodDelete, reqURL, http.NoBody)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	defer closeResponseBody(resp.Body)
+
+	if resp.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("role not found: %s", name)
+	}
+	if resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		return rbacErrorFromBody(resp.StatusCode, body)
+	}
+	return nil
+}
+
+// AssignRBACRole assigns one or more roles to a subject, optionally with an expiry.
+func (c *KonsulClient) AssignRBACRole(subjectID string, roleNames []string, expiresAt *time.Time) error {
+	reqURL := fmt.Sprintf("%s/rbac/assignments", c.BaseURL)
+
+	reqBody := struct {
+		SubjectID string     `json:"subject_id"`
+		RoleNames []string   `json:"role_names"`
+		ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	}{
+		SubjectID: subjectID,
+		RoleNames: roleNames,
+		ExpiresAt: expiresAt,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, reqURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	defer closeResponseBody(resp.Body)
+
+	if resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return rbacErrorFromBody(resp.StatusCode, body)
+	}
+	return nil
+}
+
+// UnassignRBACRole removes all role assignments for a subject.
+func (c *KonsulClient) UnassignRBACRole(subjectID string) error {
+	reqURL := fmt.Sprintf("%s/rbac/assignments/%s", c.BaseURL, url.PathEscape(subjectID))
+
+	req, err := http.NewRequest(http.MethodDelete, reqURL, http.NoBody)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	defer closeResponseBody(resp.Body)
+
+	if resp.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("assignment not found for subject: %s", subjectID)
+	}
+	if resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		return rbacErrorFromBody(resp.StatusCode, body)
+	}
+	return nil
+}
+
+// ListRBACAssignments lists all RBAC role assignments.
+func (c *KonsulClient) ListRBACAssignments() (*RBACAssignmentsResponse, error) {
+	reqURL := fmt.Sprintf("%s/rbac/assignments", c.BaseURL)
+
+	resp, err := c.HTTPClient.Get(reqURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer closeResponseBody(resp.Body)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, rbacErrorFromBody(resp.StatusCode, body)
+	}
+
+	var result RBACAssignmentsResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return &result, nil
+}
+
+// GetRBACAssignment retrieves the role assignment for a subject.
+func (c *KonsulClient) GetRBACAssignment(subjectID string) (*RBACAssignment, error) {
+	reqURL := fmt.Sprintf("%s/rbac/assignments/%s", c.BaseURL, url.PathEscape(subjectID))
+
+	resp, err := c.HTTPClient.Get(reqURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer closeResponseBody(resp.Body)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("assignment not found for subject: %s", subjectID)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, rbacErrorFromBody(resp.StatusCode, body)
+	}
+
+	var result RBACAssignment
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return &result, nil
+}
+
+// GetRBACEffectivePolicies retrieves the resolved (inherited) policies for a subject.
+func (c *KonsulClient) GetRBACEffectivePolicies(subjectID string) (*RBACEffectivePoliciesResponse, error) {
+	reqURL := fmt.Sprintf("%s/rbac/subjects/%s/policies", c.BaseURL, url.PathEscape(subjectID))
+
+	resp, err := c.HTTPClient.Get(reqURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer closeResponseBody(resp.Body)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("assignment not found for subject: %s", subjectID)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, rbacErrorFromBody(resp.StatusCode, body)
+	}
+
+	var result RBACEffectivePoliciesResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return &result, nil
+}
