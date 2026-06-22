@@ -12,7 +12,12 @@
       "Bash(echo \"BUILD_EXIT=$?\")",
       "Bash(echo \"exit=$?\")",
       "Bash(golangci-lint run *)",
-      "Bash(echo \"VET_EXIT=$?\")"
+      "Bash(echo \"VET_EXIT=$?\")",
+      "Bash(git check-ignore *)",
+      "Bash(git rm *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(gh pr create --title 'feat\\(rbac\\): Phase 1 RBAC system — roles, assignments, middleware, CLI' --body ' *)"
     ]
   }
 }

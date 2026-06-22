@@ -35,6 +35,7 @@ import (
 	"github.com/neogan74/konsul/internal/persistence"
 	konsulraft "github.com/neogan74/konsul/internal/raft"
 	"github.com/neogan74/konsul/internal/ratelimit"
+	"github.com/neogan74/konsul/internal/rbac"
 	"github.com/neogan74/konsul/internal/store"
 	"github.com/neogan74/konsul/internal/telemetry"
 	konsultls "github.com/neogan74/konsul/internal/tls"
@@ -390,6 +391,23 @@ func main() {
 		}
 	}
 
+	// Initialize RBAC system if enabled (requires Auth)
+	var rbacManager rbac.RoleManager
+	if cfg.RBAC.Enabled {
+		roleStore := rbac.NewMemoryRoleStore()
+		assignStore := rbac.NewMemoryAssignmentStore()
+		mgr := rbac.NewManager(roleStore, assignStore, cfg.RBAC.CacheTTL, cfg.RBAC.ExpirationCheckInterval, appLogger)
+		rbacManager = mgr
+		defer mgr.Close()
+
+		rbacHandler := handlers.NewRBACHandler(rbacManager, appLogger)
+		rbacHandler.RegisterRoutes(app)
+
+		appLogger.Info("RBAC enabled",
+			logger.String("cache_ttl", cfg.RBAC.CacheTTL.String()),
+			logger.String("expiration_check_interval", cfg.RBAC.ExpirationCheckInterval.String()))
+	}
+
 	// Initialize watch manager if enabled
 	var watchManager *watch.Manager
 	var kvWatchHandler *handlers.KVWatchHandler
@@ -438,6 +456,10 @@ func main() {
 	// Apply auth middleware to protected routes if required
 	if cfg.Auth.RequireAuth && cfg.Auth.Enabled {
 		app.Use(middleware.JWTAuth(jwtService, cfg.Auth.PublicPaths))
+		// Augment claims with RBAC policies (after JWT so claims are populated)
+		if rbacManager != nil {
+			app.Use(middleware.AugmentWithRBACPolicies(rbacManager, appLogger))
+		}
 	}
 
 	// ACL management endpoints (requires admin ACL permission)

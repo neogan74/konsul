@@ -37,6 +37,9 @@ func main() {
 	case "acl":
 		aclCmd := NewACLCommands(cli)
 		aclCmd.Handle(args)
+	case "rbac":
+		rbacCmd := NewRBACCommands(cli)
+		rbacCmd.Handle(args)
 	case "cluster":
 		clusterCmd := NewClusterCommands(cli)
 		clusterCmd.Handle(args)
@@ -97,6 +100,18 @@ func printUsage() {
 	fmt.Println("    policy update <file>  Update policy from JSON file")
 	fmt.Println("    policy delete <name>  Delete a policy")
 	fmt.Println("    test <policies> <resource> <path> <capability>  Test ACL permissions")
+	fmt.Println()
+	fmt.Println("  rbac <subcommand>   RBAC role management")
+	fmt.Println("    role create --name <name> [--policies <p1,p2>] [--inherits-from <r1,r2>]")
+	fmt.Println("    role list        List all roles")
+	fmt.Println("    role get <name>  Get role details")
+	fmt.Println("    role update <name> [--policies <p1,p2>] [--inherits-from <r1,r2>]")
+	fmt.Println("    role delete <name>  Delete a role")
+	fmt.Println("    assign --subject <id> --roles <r1,r2> [--ttl <duration>]  Assign roles")
+	fmt.Println("    revoke <subject>  Revoke all role assignments for a subject")
+	fmt.Println("    list-assignments  List all role assignments")
+	fmt.Println("    get-assignment <subject>  Get a subject's role assignment")
+	fmt.Println("    effective-policies <subject>  Show resolved policies for a subject")
 	fmt.Println()
 	fmt.Println("  cluster <subcommand>  Cluster management")
 	fmt.Println("    status           Show cluster status")

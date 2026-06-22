@@ -6,6 +6,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/neogan74/konsul/internal/acl"
+	"github.com/neogan74/konsul/internal/auth"
+	"github.com/neogan74/konsul/internal/logger"
+	"github.com/neogan74/konsul/internal/rbac"
 )
 
 // ACLMiddleware creates a middleware that enforces ACL policies
@@ -209,6 +212,41 @@ func inferResourceAndCapability(c *fiber.Ctx) (acl.Resource, acl.Capability) {
 
 	// Default: deny
 	return acl.Resource{Type: acl.ResourceTypeAdmin}, acl.CapabilityDeny
+}
+
+// AugmentWithRBACPolicies merges RBAC-resolved policies into claims.Policies.
+// It is called after JWT validation when RBAC is enabled.
+// If the manager returns an error, it logs and continues with direct policies only.
+func AugmentWithRBACPolicies(manager rbac.RoleManager, log logger.Logger) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		claims, ok := c.Locals("claims").(*auth.Claims)
+		if !ok || claims == nil {
+			return c.Next()
+		}
+
+		subjectID := claims.Subject
+		if subjectID == "" {
+			return c.Next()
+		}
+
+		policies, err := manager.GetEffectivePolicies(subjectID)
+		if err != nil {
+			log.Warn("RBAC policy resolution failed", logger.String("subject", subjectID), logger.Error(err))
+			return c.Next()
+		}
+
+		// Merge without duplicates
+		existing := make(map[string]struct{}, len(claims.Policies))
+		for _, p := range claims.Policies {
+			existing[p] = struct{}{}
+		}
+		for _, p := range policies {
+			if _, dup := existing[p]; !dup {
+				claims.Policies = append(claims.Policies, p)
+			}
+		}
+		return c.Next()
+	}
 }
 
 // GetACLResource returns the ACL resource from context

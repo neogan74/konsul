@@ -5,6 +5,7 @@ bin/
 # Compiled binaries (root directory only)
 /konsul
 /konsulctl
+/konsul-template
 monitoring/otel/hosts
 monitoring/otel/hostname
 monitoring/otel/resolv.conf

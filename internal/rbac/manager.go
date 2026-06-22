@@ -3,6 +3,7 @@ package rbac
 import (
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/neogan74/konsul/internal/logger"
@@ -25,6 +26,8 @@ type Manager struct {
 	cacheTTL    time.Duration
 	stopCh      chan struct{}
 	log         logger.Logger
+	cacheHits   atomic.Int64
+	cacheMisses atomic.Int64
 }
 
 // NewManager constructs a Manager and starts the background expiration loop.
@@ -108,9 +111,13 @@ func (m *Manager) GetEffectivePolicies(subjectID string) ([]string, error) {
 	entry, ok := m.cache[subjectID]
 	m.cacheMu.RUnlock()
 	if ok && time.Now().Before(entry.expiresAt) {
+		hits := m.cacheHits.Add(1)
+		total := hits + m.cacheMisses.Load()
+		RBACCacheHitRatio.Set(float64(hits) / float64(total))
 		return entry.policies, nil
 	}
 
+	m.cacheMisses.Add(1)
 	policies, err := m.resolveForUser(subjectID)
 	if err != nil {
 		return nil, err
@@ -210,7 +217,7 @@ func (m *Manager) resolveInheritance(roleName string, visited map[string]bool, d
 // It merges subjectID's effective policies with any directly provided policies,
 // then checks for a matching policy string: "<capability>:<resource>" or "*".
 // Authorization duration is recorded as a Prometheus metric.
-func (m *Manager) Authorize(subjectID string, directPolicies []string, resource string, capability string) bool {
+func (m *Manager) Authorize(subjectID string, directPolicies []string, resource, capability string) bool {
 	start := time.Now()
 
 	effective, err := m.GetEffectivePolicies(subjectID)
