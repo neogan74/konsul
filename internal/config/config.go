@@ -24,6 +24,17 @@ type Config struct {
 	AdminUI     AdminUIConfig
 	Watch       WatchConfig
 	Audit       AuditConfig
+	Namespace   NamespaceConfig
+}
+
+// NamespaceConfig controls multi-tenancy namespace behaviour.
+type NamespaceConfig struct {
+	// Enabled enables multi-namespace mode. When false all data lives in "default".
+	Enabled bool
+	// DefaultNamespace is the implicit namespace when none is supplied (default: "default").
+	DefaultNamespace string
+	// AllowImplicit allows requests that omit the namespace header/param (uses DefaultNamespace).
+	AllowImplicit bool
 }
 
 // ServerConfig contains HTTP server configuration
@@ -296,6 +307,11 @@ func Load() (*Config, error) {
 			BufferSize:    getEnvInt("KONSUL_AUDIT_BUFFER_SIZE", 1024),
 			FlushInterval: getEnvDuration("KONSUL_AUDIT_FLUSH_INTERVAL", time.Second),
 			DropPolicy:    getEnvString("KONSUL_AUDIT_DROP_POLICY", "drop"),
+		},
+		Namespace: NamespaceConfig{
+			Enabled:          getEnvBool("KONSUL_NAMESPACE_ENABLED", true),
+			DefaultNamespace: getEnvString("KONSUL_NAMESPACE_DEFAULT", "default"),
+			AllowImplicit:    getEnvBool("KONSUL_NAMESPACE_ALLOW_IMPLICIT", true),
 		},
 		Raft: RaftConfig{
 			Enabled:            getEnvBool("KONSUL_RAFT_ENABLED", false),
