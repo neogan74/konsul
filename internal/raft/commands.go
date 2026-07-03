@@ -46,6 +46,11 @@ const (
 
 	// CmdHealthTTLUpdate updates health check TTL
 	CmdHealthTTLUpdate
+
+	// CmdNamespaceCreate creates a namespace.
+	CmdNamespaceCreate
+	// CmdNamespaceDelete deletes a namespace.
+	CmdNamespaceDelete
 )
 
 // String returns the string representation of the command type.
@@ -81,6 +86,10 @@ func (c CommandType) String() string {
 		return "service_heartbeat"
 	case CmdHealthTTLUpdate:
 		return "health_ttl_update"
+	case CmdNamespaceCreate:
+		return "namespace_create"
+	case CmdNamespaceDelete:
+		return "namespace_delete"
 	default:
 		return "unknown"
 	}
@@ -129,73 +138,99 @@ func UnmarshalCommand(data []byte) (*Command, error) {
 // --- Payload Definitions ---
 
 type KVSetPayload struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
+	Namespace string `json:"namespace,omitempty"`
+	Key       string `json:"key"`
+	Value     string `json:"value"`
 }
 
 type KVSetWithFlagsPayload struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-	Flags uint64 `json:"flags"`
+	Namespace string `json:"namespace,omitempty"`
+	Key       string `json:"key"`
+	Value     string `json:"value"`
+	Flags     uint64 `json:"flags"`
 }
 
 type KVSetCASPayload struct {
+	Namespace     string `json:"namespace,omitempty"`
 	Key           string `json:"key"`
 	Value         string `json:"value"`
 	ExpectedIndex uint64 `json:"expected_index"`
 }
 
 type KVDeletePayload struct {
-	Key string `json:"key"`
+	Namespace string `json:"namespace,omitempty"`
+	Key       string `json:"key"`
 }
 
 type KVDeleteCASPayload struct {
+	Namespace     string `json:"namespace,omitempty"`
 	Key           string `json:"key"`
 	ExpectedIndex uint64 `json:"expected_index"`
 }
 
 type KVBatchSetPayload struct {
-	Items map[string]string `json:"items"`
+	Namespace string            `json:"namespace,omitempty"`
+	Items     map[string]string `json:"items"`
 }
 
 type KVBatchSetCASPayload struct {
+	Namespace       string            `json:"namespace,omitempty"`
 	Items           map[string]string `json:"items"`
 	ExpectedIndices map[string]uint64 `json:"expected_indices"`
 }
 
 type KVBatchDeletePayload struct {
-	Keys []string `json:"keys"`
+	Namespace string   `json:"namespace,omitempty"`
+	Keys      []string `json:"keys"`
 }
 
 type KVBatchDeleteCASPayload struct {
+	Namespace       string            `json:"namespace,omitempty"`
 	Keys            []string          `json:"keys"`
 	ExpectedIndices map[string]uint64 `json:"expected_indices"`
 }
 
 type ServiceRegisterPayload struct {
-	Service store.Service `json:"service"`
+	Namespace string        `json:"namespace,omitempty"`
+	Service   store.Service `json:"service"`
 }
 
 type ServiceRegisterCASPayload struct {
+	Namespace     string        `json:"namespace,omitempty"`
 	Service       store.Service `json:"service"`
 	ExpectedIndex uint64        `json:"expected_index"`
 }
 
 type ServiceDeregisterPayload struct {
-	Name string `json:"name"`
+	Namespace string `json:"namespace,omitempty"`
+	Name      string `json:"name"`
 }
 
 type ServiceDeregisterCASPayload struct {
+	Namespace     string `json:"namespace,omitempty"`
 	Name          string `json:"name"`
 	ExpectedIndex uint64 `json:"expected_index"`
 }
 
 type ServiceHeartbeatPayload struct {
-	Name string `json:"name"`
+	Namespace string `json:"namespace,omitempty"`
+	Name      string `json:"name"`
 }
 
 type HealthTTLUpdatePayload struct {
-	CheckID string `json:"check_id"`
+	Namespace string `json:"namespace,omitempty"`
+	CheckID   string `json:"check_id"`
+}
+
+// NamespaceCreatePayload is the Raft payload for namespace creation.
+type NamespaceCreatePayload struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+}
+
+// NamespaceDeletePayload is the Raft payload for namespace deletion.
+type NamespaceDeletePayload struct {
+	Name string `json:"name"`
 }
 
 // CASResult carries the result of a Compare-And-Swap operation through the Raft FSM.

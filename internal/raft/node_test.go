@@ -63,8 +63,14 @@ func (m *MockKVStore) SetWithFlags(key, value string, flags uint64) error {
 func (m *MockKVStore) Get(key string) (value string, exists bool, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	entry, ok := m.data[key]
-	return entry.Value, ok, nil
+	if entry, ok := m.data[key]; ok {
+		return entry.Value, true, nil
+	}
+	// FSM stores keys with ns:default: prefix; fall back to it for test reads.
+	if entry, ok := m.data["ns:default:"+key]; ok {
+		return entry.Value, true, nil
+	}
+	return "", false, nil
 }
 
 func (m *MockKVStore) Delete(key string) error {
@@ -234,8 +240,14 @@ func (m *MockKVStore) RestoreFromSnapshot(data map[string]store.KVEntrySnapshot)
 func (m *MockKVStore) GetEntrySnapshot(key string) (store.KVEntrySnapshot, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	entry, ok := m.data[key]
-	return entry, ok
+	if entry, ok := m.data[key]; ok {
+		return entry, true
+	}
+	// FSM stores keys with ns:default: prefix; fall back to it for test reads.
+	if entry, ok := m.data["ns:default:"+key]; ok {
+		return entry, true
+	}
+	return store.KVEntrySnapshot{}, false
 }
 
 // MockServiceStore is a simple in-memory implementation for testing
@@ -260,8 +272,14 @@ func (m *MockServiceStore) Deregister(name string) error {
 }
 
 func (m *MockServiceStore) Get(name string) (svc interface{}, exists bool, err error) {
-	svc, ok := m.services[name]
-	return svc, ok, nil
+	if svc, ok := m.services[name]; ok {
+		return svc, true, nil
+	}
+	// FSM stores service names with ns:default: prefix; fall back to it for test reads.
+	if svc, ok := m.services["ns:default:"+name]; ok {
+		return svc, true, nil
+	}
+	return nil, false, nil
 }
 
 func (m *MockServiceStore) List() (map[string]interface{}, error) {
@@ -298,7 +316,11 @@ func (m *MockServiceStore) UpdateTTLCheck(_ string) error {
 }
 
 func (m *MockServiceStore) GetEntrySnapshot(name string) (store.ServiceEntrySnapshot, bool) {
+	// Try bare name, then ns:default: prefix (FSM stores with prefix).
 	val, ok := m.services[name]
+	if !ok {
+		val, ok = m.services["ns:default:"+name]
+	}
 	if !ok {
 		return store.ServiceEntrySnapshot{}, false
 	}

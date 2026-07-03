@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/raft"
 
+	"github.com/neogan74/konsul/internal/namespace"
 	"github.com/neogan74/konsul/internal/store"
 )
 
@@ -17,6 +19,7 @@ type KonsulFSM struct {
 	mu           sync.RWMutex
 	kvStore      KVStoreInterface
 	serviceStore ServiceStoreInterface
+	nsStore      namespace.NamespaceStore
 
 	// Metrics callbacks (optional)
 	onApply func(cmdType CommandType, duration float64, err error)
@@ -26,6 +29,7 @@ type KonsulFSM struct {
 type FSMConfig struct {
 	KVStore      KVStoreInterface
 	ServiceStore ServiceStoreInterface
+	NSStore      namespace.NamespaceStore
 	OnApply      func(cmdType CommandType, duration float64, err error)
 }
 
@@ -34,9 +38,26 @@ func NewFSM(cfg FSMConfig) *KonsulFSM {
 	return &KonsulFSM{
 		kvStore:      cfg.KVStore,
 		serviceStore: cfg.ServiceStore,
+		nsStore:      cfg.NSStore,
 		onApply:      cfg.OnApply,
 	}
 }
+
+// normalizeNS returns "default" for an empty namespace string.
+// Old Raft log entries without a namespace field deserialize as "" and are
+// treated as belonging to the default namespace.
+func normalizeNS(ns string) string {
+	if ns == "" {
+		return namespace.DefaultNamespace
+	}
+	return ns
+}
+
+// nsKey builds the namespaced store key: "ns:<namespace>:<key>".
+func nsKey(ns, key string) string { return "ns:" + ns + ":" + key }
+
+// nsName builds the namespaced service name: "ns:<namespace>:<name>".
+func nsName(ns, name string) string { return "ns:" + ns + ":" + name }
 
 // Apply implements raft.FSM.Apply.
 // It applies a Raft log entry to the local state.
@@ -90,6 +111,11 @@ func (f *KonsulFSM) Apply(log *raft.Log) interface{} {
 	case CmdServiceDeregisterCAS:
 		return f.applyServiceDeregisterCAS(cmd.Payload)
 
+	case CmdNamespaceCreate:
+		return f.applyNamespaceCreate(cmd.Payload)
+	case CmdNamespaceDelete:
+		return f.applyNamespaceDelete(cmd.Payload)
+
 	default:
 		return fmt.Errorf("unknown command type: %d", cmd.Type)
 	}
@@ -102,11 +128,10 @@ func (f *KonsulFSM) applyKVSet(payload []byte) error {
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return fmt.Errorf("failed to unmarshal KVSetPayload: %w", err)
 	}
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
-
-	f.kvStore.SetLocal(p.Key, p.Value)
+	ns := normalizeNS(p.Namespace)
+	f.kvStore.SetLocal(nsKey(ns, p.Key), p.Value)
 	return nil
 }
 
@@ -115,11 +140,10 @@ func (f *KonsulFSM) applyKVSetWithFlags(payload []byte) error {
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return fmt.Errorf("failed to unmarshal KVSetWithFlagsPayload: %w", err)
 	}
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
-
-	f.kvStore.SetWithFlagsLocal(p.Key, p.Value, p.Flags)
+	ns := normalizeNS(p.Namespace)
+	f.kvStore.SetWithFlagsLocal(nsKey(ns, p.Key), p.Value, p.Flags)
 	return nil
 }
 
@@ -128,11 +152,10 @@ func (f *KonsulFSM) applyKVDelete(payload []byte) error {
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return fmt.Errorf("failed to unmarshal KVDeletePayload: %w", err)
 	}
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
-
-	f.kvStore.DeleteLocal(p.Key)
+	ns := normalizeNS(p.Namespace)
+	f.kvStore.DeleteLocal(nsKey(ns, p.Key))
 	return nil
 }
 
@@ -141,11 +164,14 @@ func (f *KonsulFSM) applyKVBatchSet(payload []byte) error {
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return fmt.Errorf("failed to unmarshal KVBatchSetPayload: %w", err)
 	}
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
-
-	return f.kvStore.BatchSetLocal(p.Items)
+	ns := normalizeNS(p.Namespace)
+	prefixed := make(map[string]string, len(p.Items))
+	for k, v := range p.Items {
+		prefixed[nsKey(ns, k)] = v
+	}
+	return f.kvStore.BatchSetLocal(prefixed)
 }
 
 func (f *KonsulFSM) applyKVBatchDelete(payload []byte) error {
@@ -153,11 +179,14 @@ func (f *KonsulFSM) applyKVBatchDelete(payload []byte) error {
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return fmt.Errorf("failed to unmarshal KVBatchDeletePayload: %w", err)
 	}
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
-
-	return f.kvStore.BatchDeleteLocal(p.Keys)
+	ns := normalizeNS(p.Namespace)
+	prefixed := make([]string, len(p.Keys))
+	for i, k := range p.Keys {
+		prefixed[i] = nsKey(ns, k)
+	}
+	return f.kvStore.BatchDeleteLocal(prefixed)
 }
 
 func (f *KonsulFSM) applyKVSetCAS(payload []byte) *CASResult {
@@ -165,11 +194,10 @@ func (f *KonsulFSM) applyKVSetCAS(payload []byte) *CASResult {
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return &CASResult{Err: fmt.Errorf("failed to unmarshal KVSetCASPayload: %w", err)}
 	}
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
-
-	newIndex, err := f.kvStore.SetCASLocal(p.Key, p.Value, p.ExpectedIndex)
+	ns := normalizeNS(p.Namespace)
+	newIndex, err := f.kvStore.SetCASLocal(nsKey(ns, p.Key), p.Value, p.ExpectedIndex)
 	return &CASResult{NewIndex: newIndex, Err: err}
 }
 
@@ -178,11 +206,10 @@ func (f *KonsulFSM) applyKVDeleteCAS(payload []byte) *CASResult {
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return &CASResult{Err: fmt.Errorf("failed to unmarshal KVDeleteCASPayload: %w", err)}
 	}
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
-
-	err := f.kvStore.DeleteCASLocal(p.Key, p.ExpectedIndex)
+	ns := normalizeNS(p.Namespace)
+	err := f.kvStore.DeleteCASLocal(nsKey(ns, p.Key), p.ExpectedIndex)
 	return &CASResult{Err: err}
 }
 
@@ -191,11 +218,18 @@ func (f *KonsulFSM) applyKVBatchSetCAS(payload []byte) *CASResult {
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return &CASResult{Err: fmt.Errorf("failed to unmarshal KVBatchSetCASPayload: %w", err)}
 	}
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
-
-	indices, err := f.kvStore.BatchSetCASLocal(p.Items, p.ExpectedIndices)
+	ns := normalizeNS(p.Namespace)
+	prefixedItems := make(map[string]string, len(p.Items))
+	for k, v := range p.Items {
+		prefixedItems[nsKey(ns, k)] = v
+	}
+	prefixedIdx := make(map[string]uint64, len(p.ExpectedIndices))
+	for k, v := range p.ExpectedIndices {
+		prefixedIdx[nsKey(ns, k)] = v
+	}
+	indices, err := f.kvStore.BatchSetCASLocal(prefixedItems, prefixedIdx)
 	return &CASResult{NewIndices: indices, Err: err}
 }
 
@@ -204,11 +238,18 @@ func (f *KonsulFSM) applyKVBatchDeleteCAS(payload []byte) *CASResult {
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return &CASResult{Err: fmt.Errorf("failed to unmarshal KVBatchDeleteCASPayload: %w", err)}
 	}
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
-
-	err := f.kvStore.BatchDeleteCASLocal(p.Keys, p.ExpectedIndices)
+	ns := normalizeNS(p.Namespace)
+	prefixedKeys := make([]string, len(p.Keys))
+	for i, k := range p.Keys {
+		prefixedKeys[i] = nsKey(ns, k)
+	}
+	prefixedIdx := make(map[string]uint64, len(p.ExpectedIndices))
+	for k, v := range p.ExpectedIndices {
+		prefixedIdx[nsKey(ns, k)] = v
+	}
+	err := f.kvStore.BatchDeleteCASLocal(prefixedKeys, prefixedIdx)
 	return &CASResult{Err: err}
 }
 
@@ -219,18 +260,17 @@ func (f *KonsulFSM) applyServiceRegister(payload []byte) error {
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return fmt.Errorf("failed to unmarshal ServiceRegisterPayload: %w", err)
 	}
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
-
+	ns := normalizeNS(p.Namespace)
 	service := store.ServiceDataSnapshot{
-		Name:    p.Service.Name,
-		Address: p.Service.Address,
-		Port:    p.Service.Port,
-		Tags:    p.Service.Tags,
-		Meta:    p.Service.Meta,
+		Namespace: ns,
+		Name:      nsName(ns, p.Service.Name),
+		Address:   p.Service.Address,
+		Port:      p.Service.Port,
+		Tags:      p.Service.Tags,
+		Meta:      p.Service.Meta,
 	}
-
 	return f.serviceStore.RegisterLocal(service)
 }
 
@@ -239,11 +279,10 @@ func (f *KonsulFSM) applyServiceDeregister(payload []byte) error {
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return fmt.Errorf("failed to unmarshal ServiceDeregisterPayload: %w", err)
 	}
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
-
-	f.serviceStore.DeregisterLocal(p.Name)
+	ns := normalizeNS(p.Namespace)
+	f.serviceStore.DeregisterLocal(nsName(ns, p.Name))
 	return nil
 }
 
@@ -252,11 +291,10 @@ func (f *KonsulFSM) applyServiceHeartbeat(payload []byte) error {
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return fmt.Errorf("failed to unmarshal ServiceHeartbeatPayload: %w", err)
 	}
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
-
-	f.serviceStore.HeartbeatLocal(p.Name)
+	ns := normalizeNS(p.Namespace)
+	f.serviceStore.HeartbeatLocal(nsName(ns, p.Name))
 	return nil
 }
 
@@ -265,18 +303,17 @@ func (f *KonsulFSM) applyServiceRegisterCAS(payload []byte) *CASResult {
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return &CASResult{Err: fmt.Errorf("failed to unmarshal ServiceRegisterCASPayload: %w", err)}
 	}
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
-
+	ns := normalizeNS(p.Namespace)
 	service := store.ServiceDataSnapshot{
-		Name:    p.Service.Name,
-		Address: p.Service.Address,
-		Port:    p.Service.Port,
-		Tags:    p.Service.Tags,
-		Meta:    p.Service.Meta,
+		Namespace: ns,
+		Name:      nsName(ns, p.Service.Name),
+		Address:   p.Service.Address,
+		Port:      p.Service.Port,
+		Tags:      p.Service.Tags,
+		Meta:      p.Service.Meta,
 	}
-
 	newIndex, err := f.serviceStore.RegisterCASLocal(service, p.ExpectedIndex)
 	return &CASResult{NewIndex: newIndex, Err: err}
 }
@@ -286,11 +323,10 @@ func (f *KonsulFSM) applyServiceDeregisterCAS(payload []byte) *CASResult {
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return &CASResult{Err: fmt.Errorf("failed to unmarshal ServiceDeregisterCASPayload: %w", err)}
 	}
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
-
-	err := f.serviceStore.DeregisterCASLocal(p.Name, p.ExpectedIndex)
+	ns := normalizeNS(p.Namespace)
+	err := f.serviceStore.DeregisterCASLocal(nsName(ns, p.Name), p.ExpectedIndex)
 	return &CASResult{Err: err}
 }
 
@@ -299,11 +335,41 @@ func (f *KonsulFSM) applyHealthTTLUpdate(payload []byte) error {
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return fmt.Errorf("failed to unmarshal HealthTTLUpdatePayload: %w", err)
 	}
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
-
 	return f.serviceStore.UpdateTTLCheck(p.CheckID)
+}
+
+func (f *KonsulFSM) applyNamespaceCreate(payload []byte) error {
+	var p NamespaceCreatePayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal NamespaceCreatePayload: %w", err)
+	}
+	if f.nsStore == nil {
+		return nil
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	now := time.Now().UTC()
+	return f.nsStore.Create(&namespace.Namespace{
+		Name:        p.Name,
+		Description: p.Description,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	})
+}
+
+func (f *KonsulFSM) applyNamespaceDelete(payload []byte) error {
+	var p NamespaceDeletePayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal NamespaceDeletePayload: %w", err)
+	}
+	if f.nsStore == nil {
+		return nil
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.nsStore.Delete(p.Name)
 }
 
 // Snapshot implements raft.FSM.Snapshot.

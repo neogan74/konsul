@@ -209,6 +209,9 @@ func (m *mockServiceStore) GetEntrySnapshot(name string) (store.ServiceEntrySnap
 	return entry, ok
 }
 
+// dp is the namespace prefix for the default namespace used in FSM-applied commands.
+const dp = "ns:default:"
+
 // Helper to create a raft.Log from a command.
 func makeLog(t *testing.T, cmd *Command) *raft.Log {
 	data, err := cmd.Marshal()
@@ -239,7 +242,7 @@ func TestFSM_Apply_KVSet(t *testing.T) {
 	assert.Nil(t, result)
 
 	// Verify the value was set
-	entry, ok := kvStore.data["foo"]
+	entry, ok := kvStore.data[dp+"foo"]
 	assert.True(t, ok)
 	assert.Equal(t, "bar", entry.Value)
 }
@@ -266,7 +269,7 @@ func TestFSM_Apply_KVSetWithFlags(t *testing.T) {
 	assert.Nil(t, result)
 
 	// Verify the value and flags were set
-	entry, ok := kvStore.data["flagged"]
+	entry, ok := kvStore.data[dp+"flagged"]
 	assert.True(t, ok)
 	assert.Equal(t, "value", entry.Value)
 	assert.Equal(t, uint64(42), entry.Flags)
@@ -277,7 +280,7 @@ func TestFSM_Apply_KVDelete(t *testing.T) {
 	serviceStore := newMockServiceStore()
 
 	// Pre-populate data
-	kvStore.data["todelete"] = store.KVEntrySnapshot{Value: "exists"}
+	kvStore.data[dp+"todelete"] = store.KVEntrySnapshot{Value: "exists"}
 
 	fsm := NewFSM(FSMConfig{
 		KVStore:      kvStore,
@@ -293,7 +296,7 @@ func TestFSM_Apply_KVDelete(t *testing.T) {
 	assert.Nil(t, result)
 
 	// Verify the key was deleted
-	_, ok := kvStore.data["todelete"]
+	_, ok := kvStore.data[dp+"todelete"]
 	assert.False(t, ok)
 }
 
@@ -322,9 +325,9 @@ func TestFSM_Apply_KVBatchSet(t *testing.T) {
 
 	// Verify all values were set
 	assert.Len(t, kvStore.data, 3)
-	assert.Equal(t, "value1", kvStore.data["key1"].Value)
-	assert.Equal(t, "value2", kvStore.data["key2"].Value)
-	assert.Equal(t, "value3", kvStore.data["key3"].Value)
+	assert.Equal(t, "value1", kvStore.data[dp+"key1"].Value)
+	assert.Equal(t, "value2", kvStore.data[dp+"key2"].Value)
+	assert.Equal(t, "value3", kvStore.data[dp+"key3"].Value)
 }
 
 func TestFSM_Apply_KVBatchDelete(t *testing.T) {
@@ -332,9 +335,9 @@ func TestFSM_Apply_KVBatchDelete(t *testing.T) {
 	serviceStore := newMockServiceStore()
 
 	// Pre-populate data
-	kvStore.data["keep"] = store.KVEntrySnapshot{Value: "keeper"}
-	kvStore.data["del1"] = store.KVEntrySnapshot{Value: "delete1"}
-	kvStore.data["del2"] = store.KVEntrySnapshot{Value: "delete2"}
+	kvStore.data[dp+"keep"] = store.KVEntrySnapshot{Value: "keeper"}
+	kvStore.data[dp+"del1"] = store.KVEntrySnapshot{Value: "delete1"}
+	kvStore.data[dp+"del2"] = store.KVEntrySnapshot{Value: "delete2"}
 
 	fsm := NewFSM(FSMConfig{
 		KVStore:      kvStore,
@@ -353,7 +356,7 @@ func TestFSM_Apply_KVBatchDelete(t *testing.T) {
 
 	// Verify correct keys were deleted
 	assert.Len(t, kvStore.data, 1)
-	_, ok := kvStore.data["keep"]
+	_, ok := kvStore.data[dp+"keep"]
 	assert.True(t, ok)
 }
 
@@ -383,9 +386,9 @@ func TestFSM_Apply_ServiceRegister(t *testing.T) {
 	assert.Nil(t, result)
 
 	// Verify service was registered
-	entry, ok := serviceStore.data["web"]
+	entry, ok := serviceStore.data[dp+"web"]
 	assert.True(t, ok)
-	assert.Equal(t, "web", entry.Service.Name)
+	assert.Equal(t, dp+"web", entry.Service.Name)
 	assert.Equal(t, "10.0.0.1", entry.Service.Address)
 	assert.Equal(t, 8080, entry.Service.Port)
 	assert.Equal(t, []string{"primary", "v2"}, entry.Service.Tags)
@@ -397,8 +400,8 @@ func TestFSM_Apply_ServiceDeregister(t *testing.T) {
 	serviceStore := newMockServiceStore()
 
 	// Pre-populate service
-	serviceStore.data["web"] = store.ServiceEntrySnapshot{
-		Service: store.ServiceDataSnapshot{Name: "web"},
+	serviceStore.data[dp+"web"] = store.ServiceEntrySnapshot{
+		Service: store.ServiceDataSnapshot{Name: dp + "web"},
 	}
 
 	fsm := NewFSM(FSMConfig{
@@ -415,7 +418,7 @@ func TestFSM_Apply_ServiceDeregister(t *testing.T) {
 	assert.Nil(t, result)
 
 	// Verify service was deregistered
-	_, ok := serviceStore.data["web"]
+	_, ok := serviceStore.data[dp+"web"]
 	assert.False(t, ok)
 }
 
@@ -425,8 +428,8 @@ func TestFSM_Apply_ServiceHeartbeat(t *testing.T) {
 
 	// Pre-populate service with old expiry
 	oldExpiry := time.Now().Add(-5 * time.Second)
-	serviceStore.data["web"] = store.ServiceEntrySnapshot{
-		Service:   store.ServiceDataSnapshot{Name: "web"},
+	serviceStore.data[dp+"web"] = store.ServiceEntrySnapshot{
+		Service:   store.ServiceDataSnapshot{Name: dp + "web"},
 		ExpiresAt: oldExpiry,
 	}
 
@@ -444,7 +447,7 @@ func TestFSM_Apply_ServiceHeartbeat(t *testing.T) {
 	assert.Nil(t, result)
 
 	// Verify service expiry was updated
-	entry, ok := serviceStore.data["web"]
+	entry, ok := serviceStore.data[dp+"web"]
 	assert.True(t, ok)
 	assert.True(t, entry.ExpiresAt.After(oldExpiry))
 }
@@ -592,9 +595,9 @@ func TestFSM_Apply_KVSetCAS(t *testing.T) {
 	kvStore := newMockKVStore()
 	fsm := NewFSM(FSMConfig{KVStore: kvStore})
 
-	// Initial set
-	kvStore.SetLocal("key1", "val1")
-	entry, ok := kvStore.GetEntrySnapshot("key1")
+	// Initial set using the ns-prefixed key so FSM CAS finds it
+	kvStore.SetLocal(dp+"key1", "val1")
+	entry, ok := kvStore.GetEntrySnapshot(dp + "key1")
 	require.True(t, ok)
 	initialIndex := entry.ModifyIndex
 
@@ -610,7 +613,7 @@ func TestFSM_Apply_KVSetCAS(t *testing.T) {
 	assert.NoError(t, casResp.Err)
 	assert.Greater(t, casResp.NewIndex, initialIndex)
 
-	entry, _ = kvStore.GetEntrySnapshot("key1")
+	entry, _ = kvStore.GetEntrySnapshot(dp + "key1")
 	assert.Equal(t, "val2", entry.Value)
 	assert.NotEqual(t, initialIndex, entry.ModifyIndex)
 
@@ -625,7 +628,7 @@ func TestFSM_Apply_KVSetCAS(t *testing.T) {
 	require.True(t, ok, "expected *CASResult")
 	assert.Error(t, casRespFail.Err)
 
-	entry, _ = kvStore.GetEntrySnapshot("key1")
+	entry, _ = kvStore.GetEntrySnapshot(dp + "key1")
 	assert.Equal(t, "val2", entry.Value)
 }
 
@@ -633,9 +636,9 @@ func TestFSM_Apply_KVDeleteCAS(t *testing.T) {
 	kvStore := newMockKVStore()
 	fsm := NewFSM(FSMConfig{KVStore: kvStore})
 
-	// Initial set
-	kvStore.SetLocal("key1", "val1")
-	entry, ok := kvStore.GetEntrySnapshot("key1")
+	// Initial set using the ns-prefixed key so FSM CAS finds it
+	kvStore.SetLocal(dp+"key1", "val1")
+	entry, ok := kvStore.GetEntrySnapshot(dp + "key1")
 	require.True(t, ok)
 	initialIndex := entry.ModifyIndex
 
@@ -648,7 +651,7 @@ func TestFSM_Apply_KVDeleteCAS(t *testing.T) {
 	casRespFail, ok := respFail.(*CASResult)
 	require.True(t, ok, "expected *CASResult")
 	assert.Error(t, casRespFail.Err)
-	assert.Contains(t, kvStore.data, "key1")
+	assert.Contains(t, kvStore.data, dp+"key1")
 
 	// Successful CAS
 	cmd, _ := NewCommand(CmdKVDeleteCAS, KVDeleteCASPayload{
@@ -659,7 +662,7 @@ func TestFSM_Apply_KVDeleteCAS(t *testing.T) {
 	casResp, ok := resp.(*CASResult)
 	require.True(t, ok, "expected *CASResult")
 	assert.NoError(t, casResp.Err)
-	assert.NotContains(t, kvStore.data, "key1")
+	assert.NotContains(t, kvStore.data, dp+"key1")
 }
 
 func TestFSM_Apply_ServiceRegisterCAS(t *testing.T) {
@@ -678,7 +681,7 @@ func TestFSM_Apply_ServiceRegisterCAS(t *testing.T) {
 	require.True(t, ok, "expected *CASResult")
 	assert.NoError(t, casResp.Err)
 
-	entry, ok := serviceStore.data["web"]
+	entry, ok := serviceStore.data[dp+"web"]
 	assert.True(t, ok)
 	initialIndex := entry.ModifyIndex
 
@@ -698,7 +701,7 @@ func TestFSM_Apply_ServiceRegisterCAS(t *testing.T) {
 	casRespUpdate, ok := respUpdate.(*CASResult)
 	require.True(t, ok, "expected *CASResult")
 	assert.NoError(t, casRespUpdate.Err)
-	assert.Equal(t, "4.3.2.1", serviceStore.data["web"].Service.Address)
+	assert.Equal(t, "4.3.2.1", serviceStore.data[dp+"web"].Service.Address)
 }
 
 // TestFSM_CASResultReturned verifies that FSM.Apply returns *CASResult with populated NewIndex.

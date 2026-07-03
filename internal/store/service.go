@@ -14,12 +14,13 @@ import (
 
 // Service represents a service registered in the service store
 type Service struct {
-	Name    string                         `json:"name"`
-	Address string                         `json:"address"`
-	Port    int                            `json:"port"`
-	Tags    []string                       `json:"tags,omitempty"` // Service tags for filtering and categorization
-	Meta    map[string]string              `json:"meta,omitempty"` // Service metadata (key-value pairs)
-	Checks  []*healthcheck.CheckDefinition `json:"checks,omitempty"`
+	Namespace string                         `json:"namespace,omitempty"`
+	Name      string                         `json:"name"`
+	Address   string                         `json:"address"`
+	Port      int                            `json:"port"`
+	Tags      []string                       `json:"tags,omitempty"` // Service tags for filtering and categorization
+	Meta      map[string]string              `json:"meta,omitempty"` // Service metadata (key-value pairs)
+	Checks    []*healthcheck.CheckDefinition `json:"checks,omitempty"`
 }
 
 // ServiceEntry represents a service entry in the service store
@@ -581,11 +582,12 @@ func (s *ServiceStore) Close() error {
 // ServiceDataSnapshot represents service data for Raft commands and snapshots.
 // This is decoupled from internal Service struct to avoid circular dependencies.
 type ServiceDataSnapshot struct {
-	Name    string            `json:"name"`
-	Address string            `json:"address"`
-	Port    int               `json:"port"`
-	Tags    []string          `json:"tags,omitempty"`
-	Meta    map[string]string `json:"meta,omitempty"`
+	Namespace string            `json:"namespace,omitempty"`
+	Name      string            `json:"name"`
+	Address   string            `json:"address"`
+	Port      int               `json:"port"`
+	Tags      []string          `json:"tags,omitempty"`
+	Meta      map[string]string `json:"meta,omitempty"`
 }
 
 // ServiceEntrySnapshot represents service entry data for Raft snapshots.
