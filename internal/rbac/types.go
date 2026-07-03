@@ -7,6 +7,7 @@ import (
 
 // Role represents an RBAC role with associated policies and optional inheritance.
 type Role struct {
+	Namespace   string    `json:"namespace,omitempty"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	Policies    []string  `json:"policies"`
@@ -15,8 +16,9 @@ type Role struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// RoleAssignment maps a subject (user/token) to a set of roles.
+// RoleAssignment maps a subject (user/token) to a set of roles within a namespace.
 type RoleAssignment struct {
+	Namespace string     `json:"namespace,omitempty"`
 	SubjectID string     `json:"subject_id"`
 	RoleNames []string   `json:"role_names"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
@@ -39,28 +41,28 @@ var (
 )
 
 // RoleManager defines the high-level RBAC operations used by handlers and middleware.
-// Defined here (not in manager.go) so Phase 04 can mock it without importing the implementation.
+// All operations are scoped to a namespace. Pass "default" for the default namespace.
 type RoleManager interface {
-	// GetEffectivePolicies returns all policies for a subject, including inherited ones.
-	GetEffectivePolicies(subjectID string) ([]string, error)
+	// GetEffectivePolicies returns all policies for a subject within a namespace.
+	GetEffectivePolicies(namespace, subjectID string) ([]string, error)
 	// Authorize checks whether a subject has access to the given resource/capability.
-	Authorize(subjectID string, directPolicies []string, resource string, capability string) bool
-	// CreateRole creates a new role.
-	CreateRole(role *Role) error
-	// GetRole retrieves a role by name.
-	GetRole(name string) (*Role, error)
-	// UpdateRole updates an existing role.
-	UpdateRole(role *Role) error
-	// DeleteRole removes a role by name.
-	DeleteRole(name string) error
-	// ListRoles returns all roles.
-	ListRoles() ([]*Role, error)
-	// AssignRole assigns one or more roles to a subject.
-	AssignRole(subjectID string, roleNames []string, expiresAt *time.Time) error
-	// UnassignRole removes all role assignments for a subject.
-	UnassignRole(subjectID string) error
-	// ListAssignments returns all role assignments.
-	ListAssignments() ([]*RoleAssignment, error)
-	// GetAssignment returns the role assignment for a subject.
-	GetAssignment(subjectID string) (*RoleAssignment, error)
+	Authorize(namespace, subjectID string, directPolicies []string, resource string, capability string) bool
+	// CreateRole creates a new role in the given namespace.
+	CreateRole(namespace string, role *Role) error
+	// GetRole retrieves a role by name from the given namespace.
+	GetRole(namespace, name string) (*Role, error)
+	// UpdateRole updates an existing role in the given namespace.
+	UpdateRole(namespace string, role *Role) error
+	// DeleteRole removes a role by name from the given namespace.
+	DeleteRole(namespace, name string) error
+	// ListRoles returns all roles in the given namespace.
+	ListRoles(namespace string) ([]*Role, error)
+	// AssignRole assigns one or more roles to a subject within a namespace.
+	AssignRole(namespace, subjectID string, roleNames []string, expiresAt *time.Time) error
+	// UnassignRole removes all role assignments for a subject within a namespace.
+	UnassignRole(namespace, subjectID string) error
+	// ListAssignments returns all role assignments within a namespace.
+	ListAssignments(namespace string) ([]*RoleAssignment, error)
+	// GetAssignment returns the role assignment for a subject within a namespace.
+	GetAssignment(namespace, subjectID string) (*RoleAssignment, error)
 }

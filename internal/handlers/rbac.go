@@ -38,9 +38,20 @@ func (h *RBACHandler) RegisterRoutes(app *fiber.App) {
 	app.Get("/rbac/subjects/:subject_id/policies", h.GetEffectivePolicies)
 }
 
+// nsFromCtx extracts the namespace from Fiber locals, defaulting to "default".
+// Phase 04 will install middleware that populates c.Locals("namespace").
+func nsFromCtx(c *fiber.Ctx) string {
+	ns, _ := c.Locals("namespace").(string)
+	if ns == "" {
+		return "default"
+	}
+	return ns
+}
+
 // CreateRole handles POST /rbac/roles.
 func (h *RBACHandler) CreateRole(c *fiber.Ctx) error {
 	log := middleware.GetLogger(c)
+	ns := nsFromCtx(c)
 
 	var role rbac.Role
 	if err := c.BodyParser(&role); err != nil {
@@ -52,7 +63,7 @@ func (h *RBACHandler) CreateRole(c *fiber.Ctx) error {
 		return middleware.BadRequest(c, "Role name is required")
 	}
 
-	if err := h.manager.CreateRole(&role); err != nil {
+	if err := h.manager.CreateRole(ns, &role); err != nil {
 		switch err {
 		case rbac.ErrRoleExists:
 			return middleware.Conflict(c, "Role already exists")
@@ -76,8 +87,9 @@ func (h *RBACHandler) CreateRole(c *fiber.Ctx) error {
 // ListRoles handles GET /rbac/roles.
 func (h *RBACHandler) ListRoles(c *fiber.Ctx) error {
 	log := middleware.GetLogger(c)
+	ns := nsFromCtx(c)
 
-	roles, err := h.manager.ListRoles()
+	roles, err := h.manager.ListRoles(ns)
 	if err != nil {
 		log.Error("Failed to list roles", logger.Error(err))
 		return middleware.InternalError(c, "Failed to list roles")
@@ -93,8 +105,9 @@ func (h *RBACHandler) ListRoles(c *fiber.Ctx) error {
 func (h *RBACHandler) GetRole(c *fiber.Ctx) error {
 	name := c.Params("name")
 	log := middleware.GetLogger(c)
+	ns := nsFromCtx(c)
 
-	role, err := h.manager.GetRole(name)
+	role, err := h.manager.GetRole(ns, name)
 	if err != nil {
 		if err == rbac.ErrRoleNotFound {
 			return middleware.NotFound(c, "Role not found")
@@ -110,6 +123,7 @@ func (h *RBACHandler) GetRole(c *fiber.Ctx) error {
 func (h *RBACHandler) UpdateRole(c *fiber.Ctx) error {
 	name := c.Params("name")
 	log := middleware.GetLogger(c)
+	ns := nsFromCtx(c)
 
 	var role rbac.Role
 	if err := c.BodyParser(&role); err != nil {
@@ -117,13 +131,12 @@ func (h *RBACHandler) UpdateRole(c *fiber.Ctx) error {
 		return middleware.BadRequest(c, "Invalid JSON body")
 	}
 
-	// Ensure the role name matches the URL parameter.
 	if role.Name != "" && role.Name != name {
 		return middleware.BadRequest(c, "Role name in body must match URL parameter")
 	}
 	role.Name = name
 
-	if err := h.manager.UpdateRole(&role); err != nil {
+	if err := h.manager.UpdateRole(ns, &role); err != nil {
 		switch err {
 		case rbac.ErrRoleNotFound:
 			return middleware.NotFound(c, "Role not found")
@@ -148,8 +161,9 @@ func (h *RBACHandler) UpdateRole(c *fiber.Ctx) error {
 func (h *RBACHandler) DeleteRole(c *fiber.Ctx) error {
 	name := c.Params("name")
 	log := middleware.GetLogger(c)
+	ns := nsFromCtx(c)
 
-	if err := h.manager.DeleteRole(name); err != nil {
+	if err := h.manager.DeleteRole(ns, name); err != nil {
 		if err == rbac.ErrRoleNotFound {
 			return middleware.NotFound(c, "Role not found")
 		}
@@ -185,7 +199,8 @@ func (h *RBACHandler) AssignRole(c *fiber.Ctx) error {
 		return middleware.BadRequest(c, "role_names must not be empty")
 	}
 
-	if err := h.manager.AssignRole(req.SubjectID, req.RoleNames, req.ExpiresAt); err != nil {
+	ns := nsFromCtx(c)
+	if err := h.manager.AssignRole(ns, req.SubjectID, req.RoleNames, req.ExpiresAt); err != nil {
 		switch err {
 		case rbac.ErrRoleNotFound:
 			return middleware.NotFound(c, "Role not found")
@@ -207,7 +222,8 @@ func (h *RBACHandler) UnassignRole(c *fiber.Ctx) error {
 	subjectID := c.Params("subject_id")
 	log := middleware.GetLogger(c)
 
-	if err := h.manager.UnassignRole(subjectID); err != nil {
+	ns := nsFromCtx(c)
+	if err := h.manager.UnassignRole(ns, subjectID); err != nil {
 		if err == rbac.ErrAssignmentNotFound {
 			return middleware.NotFound(c, "Assignment not found")
 		}
@@ -223,7 +239,8 @@ func (h *RBACHandler) UnassignRole(c *fiber.Ctx) error {
 func (h *RBACHandler) ListAssignments(c *fiber.Ctx) error {
 	log := middleware.GetLogger(c)
 
-	assignments, err := h.manager.ListAssignments()
+	ns := nsFromCtx(c)
+	assignments, err := h.manager.ListAssignments(ns)
 	if err != nil {
 		log.Error("Failed to list assignments", logger.Error(err))
 		return middleware.InternalError(c, "Failed to list assignments")
@@ -240,7 +257,8 @@ func (h *RBACHandler) GetAssignment(c *fiber.Ctx) error {
 	subjectID := c.Params("subject_id")
 	log := middleware.GetLogger(c)
 
-	assignment, err := h.manager.GetAssignment(subjectID)
+	ns := nsFromCtx(c)
+	assignment, err := h.manager.GetAssignment(ns, subjectID)
 	if err != nil {
 		if err == rbac.ErrAssignmentNotFound {
 			return middleware.NotFound(c, "Assignment not found")
@@ -257,7 +275,8 @@ func (h *RBACHandler) GetEffectivePolicies(c *fiber.Ctx) error {
 	subjectID := c.Params("subject_id")
 	log := middleware.GetLogger(c)
 
-	policies, err := h.manager.GetEffectivePolicies(subjectID)
+	ns := nsFromCtx(c)
+	policies, err := h.manager.GetEffectivePolicies(ns, subjectID)
 	if err != nil {
 		if err == rbac.ErrAssignmentNotFound {
 			return middleware.NotFound(c, "Assignment not found")

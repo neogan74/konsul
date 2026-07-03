@@ -66,9 +66,9 @@ func (m *Manager) runExpirationLoop(interval time.Duration) {
 	}
 }
 
-// expireAssignments scans all assignments and deletes those that have expired.
+// expireAssignments scans all assignments across all namespaces and deletes expired ones.
 func (m *Manager) expireAssignments() {
-	all, err := m.assignments.ListAssignments()
+	all, err := m.assignments.ListAllAssignments()
 	if err != nil {
 		m.log.Warn("failed to list assignments for expiration", logger.Error(err))
 		return
@@ -76,11 +76,17 @@ func (m *Manager) expireAssignments() {
 	now := time.Now()
 	for _, a := range all {
 		if a.ExpiresAt != nil && now.After(*a.ExpiresAt) {
-			if delErr := m.assignments.DeleteAssignment(a.SubjectID); delErr == nil {
+			ns := a.Namespace
+			if ns == "" {
+				ns = "default"
+			}
+			if delErr := m.assignments.DeleteAssignment(ns, a.SubjectID); delErr == nil {
 				RBACAssignmentsExpiredTotal.Inc()
 				RBACAssignmentsTotal.Dec()
-				m.invalidateCacheFor(a.SubjectID)
-				m.log.Info("expired assignment removed", logger.String("subject", a.SubjectID))
+				m.invalidateCacheFor(ns + ":" + a.SubjectID)
+				m.log.Info("expired assignment removed",
+					logger.String("namespace", ns),
+					logger.String("subject", a.SubjectID))
 			}
 		}
 	}
@@ -93,32 +99,33 @@ func (m *Manager) invalidateCache() {
 	m.cacheMu.Unlock()
 }
 
-// invalidateCacheFor removes the cache entry for a single subject.
-func (m *Manager) invalidateCacheFor(subjectID string) {
+// invalidateCacheFor removes the cache entry for a "namespace:subjectID" key.
+func (m *Manager) invalidateCacheFor(cacheKey string) {
 	m.cacheMu.Lock()
-	delete(m.cache, subjectID)
+	delete(m.cache, cacheKey)
 	m.cacheMu.Unlock()
 }
 
-// GetEffectivePolicies returns all policies for a subject (including inherited).
+func cacheKey(namespace, subjectID string) string { return namespace + ":" + subjectID }
+
+// GetEffectivePolicies returns all policies for a subject within a namespace.
 // The result is cached until cacheTTL expires.
-func (m *Manager) GetEffectivePolicies(subjectID string) ([]string, error) {
-	// Fast path: cache hit.
+func (m *Manager) GetEffectivePolicies(namespace, subjectID string) ([]string, error) {
+	key := cacheKey(namespace, subjectID)
 	m.cacheMu.RLock()
-	entry, ok := m.cache[subjectID]
+	entry, ok := m.cache[key]
 	m.cacheMu.RUnlock()
 	if ok && time.Now().Before(entry.expiresAt) {
 		return entry.policies, nil
 	}
 
-	policies, err := m.resolveForUser(subjectID)
+	policies, err := m.resolveForUser(namespace, subjectID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Store in cache.
 	m.cacheMu.Lock()
-	m.cache[subjectID] = cacheEntry{
+	m.cache[key] = cacheEntry{
 		policies:  policies,
 		expiresAt: time.Now().Add(m.cacheTTL),
 	}
@@ -127,8 +134,8 @@ func (m *Manager) GetEffectivePolicies(subjectID string) ([]string, error) {
 }
 
 // resolveForUser fetches the assignment for a subject and resolves all role policies.
-func (m *Manager) resolveForUser(subjectID string) ([]string, error) {
-	assignment, err := m.assignments.GetAssignment(subjectID)
+func (m *Manager) resolveForUser(namespace, subjectID string) ([]string, error) {
+	assignment, err := m.assignments.GetAssignment(namespace, subjectID)
 	if err == ErrAssignmentNotFound {
 		return []string{}, nil
 	}
@@ -136,7 +143,6 @@ func (m *Manager) resolveForUser(subjectID string) ([]string, error) {
 		return nil, err
 	}
 
-	// Check assignment expiry.
 	if assignment.ExpiresAt != nil && time.Now().After(*assignment.ExpiresAt) {
 		return []string{}, nil
 	}
@@ -144,7 +150,7 @@ func (m *Manager) resolveForUser(subjectID string) ([]string, error) {
 	seen := make(map[string]bool)
 	for _, roleName := range assignment.RoleNames {
 		visited := make(map[string]bool)
-		policies, err := m.resolveInheritance(roleName, visited, 0)
+		policies, err := m.resolveInheritance(namespace, roleName, visited, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -160,10 +166,8 @@ func (m *Manager) resolveForUser(subjectID string) ([]string, error) {
 	return result, nil
 }
 
-// resolveInheritance performs a depth-first traversal of the role hierarchy.
-// visited tracks the current DFS path for cycle detection (cloned at each branch
-// so diamond inheritance is allowed; only true cycles are rejected).
-func (m *Manager) resolveInheritance(roleName string, visited map[string]bool, depth int) ([]string, error) {
+// resolveInheritance performs a depth-first traversal of the role hierarchy within a namespace.
+func (m *Manager) resolveInheritance(namespace, roleName string, visited map[string]bool, depth int) ([]string, error) {
 	if depth > 5 {
 		return nil, ErrMaxDepthExceeded
 	}
@@ -171,13 +175,11 @@ func (m *Manager) resolveInheritance(roleName string, visited map[string]bool, d
 		return nil, ErrCyclicDependency
 	}
 
-	role, err := m.roles.GetRole(roleName)
+	role, err := m.roles.GetRole(namespace, roleName)
 	if err != nil {
-		// Missing role: skip silently (role may have been deleted after assignment).
 		return []string{}, nil
 	}
 
-	// Clone visited for this branch so sibling branches remain unaffected.
 	branchVisited := make(map[string]bool, len(visited)+1)
 	for k, v := range visited {
 		branchVisited[k] = v
@@ -190,7 +192,7 @@ func (m *Manager) resolveInheritance(roleName string, visited map[string]bool, d
 	}
 
 	for _, parent := range role.ParentRoles {
-		parentPolicies, err := m.resolveInheritance(parent, branchVisited, depth+1)
+		parentPolicies, err := m.resolveInheritance(namespace, parent, branchVisited, depth+1)
 		if err != nil {
 			return nil, err
 		}
@@ -206,16 +208,14 @@ func (m *Manager) resolveInheritance(roleName string, visited map[string]bool, d
 	return result, nil
 }
 
-// Authorize checks whether a subject has access to the given resource/capability.
-// It merges subjectID's effective policies with any directly provided policies,
-// then checks for a matching policy string: "<capability>:<resource>" or "*".
-// Authorization duration is recorded as a Prometheus metric.
-func (m *Manager) Authorize(subjectID string, directPolicies []string, resource string, capability string) bool {
+// Authorize checks whether a subject has access to the given resource/capability within a namespace.
+func (m *Manager) Authorize(namespace, subjectID string, directPolicies []string, resource string, capability string) bool {
 	start := time.Now()
 
-	effective, err := m.GetEffectivePolicies(subjectID)
+	effective, err := m.GetEffectivePolicies(namespace, subjectID)
 	if err != nil {
 		m.log.Warn("failed to get effective policies for authorization",
+			logger.String("namespace", namespace),
 			logger.String("subject", subjectID), logger.Error(err))
 		RBACAuthorizationDuration.WithLabelValues("deny").Observe(time.Since(start).Seconds())
 		return false
@@ -247,15 +247,16 @@ func (m *Manager) Authorize(subjectID string, directPolicies []string, resource 
 	return allowed
 }
 
-// CreateRole creates a new role; fails if the role already exists.
-func (m *Manager) CreateRole(role *Role) error {
-	if _, err := m.roles.GetRole(role.Name); err == nil {
+// CreateRole creates a new role in the given namespace; fails if the role already exists.
+func (m *Manager) CreateRole(namespace string, role *Role) error {
+	if _, err := m.roles.GetRole(namespace, role.Name); err == nil {
 		return ErrRoleExists
 	}
 	now := time.Now()
+	role.Namespace = namespace
 	role.CreatedAt = now
 	role.UpdatedAt = now
-	if err := m.roles.SetRole(role); err != nil {
+	if err := m.roles.SetRole(namespace, role); err != nil {
 		return err
 	}
 	m.invalidateCache()
@@ -263,29 +264,30 @@ func (m *Manager) CreateRole(role *Role) error {
 	return nil
 }
 
-// GetRole retrieves a role by name.
-func (m *Manager) GetRole(name string) (*Role, error) {
-	return m.roles.GetRole(name)
+// GetRole retrieves a role by name from the given namespace.
+func (m *Manager) GetRole(namespace, name string) (*Role, error) {
+	return m.roles.GetRole(namespace, name)
 }
 
-// UpdateRole updates an existing role; fails if the role does not exist.
-func (m *Manager) UpdateRole(role *Role) error {
-	existing, err := m.roles.GetRole(role.Name)
+// UpdateRole updates an existing role in the given namespace.
+func (m *Manager) UpdateRole(namespace string, role *Role) error {
+	existing, err := m.roles.GetRole(namespace, role.Name)
 	if err != nil {
-		return err // ErrRoleNotFound
+		return err
 	}
+	role.Namespace = namespace
 	role.CreatedAt = existing.CreatedAt
 	role.UpdatedAt = time.Now()
-	if err := m.roles.SetRole(role); err != nil {
+	if err := m.roles.SetRole(namespace, role); err != nil {
 		return err
 	}
 	m.invalidateCache()
 	return nil
 }
 
-// DeleteRole removes a role by name.
-func (m *Manager) DeleteRole(name string) error {
-	if err := m.roles.DeleteRole(name); err != nil {
+// DeleteRole removes a role by name from the given namespace.
+func (m *Manager) DeleteRole(namespace, name string) error {
+	if err := m.roles.DeleteRole(namespace, name); err != nil {
 		return err
 	}
 	m.invalidateCache()
@@ -293,42 +295,43 @@ func (m *Manager) DeleteRole(name string) error {
 	return nil
 }
 
-// ListRoles returns all roles.
-func (m *Manager) ListRoles() ([]*Role, error) {
-	return m.roles.ListRoles()
+// ListRoles returns all roles in the given namespace.
+func (m *Manager) ListRoles(namespace string) ([]*Role, error) {
+	return m.roles.ListRoles(namespace)
 }
 
-// AssignRole assigns one or more roles to a subject.
-func (m *Manager) AssignRole(subjectID string, roleNames []string, expiresAt *time.Time) error {
+// AssignRole assigns one or more roles to a subject within a namespace.
+func (m *Manager) AssignRole(namespace, subjectID string, roleNames []string, expiresAt *time.Time) error {
 	assignment := &RoleAssignment{
+		Namespace: namespace,
 		SubjectID: subjectID,
 		RoleNames: roleNames,
 		ExpiresAt: expiresAt,
 	}
-	if err := m.assignments.SetAssignment(assignment); err != nil {
+	if err := m.assignments.SetAssignment(namespace, assignment); err != nil {
 		return err
 	}
-	m.invalidateCacheFor(subjectID)
+	m.invalidateCacheFor(cacheKey(namespace, subjectID))
 	RBACAssignmentsTotal.Inc()
 	return nil
 }
 
-// UnassignRole removes all role assignments for a subject.
-func (m *Manager) UnassignRole(subjectID string) error {
-	if err := m.assignments.DeleteAssignment(subjectID); err != nil {
+// UnassignRole removes all role assignments for a subject within a namespace.
+func (m *Manager) UnassignRole(namespace, subjectID string) error {
+	if err := m.assignments.DeleteAssignment(namespace, subjectID); err != nil {
 		return err
 	}
-	m.invalidateCacheFor(subjectID)
+	m.invalidateCacheFor(cacheKey(namespace, subjectID))
 	RBACAssignmentsTotal.Dec()
 	return nil
 }
 
-// ListAssignments returns all role assignments.
-func (m *Manager) ListAssignments() ([]*RoleAssignment, error) {
-	return m.assignments.ListAssignments()
+// ListAssignments returns all role assignments within a namespace.
+func (m *Manager) ListAssignments(namespace string) ([]*RoleAssignment, error) {
+	return m.assignments.ListAssignments(namespace)
 }
 
-// GetAssignment returns the role assignment for a subject.
-func (m *Manager) GetAssignment(subjectID string) (*RoleAssignment, error) {
-	return m.assignments.GetAssignment(subjectID)
+// GetAssignment returns the role assignment for a subject within a namespace.
+func (m *Manager) GetAssignment(namespace, subjectID string) (*RoleAssignment, error) {
+	return m.assignments.GetAssignment(namespace, subjectID)
 }
